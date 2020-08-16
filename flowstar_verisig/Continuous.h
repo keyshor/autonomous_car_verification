@@ -11,11 +11,15 @@
 
 #include "TaylorModel.h"
 #include "Geometry.h"
+#include "expression.h"
+
 
 namespace flowstar
 {
 
 extern std::vector<std::string> domainVarNames;
+
+class Continuous_Reachability_Setting;
 
 class Flowpipe					// A flowpipe is represented by a composition of two Taylor models. The left Taylor model is the preconditioning part.
 {
@@ -165,6 +169,33 @@ public:
 
 	Flowpipe & operator = (const Flowpipe & flowpipe);
 
+
+	// ======================= flowpipe construction for AST ODEs =======================
+
+	int advance_picard(Flowpipe & result, const std::vector<Expression_AST> & ode, const std::vector<Expression_AST> & ode_centered, std::vector<Interval> & step_exp_table, std::vector<Interval> & step_end_exp_table,
+			const int order, const std::vector<Interval> & estimation, const Interval & cutoff_threshold, const std::vector<bool> & constant, const std::vector<Interval> & constant_part) const;
+
+	int advance_picard_symbolic_remainder(Flowpipe & result, const std::vector<Expression_AST> & ode, const std::vector<Expression_AST> & ode_centered, std::vector<Interval> & step_exp_table, std::vector<Interval> & step_end_exp_table,
+			const int order, const std::vector<Interval> & estimation, const Interval & cutoff_threshold, const std::vector<Polynomial> & initial_set_poly, std::vector<Interval> & scalars, std::vector<iMatrix> & J, std::vector<iMatrix> & Phi_L,
+			const std::vector<bool> & constant, const std::vector<Interval> & constant_part) const;
+
+	// ======================= flowpipe construction using polynomial regression =======================
+/*
+	int advance_regression_picard(Flowpipe & result, const DynamicSys & system, std::vector<Interval> & step_exp_table, std::vector<Interval> & step_end_exp_table, std::vector<std::vector<int> > & table_of_monomials,
+			const int order, const std::vector<Interval> & estimation, const Interval & cutoff_threshold, std::vector<bool> & constant, std::vector<Interval> & constant_part) const;
+*/
+
+	// ==================================================================================
+
+	int advance_picard_tt(Flowpipe & result, const std::vector<HornerForm> & ode, const int precondition, std::vector<Interval> & step_exp_table, std::vector<Interval> & step_end_exp_table, const int order, const std::vector<Interval> & estimation, const Interval & cutoff_threshold, const std::vector<bool> & constant) const;
+
+	void center(std::vector<double> & center_point) const;
+	double max(const std::vector<double> & l) const;
+
+	void toTaylorModel(TaylorModelVec & tmv, std::vector<Interval> & dom, const Continuous_Reachability_Setting & crs) const;
+
+	void merge(const TaylorModelVec & tmFlowpipe, const std::vector<Interval> & domain, const Continuous_Reachability_Setting & crs);
+
 	friend class LinearFlowpipe;
 	friend class ContinuousSystem;
 	friend class ContinuousReachability;
@@ -223,6 +254,7 @@ public:
 	friend class ContinuousReachability;
 	friend class HybridSystem;
 	friend class HybridReachability;
+	friend class LTI_ODE;
 };
 
 class ContinuousSystem
@@ -270,11 +302,11 @@ public:
 	// since we can always compute a safe remainder, adaptive techniques are not needed
 	// since the size of a Taylor series is linear w.r.t. the number of state variables, we may simply use uniform orders
 	int reach_lti(std::list<LinearFlowpipe> & flowpipes, std::list<int> & flowpipes_safety, long & num_of_flowpipes,
-			const double step, const double time, const int order, const bool bPrint, const Interval & cutoff_threshold,
+			const double step, const double time, const int order, const bool bPrint, const Interval & cutoff_threshold, const int order_cutoff,
 			const std::vector<PolynomialConstraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bDump);
 
 	int reach_ltv(std::list<LinearFlowpipe> & flowpipes, std::list<int> & flowpipes_safety, long & num_of_flowpipes,
-			const double step, const double time, const int order, const int maxNumSteps, const bool bPrint, const Interval & cutoff_threshold,
+			const double step, const double time, const int order, const int maxNumSteps, const bool bPrint, const Interval & cutoff_threshold, const int order_cutoff,
 			const std::vector<PolynomialConstraint> & unsafeSet, const bool bSafetyChecking, const bool bPlot, const bool bDump);
 
 	// only use Picard operation
@@ -620,24 +652,222 @@ public:
 };
 
 
+
+class LTI_Flowpipe
+{
+public:
+	iMatrix init_Phi;
+	iMatrix init_Psi;
+
+	upMatrix trans_Phi;
+	upMatrix trans_Psi;
+
+public:
+	LTI_Flowpipe();
+	LTI_Flowpipe(const LTI_Flowpipe & flowpipe);
+	~LTI_Flowpipe();
+
+	void intEval(std::vector<Interval> & result, const std::vector<int> & varIDs, const std::vector<Interval> & X0, const Continuous_Reachability_Setting & crs);
+	void intEval(std::vector<Interval> & result, const std::vector<int> & outputAxes, const TaylorModelVec & tmv_X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+	void intEval(iMatrix & result, iMatrix & X0, const Continuous_Reachability_Setting & crs);
+	void intEval(Interval & result, const int varID, iMatrix & X0, const Continuous_Reachability_Setting & crs);
+	void intEval(Interval & result, iMatrix & C, iMatrix & X0, const Continuous_Reachability_Setting & crs);
+	void intEval(Interval & result, iMatrix & X0, const Continuous_Reachability_Setting & crs); // preconditioned
+	void intEval(std::vector<Interval> & result, const std::vector<int> & varIDs, const Interval & time, iMatrix & X0);
+
+	void intEval(Interval & result, const LinearConstraint & lc, iMatrix & X0, const Continuous_Reachability_Setting & crs);
+
+	void intEval(Interval & result, const upMatrix & lc_trans_Phi, const Interval & lc_Psi, iMatrix & X0, const Continuous_Reachability_Setting & crs);
+	void intEval(Interval & result, const upMatrix & lc_trans_Phi, const Interval & lc_Psi, const TaylorModelVec & tmv_X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+
+	void intEval(std::vector<Interval> & result, const TaylorModelVec & tmv_X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+
+	void toTaylorModel(TaylorModelVec & flowpipe, const bool bAuto, const std::vector<int> & outputAxes, const TaylorModelVec & X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+	void toTaylorModel(TaylorModelVec & flowpipe, const bool bAuto, const TaylorModelVec & X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+	void toTaylorModel(TaylorModel & flowpipe, const bool bAuto, const int varID, const TaylorModelVec & X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+	void toTaylorModel(TaylorModel & flowpipe, const bool bAuto, iMatrix & C, const TaylorModelVec & X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+	void toTaylorModel(TaylorModel & flowpipe, const bool bAuto, const TaylorModelVec & X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs); // preconditioned
+
+	void evaluate(LTI_Flowpipe & result, const Interval & val);
+
+	LTI_Flowpipe & operator = (const LTI_Flowpipe & flowpipe);
+
+	friend class LTI_ODE;
+};
+
+
 class LTI_ODE
 {
-protected:
+public:
 	iMatrix A;
 	iMatrix B;
+/*
 	iMatrix C;
 	iMatrix constant;
+*/
+
+	bool bAuto;
 
 	bMatrix connectivity;
 
-	std::vector<Interval> dist_range;
+//	iMatrix im_tv_range;
 
 public:
-	LTI_ODE(iMatrix & A_input, iMatrix & B_input, iMatrix & C_input, iMatrix & constant_input, const std::vector<Interval> & dist_range_input);
+	LTI_ODE(iMatrix & A_input, iMatrix & B_input);
+//	LTI_ODE(iMatrix & A_input, iMatrix & B_input, iMatrix & C_input, iMatrix & constant_input, const std::vector<Interval> & dist_range_input);
 	~LTI_ODE();
 
-	void one_step_trans(iMatrix & Phi, iMatrix & Psi, iMatrix & trans_constant, Zonotope & dist, const double step, const int order);
+//	void one_step_trans(iMatrix & Phi, iMatrix & Psi, iMatrix & trans_constant, Zonotope & dist, const double step, const int order);
+
+//	void reach(std::vector<LTI_Flowpipe> & flowpipes, const Continuous_Reachability_Setting & crs, const int N);
+	void reach(std::vector<LTI_Flowpipe> & flowpipes, std::list<iMatrix> & Phi_end_list, iMatrix & global_Phi_end, std::list<std::vector<iMatrix> > & Psi_end_list, std::list<iMatrix> & V_list, std::list<iMatrix> & init_Psi_list, const int queue_size, iMatrix & init_Psi, const Continuous_Reachability_Setting & crs, const int N);
+	void reach(std::vector<LTI_Flowpipe> & flowpipes, std::vector<std::vector<LTI_Flowpipe> > & intersected_flowpipes, std::vector<iMatrix> & A_exp_table, upMatrix & expansion_exp_A_t_k, std::list<iMatrix> & Phi_end_list, iMatrix & global_Phi_end, std::list<std::vector<iMatrix> > & Psi_end_list, std::list<iMatrix> & V_list, std::list<iMatrix> & init_Psi_list, const int queue_size, iMatrix & init_Psi, const Continuous_Reachability_Setting & crs, int & N, const std::vector<LinearConstraint> & inv, iMatrix & X0);
+	void reach(std::vector<LTI_Flowpipe> & flowpipes, std::vector<std::vector<LTI_Flowpipe> > & intersected_flowpipes, std::vector<iMatrix> & A_exp_table, upMatrix & expansion_exp_A_t_k, std::list<iMatrix> & Phi_end_list, iMatrix & global_Phi_end, std::list<std::vector<iMatrix> > & Psi_end_list, std::list<iMatrix> & V_list, std::list<iMatrix> & init_Psi_list, const int queue_size, iMatrix & init_Psi, const Continuous_Reachability_Setting & crs, int & N, const std::vector<LinearConstraint> & inv,
+			const TaylorModelVec & tmv_X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0);
+
+	void merge_consecutive_flowpipes(TaylorModelVec & new_X0, std::vector<Interval> & new_X0_domain, LTI_Flowpipe & initialSet, std::vector<iMatrix> & A_exp_table, upMatrix & expansion_exp_A_t_k, const double stepsize, const int order,
+			const TaylorModelVec & old_X0, std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+
+	int reach_safety_specified(std::list<Interval> & ranges, const int varID, const double bound, iMatrix & X0, const Continuous_Reachability_Setting & crs, const int N);
+	int reach_safety_specified_time_invariant(std::list<Interval> & ranges, rMatrix & C, const Interval & safe_range, iMatrix & X0, const Continuous_Reachability_Setting & crs, const int N);
+	int reach_safety_specified_time_varying(std::list<Interval> & ranges, rMatrix & C, const Interval & safe_range, iMatrix & X0, iMatrix & V, const Continuous_Reachability_Setting & crs, const int N);
 };
+
+
+
+
+class Continuous_Reachability_Setting
+{
+public:
+	double step;						// step-size
+	double time;						// time horizon
+	int order;							// Taylor model order
+	int globalMaxOrder;					// highest order used in all computations
+	int approx_order;					// approximation order for computing matrix exponential
+
+	double minStep;						// minimum stepsize when adptive stepsize is in use
+
+	std::vector<Interval> estimation;	// remainder estimation for varying time step
+
+	bool bPrint;
+	Interval cutoff_threshold;
+
+	std::vector<Interval> step_exp_table;
+	std::vector<Interval> step_end_exp_table;
+
+public:
+	Continuous_Reachability_Setting();
+	~Continuous_Reachability_Setting();
+	Continuous_Reachability_Setting(const Continuous_Reachability_Setting & crs);
+
+	Continuous_Reachability_Setting & operator = (const Continuous_Reachability_Setting & crs);
+
+	bool setTime(const double t);
+
+	bool setFixedStepsize(const double delta);
+	bool setAdaptiveStepsize(const double delta_min, const double delta_max);
+
+	bool setFixedOrder(const int k);
+	bool setRemainderEstimation(const std::vector<Interval> & intervals);
+	bool setCutoff(const Interval & cutoff);
+	bool setPrecision(const int prec);
+	bool setMaxOrder(const int k);
+	bool setApproxOrder(const int k);
+
+	void printon();
+	void printoff();
+
+
+	void prepareForReachability();	// call this function after all parameters are properly set
+};
+
+
+class Symbolic_Remainder
+{
+public:
+	std::vector<iMatrix> J;
+	std::vector<iMatrix> Phi_L;
+	std::vector<Interval> scalars;
+	std::vector<Polynomial> initial_set_poly;
+
+public:
+	Symbolic_Remainder(const Flowpipe & initial_set);
+	Symbolic_Remainder(const Symbolic_Remainder & symb_rem);
+	~Symbolic_Remainder();
+
+	Symbolic_Remainder & operator = (const Symbolic_Remainder & symb_rem);
+};
+
+
+class Polynomial_ODE
+{
+protected:
+	Variables variables;
+	std::vector<Polynomial> derivatives;
+	std::vector<HornerForm> derivatives_hf;
+	std::vector<HornerForm> derivatives_hf_centered;
+	std::vector<Interval> remainders;
+	std::vector<bool> constant;
+
+public:
+	Polynomial_ODE(const Variables & vars);
+	Polynomial_ODE(const Polynomial_ODE & ode);
+	~Polynomial_ODE();
+
+	Polynomial_ODE & operator = (const Polynomial_ODE & ode);
+
+	bool assignDerivative(const std::string & varName, const Polynomial & polynomial);
+//	bool assignDerivative(const std::string & varName, const TaylorModel & tm);
+
+	void output(FILE *fp) const;
+
+	void doubleEval(std::vector<double> & derivative, const std::vector<double> & state) const;
+
+	bool reach(std::list<Flowpipe> & flowpipes, Flowpipe & fp_last, Continuous_Reachability_Setting & crs, const Flowpipe & initial_set, const double time) const;
+	bool reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, Flowpipe & fp_last, Symbolic_Remainder & symb_rem, Continuous_Reachability_Setting & crs, const Flowpipe & initial_set, const int N, const int M) const;
+};
+
+class ODE
+{
+protected:
+	Variables variables;
+	std::vector<Expression_AST> derivatives;
+
+	std::vector<Expression_AST> derivative_centers;
+	std::vector<bool> constant;
+	std::vector<Interval> constant_part;
+
+public:
+	ODE(const Variables & vars);
+	ODE(const ODE & ode);
+	~ODE();
+
+	ODE & operator = (const ODE & ode);
+
+	bool assignDerivative(const std::string & varName, const Expression_AST & derivative);
+
+	void output(FILE *fp, const Taylor_Model_Computation_Setting & setting) const;
+
+	bool reach_interval_remainder(std::list<Flowpipe> & flowpipes, Flowpipe & fp_last, Continuous_Reachability_Setting & crs, const Flowpipe & initial_set, const int N) const;
+	bool reach_symbolic_remainder(std::list<Flowpipe> & flowpipes, Flowpipe & fp_last, Symbolic_Remainder & symb_rem, Continuous_Reachability_Setting & crs, const Flowpipe & initial_set, const int N, const int M) const;
+
+//	bool reach_interval_remainder_using_regression(std::list<Flowpipe> & flowpipes, Flowpipe & fp_last, Continuous_Reachability_Setting & crs, const Flowpipe & initial_set, const int N) const;
+};
+
+
+// bool reach_interval_remainder_using_regression(std::list<Flowpipe> & flowpipes, Flowpipe & fp_last, DynamicSys & system, Continuous_Reachability_Setting & crs, const Flowpipe & initial_set, const int N);
+
+
+
+// void hybrid_LTI_reach(std::list<LTI_Flowpipe> & flowpipes, std::vector<LTI_ODE> & odes, const std::vector<int> & steps, Continuous_Reachability_Setting & crs, const int k);
+
+void plot_2D_interval_MATLAB(FILE *fp, const std::string & x, const std::string & y, const Variables & vars, const std::list<Flowpipe> & flowpipes);
+void plot_2D_interval_MATLAB(FILE *fp, const int x, const int y, std::vector<LTI_Flowpipe> & flowpipes, iMatrix & X0, const Continuous_Reachability_Setting & crs);
+void plot_2D_interval_MATLAB(FILE *fp, const int x, const int y, std::vector<LTI_Flowpipe> & flowpipes, const TaylorModelVec & tmv_X0, const std::vector<Interval> & domain, const Continuous_Reachability_Setting & crs);
+void plot_2D_interval_MATLAB(FILE *fp, const int x, const int y, std::vector<LTI_Flowpipe> & flowpipes, std::vector<Interval> & time, std::vector<iMatrix> & X0);
+
+void plot_2D_interval_MATLAB(FILE *fp, const std::list<Interval> & ranges, const double stepsize);
+void plot_2D_interval_MATLAB(FILE *fp, const int x, const int y, iMatrix & box);
 
 
 void computeTaylorExpansion(TaylorModelVec & result, const TaylorModelVec & first_order_deriv, const TaylorModelVec & ode, const int order, const Interval & cutoff_threshold);
@@ -664,6 +894,11 @@ void check_connectivities(bMatrix & result, bMatrix & adjMatrix);
 int contract_interval_arithmetic(TaylorModelVec & flowpipe, std::vector<Interval> & domain, const std::vector<PolynomialConstraint> & pcs, std::vector<bool> & boundary_intersected, const Interval & cutoff_threshold);
 // int contract_interval_arithmetic(TaylorModelVec & flowpipe, std::vector<Interval> & domain, const Polyhedron & inv, std::vector<bool> & boundary_intersected);
 
+int contract_interval_arithmetic(TaylorModelVec & flowpipe, std::vector<Interval> & domain, const std::vector<PolynomialConstraint> & pcs, const Continuous_Reachability_Setting & crs);
+
+int contract_interval_arithmetic(TaylorModel & tm_flowpipe, std::vector<Interval> & domain, const double bound);
+int contract_interval_arithmetic(LTI_Flowpipe & flowpipe, Interval & time_interval, iMatrix & X0, std::vector<iMatrix> & constraint_C, const std::vector<double> & constraint_b, const Continuous_Reachability_Setting & rs);
+
 int contract_remainder(const std::vector<Interval> & polyRange, std::vector<Interval> & remainders, const std::vector<HornerForm> & hfs, const std::vector<Interval> & b);
 int contract_remainder(const std::vector<Interval> & polyRange, std::vector<Interval> & remainders, const std::vector<PolynomialConstraint> & constraints);
 
@@ -671,6 +906,8 @@ void gridBox(std::list<std::vector<Interval> > & grids, const std::vector<Interv
 
 void compute_int_mat_pow(std::vector<iMatrix> & result, const iMatrix & A, const int order);
 void compute_int_mat2_pow(std::vector<iMatrix2> & result, const iMatrix2 & A, const int order);
+
+void compute_real_mat_pow(std::vector<rMatrix> & result, const rMatrix & A, const int order);
 
 void compute_one_step_trans(upMatrix & p_Phi_t, upMatrix & p_Psi_t, upMatrix & p_Omega_t,
 		iMatrix & Phi_step_trunc, iMatrix & Phi_step_end_trunc, iMatrix & Phi_rem,
@@ -700,8 +937,17 @@ void compute_one_step_trans_LTV_SDE(iMatrix2 & Phi_delta, iMatrix2 & Psi_delta, 
 		const std::vector<Interval> step_exp_table, const std::vector<Interval> step_end_exp_table,
 		const UnivariatePolynomial & up_t_t0, const int order);
 
+int safetyChecking(LTI_Flowpipe & flowpipe, Interval & range, const bool bAuto, const int varID, const double bound, iMatrix & X0, const TaylorModelVec & tmv_X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+int safetyChecking(LTI_Flowpipe & flowpipe, Interval & range, const bool bAuto, const Interval & safe_range, iMatrix & X0, const TaylorModelVec & tmv_X0, const std::vector<Interval> & domain, const std::vector<Interval> & polyRangeX0, const Continuous_Reachability_Setting & crs);
+
 int safetyChecking2(const TaylorModelVec & flowpipe, const std::vector<Interval> & domain, const std::vector<PolynomialConstraint> & unsafeSet, const int order, const Interval & cutoff_threshold);
 
+
+bool getRange(Interval & range, const TaylorModelVec & tmFlowpipe, const std::vector<Interval> & domain, const std::string & vName, const Variables & vars);
+bool getRangeNormal(Interval & range, const TaylorModelVec & tmFlowpipe, Continuous_Reachability_Setting & crs, const std::string & vName, const Variables & vars);
+
+void plot_2D_box_gnuplot(FILE *fp, const std::string & epsFileName, std::list<Flowpipe> & flowpipes, const std::string & x, const std::string & y, const Variables & variables, const Continuous_Reachability_Setting & crs);
+void plot_2D_box_matlab(FILE *fp, std::list<Flowpipe> & flowpipes, const std::string & x, const std::string & y, const Variables & variables, const Continuous_Reachability_Setting & crs);
 
 }
 

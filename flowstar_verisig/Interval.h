@@ -33,6 +33,7 @@ public:
 	double getValue_RNDD() const;
 	double getValue_RNDU() const;
 	void abs(Real & real) const;
+	double abs() const;
 	void abs_assign();
 
 	void to_sym_int(Interval & I) const;		// to a symmetric interval
@@ -41,6 +42,7 @@ public:
 	void exp_assign_RNDU();
 
 	void pow_assign_RNDU(const int n);
+	void pow_assign(const int n);
 
 	void rec(Real & result) const;
 
@@ -77,6 +79,15 @@ public:
 	void div_assign_RNDU(const int n);
 
 	void output(FILE *fp) const;
+
+	void sin_assign();
+	void cos_assign();
+	void exp_assign();
+	void log_assign();
+	void sqrt_assign();
+
+//	Real & operator *= (const Interval & I);
+	Interval operator * (const Interval & I) const;
 
 	Real & operator += (const Real & r);
 	Real & operator -= (const Real & r);
@@ -207,6 +218,7 @@ public:
 	const Interval operator - (const Interval & I) const;
 	const Interval operator - (const double c) const;
 	const Interval operator * (const Interval & I) const;
+	const Interval operator * (const Real & r) const;
 	const Interval operator * (const double c) const;
 	const Interval operator / (const Interval & I) const;
 	const Interval operator / (const double c) const;
@@ -239,9 +251,14 @@ public:
 
 	double widthRatio(const Interval & I) const;
 
+	void hull_assign(const Interval & I);
+
 	void toString(std::string & result) const;
 	void dump(FILE *fp) const;
 	void output(FILE *fp, const char * msg, const char * msg2) const;
+	void output_midpoint(FILE *fp, const int n) const;
+
+	void round(Interval & remainder);
 
 	friend class Real;
 };

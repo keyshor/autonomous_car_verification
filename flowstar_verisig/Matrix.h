@@ -185,11 +185,13 @@ public:
 	rMatrix();
 	rMatrix(const int m, const int n);	// zero matrix
 	rMatrix(const int n);				// identity matrix
+	rMatrix(const iMatrix & int_matrix);
 	rMatrix(const rMatrix & rmatrix);
 	~rMatrix();
 
 	int rows() const;
 	int cols() const;
+	double mag() const;
 
 	void abs(rMatrix & result) const;
 	void transpose(rMatrix & result) const;
@@ -207,9 +209,13 @@ public:
 	rMatrix & operator += (const rMatrix & B);
 	rMatrix & operator -= (const rMatrix & B);
 	rMatrix & operator *= (const rMatrix & B);
+//	iMatrix & operator *= (const iMatrix & B);
+
 	rMatrix operator + (const rMatrix & B) const;
 	rMatrix operator - (const rMatrix & B) const;
 	rMatrix operator * (const rMatrix & B) const;
+	iMatrix operator * (const iMatrix & B) const;
+	upMatrix operator * (const upMatrix & B) const;
 
 	rMatrix & operator *= (const Real & r);
 	rMatrix & operator *= (const double d);
@@ -243,6 +249,7 @@ public:
 	iMatrix(const rMatrix & A);
 	iMatrix(const iMatrix2 & A);
 	iMatrix(const std::vector<Interval> & box);
+	iMatrix(const std::string & matlab_format);
 	~iMatrix();
 
 	void clear();
@@ -263,6 +270,9 @@ public:
 	void transpose(iMatrix & result) const;
 	void times_pars(mpMatrix & result) const;
 	void center();
+	void bloat(const double e);
+
+	double width() const;
 
 	void linearTrans(std::vector<Polynomial> & result, const std::vector<Polynomial> & polyVec) const;
 
@@ -271,6 +281,7 @@ public:
 	void to_iMatrix2(iMatrix2 & A) const;
 
 	void output(FILE *fp) const;
+	void output_by_line(FILE *fp) const;
 
 	iMatrix & operator += (const iMatrix & A);
 	iMatrix & operator += (const Real & rad);
@@ -301,6 +312,7 @@ public:
 	friend class mpMatrix;
 	friend class rMatrix;
 	friend class iMatrix2;
+	friend class Zonotope;
 };
 
 
@@ -321,6 +333,8 @@ public:
 
 	int rows() const;
 	int cols() const;
+
+	double width() const;
 
 	void to_iMatrix(iMatrix & A) const;
 	void transpose(iMatrix2 & result) const;
@@ -368,6 +382,7 @@ public:
 	upMatrix();
 	upMatrix(const int m, const int n);
 	upMatrix(const int n);
+	upMatrix(const rMatrix & A);
 	upMatrix(const iMatrix & A);
 	upMatrix(const iMatrix2 & A);
 	upMatrix(const upMatrix & upm);
@@ -401,6 +416,7 @@ public:
 	void ctrunc(const int order, const Interval & val);
 
 	void nctrunc(const int order);
+	void round(iMatrix & remainder, const Interval & val);
 
 	void substitute(upMatrix & result, const std::vector<UnivariatePolynomial> & t_exp_table) const;
 	void substitute(upMatrix & result, const UnivariatePolynomial & t) const;
@@ -423,6 +439,7 @@ public:
 	upMatrix operator - (const upMatrix & upm) const;
 	upMatrix operator - (const iMatrix & A) const;
 	upMatrix operator * (const upMatrix & upm) const;
+	upMatrix operator * (const rMatrix & A) const;
 	upMatrix operator * (const iMatrix & A) const;
 	upMatrix operator * (const iMatrix2 & A) const;
 	upMatrix operator * (const Interval & I) const;
@@ -432,6 +449,10 @@ public:
 
 	upMatrix & operator = (const upMatrix & upm);
 
+	void evaluate(const std::vector<Interval> & val_exp_table);
+	void evaluate(const Interval & val);
+
+	friend class rMatrix;
 	friend class iMatrix;
 	friend class iMatrix2;
 };
@@ -474,9 +495,27 @@ public:
 };
 
 
+class MatrixParseSetting
+{
+public:
+	std::string strExpression;
+	iMatrix result;
+
+public:
+	MatrixParseSetting();
+	MatrixParseSetting(const MatrixParseSetting & setting);
+	~MatrixParseSetting();
+
+	MatrixParseSetting & operator = (const MatrixParseSetting & setting);
+};
+
 
 void to_iMatrix2(iMatrix2 & result, const rMatrix & lo, const rMatrix & up);
 
+extern MatrixParseSetting matrixParseSetting;
+
 }
+
+void parse_Matrix();
 
 #endif /* MATRIX_H_ */

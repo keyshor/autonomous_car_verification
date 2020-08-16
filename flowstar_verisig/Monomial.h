@@ -31,6 +31,11 @@ public:
 	int degree() const;											// degree of the monomial
 	int dimension() const;										// dimension of the monomial
 
+	//code added by Rado
+	std::vector<int> getDegrees() const;
+	Interval getCoefficient() const;
+	//end of code added by Rado
+
 	void intEval(Interval & result, const std::vector<Interval> & domain) const;	// interval evaluation of the monomial
 
 	// interval evaluation of the monomial, we assume that the domain is normalized to [0,s] x [-1,1]^(d-1)
@@ -69,6 +74,7 @@ public:
 	void substitute(Monomial & result, const std::vector<int> & varIDs, const std::vector<Interval> & intVals) const;
 
 	void extend(const int num);
+	void extend();
 
 	friend class Polynomial;
 	friend class TaylorModel;

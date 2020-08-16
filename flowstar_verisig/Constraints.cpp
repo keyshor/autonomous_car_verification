@@ -22,6 +22,18 @@ LinearConstraint::LinearConstraint(const std::vector<Interval> & A_input, const 
 	B = B_input;
 }
 
+LinearConstraint::LinearConstraint(iMatrix & A_input, const Interval & B_input)
+{
+	int num = A_input.cols();
+
+	for(int i=0; i<num; ++i)
+	{
+		A.push_back(A_input[0][i]);
+	}
+
+	B = B_input;
+}
+
 LinearConstraint::LinearConstraint(const LinearConstraint & lc)
 {
 	A = lc.A;
@@ -107,6 +119,17 @@ PolynomialConstraint::PolynomialConstraint(const PolynomialConstraint & pc)
 	p = pc.p;
 	hf = pc.hf;
 	B = pc.B;
+}
+
+PolynomialConstraint::PolynomialConstraint(const std::string & strPolynomial, const Variables & vars)
+{
+	Polynomial polynomial(strPolynomial, vars);
+
+	flowstar::Interval zero(0);
+	p = polynomial;
+
+	p.toHornerForm(hf);
+	B = zero;
 }
 
 PolynomialConstraint::~PolynomialConstraint()

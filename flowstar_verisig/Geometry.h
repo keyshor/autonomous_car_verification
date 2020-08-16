@@ -88,9 +88,21 @@ public:
 
 	void output(FILE *fp) const;
 
+	bool belongsto(const std::vector<double> & x);
+	int contract(const LinearConstraint & constraint);
+
+	// translate the zonotope to a Taylor model with a zero remainder
+	// the first variable is NOT reserved by t
+	void toPolynomial(std::vector<Polynomial> & result);
+
 	Zonotope & operator = (const Zonotope & zonotope);
 	Zonotope & operator = (iMatrix & box);
 //	Zonotope & operator = (iMatrix2 & box);
+
+	void to2DBox(iMatrix & box, const int x, const int y);
+	void intervalRange(Interval & range, const int x);
+
+	void plot(FILE *fp, const int x, const int y);	// only for 2D zonotopes
 };
 
 

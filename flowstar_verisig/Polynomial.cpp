@@ -17,7 +17,225 @@ std::vector<Interval> factorial_rec;
 std::vector<Interval> power_4;
 std::vector<Interval> double_factorial;
 UnivariatePolynomial up_parseresult;
+ParsePolynomial parsePolynomial;
 }
+
+
+Variables::Variables()
+{
+}
+
+Variables::~Variables()
+{
+	varTab.clear();
+	varNames.clear();
+}
+
+Variables::Variables(const Variables & variables)
+{
+	varTab		= variables.varTab;
+	varNames	= variables.varNames;
+}
+
+Variables & Variables::operator = (const Variables & variables)
+{
+	if(this == &variables)
+		return *this;
+
+	varTab		= variables.varTab;
+	varNames	= variables.varNames;
+
+	return *this;
+}
+
+bool Variables::declareVar(const std::string & vName)
+{
+	std::map<std::string,int>::const_iterator iter;
+
+	if((iter = varTab.find(vName)) == varTab.end())
+	{
+		varTab[vName] = varNames.size();
+		varNames.push_back(vName);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+int Variables::getIDForVar(const std::string & vName) const
+{
+	std::map<std::string,int>::const_iterator iter;
+	if((iter = varTab.find(vName)) == varTab.end())
+	{
+		return -1;
+	}
+
+	return iter->second;
+}
+
+bool Variables::getVarName(std::string & vName, const int id) const
+{
+	if(id >= 0 && id < varNames.size())
+	{
+		vName = varNames[id];
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+int Variables::size() const
+{
+	return varNames.size();
+}
+
+void Variables::clear()
+{
+	varTab.clear();
+	varNames.clear();
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Parameters::Parameters()
+{
+}
+
+Parameters::~Parameters()
+{
+	parTab.clear();
+	parNames.clear();
+	parValues.clear();
+}
+
+Parameters::Parameters(const Parameters & parameters)
+{
+	parTab = parameters.parTab;
+	parNames = parameters.parNames;
+	parValues = parameters.parValues;
+}
+
+bool Parameters::declarePar(const std::string & pName, const Interval & value)
+{
+	std::map<std::string,int>::const_iterator iter;
+
+	if((iter = parTab.find(pName)) == parTab.end())
+	{
+		parTab[pName] = parNames.size();
+		parNames.push_back(pName);
+		parValues.push_back(value);
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+int Parameters::getIDForPar(const std::string & pName) const
+{
+	std::map<std::string,int>::const_iterator iter;
+	if((iter = parTab.find(pName)) == parTab.end())
+	{
+		return -1;
+	}
+
+	return iter->second;
+}
+
+bool Parameters::getParName(std::string & pName, const int id) const
+{
+	if(id >= 0 && id < parNames.size())
+	{
+		pName = parNames[id];
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool Parameters::getParValue(Interval & pValue, const std::string & pName) const
+{
+	int id = getIDForPar(pName);
+
+	if(id >= 0)
+	{
+		pValue = parValues[id];
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+bool Parameters::getParValue(Interval & pValue, const int id) const
+{
+	if(id >= 0 && id < parNames.size())
+	{
+		pValue = parValues[id];
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+Parameters & Parameters::operator = (const Parameters & parameters)
+{
+	if(this == &parameters)
+		return *this;
+
+	parTab = parameters.parTab;
+	parNames = parameters.parNames;
+	parValues = parameters.parValues;
+
+	return *this;
+}
+
+int Parameters::size() const
+{
+	return parNames.size();
+}
+
+void Parameters::clear()
+{
+	parTab.clear();
+	parNames.clear();
+	parValues.clear();
+}
+
+
+
+
+
+
+
+
+
+
+
+
 
 RangeTree::RangeTree()
 {
@@ -756,6 +974,21 @@ Polynomial::~Polynomial()
 	monomials.clear();
 }
 
+Polynomial::Polynomial(const std::string & strPolynomial, const Variables & vars)
+{
+	parsePolynomial.clear();
+
+	std::string prefix(str_prefix_multivariate_polynomial);
+	std::string suffix(str_suffix);
+
+	parsePolynomial.strPolynomial = prefix + strPolynomial + suffix;
+	parsePolynomial.variables = vars;
+
+	parseMultivariatePolynomial();
+
+	*this = parsePolynomial.result;
+}
+
 void Polynomial::reorder()
 {
 	monomials.sort();
@@ -819,6 +1052,20 @@ void Polynomial::constant(Interval & result) const
 	else
 	{
 		result = intZero;
+	}
+}
+
+void Polynomial::constant(Real & result) const
+{
+	Real zero;
+
+	if(monomials.size() > 0 && (monomials.begin())->d == 0)
+	{
+		(monomials.begin())->coefficient.midpoint(result);
+	}
+	else
+	{
+		result = zero;
 	}
 }
 
@@ -2508,6 +2755,16 @@ void Polynomial::extend(const int num)
 	}
 }
 
+void Polynomial::extend()
+{
+	std::list<Monomial>::iterator iter;
+
+	for(iter = monomials.begin(); iter != monomials.end(); ++iter)
+	{
+		iter->extend();
+	}
+}
+
 void Polynomial::insert(TaylorModel & result, const TaylorModelVec & vars, const std::vector<Interval> & varsPolyRange, const std::vector<Interval> & domain, const Interval & cutoff_threshold) const
 {
 	if(vars.tms.size() == 0)
@@ -2596,6 +2853,11 @@ UnivariatePolynomial::UnivariatePolynomial(const UnivariatePolynomial & polynomi
 	coefficients = polynomial.coefficients;
 }
 
+UnivariatePolynomial::UnivariatePolynomial(const Real & r)
+{
+	coefficients.push_back(r);
+}
+
 UnivariatePolynomial::UnivariatePolynomial(const Interval & I)
 {
 	coefficients.push_back(I);
@@ -2654,6 +2916,20 @@ void UnivariatePolynomial::set2zero()
 
 	Interval intZero;
 	coefficients.push_back(intZero);
+}
+
+void UnivariatePolynomial::round(Interval & remainder, const Interval & val)
+{
+	UnivariatePolynomial up_temp;
+
+	for(int i=0; i<coefficients.size(); ++i)
+	{
+		Interval I;
+		coefficients[i].round(I);
+		up_temp.coefficients.push_back(I);
+	}
+
+	remainder = up_temp.intEval(val);
 }
 
 int UnivariatePolynomial::degree() const
@@ -3050,6 +3326,14 @@ UnivariatePolynomial & UnivariatePolynomial::operator = (const UnivariatePolynom
 	return *this;
 }
 
+UnivariatePolynomial & UnivariatePolynomial::operator = (const Real & r)
+{
+	coefficients.clear();
+	coefficients.push_back(r);
+
+	return *this;
+}
+
 UnivariatePolynomial & UnivariatePolynomial::operator = (const Interval & I)
 {
 	coefficients.clear();
@@ -3373,10 +3657,60 @@ UnivariatePolynomial UnivariatePolynomial::operator / (const Interval & I) const
 	return result;
 }
 
+UnivariatePolynomial UnivariatePolynomial::operator * (const Real & r) const
+{
+	UnivariatePolynomial result;
+
+	if(this->isZero() || r.isZero())
+	{
+		return result;
+	}
+
+	result.coefficients[0] = coefficients[0] * r;
+	for(int i=1; i<coefficients.size(); ++i)
+	{
+		result.coefficients.push_back(coefficients[i] * r);
+	}
+
+	return result;
+}
 
 
 
 
+
+ParsePolynomial::ParsePolynomial()
+{
+}
+
+ParsePolynomial::ParsePolynomial(const ParsePolynomial & setting)
+{
+	strPolynomial = setting.strPolynomial;
+	variables = setting.variables;
+	result = setting.result;
+}
+
+ParsePolynomial::~ParsePolynomial()
+{
+	variables.clear();
+}
+
+ParsePolynomial & ParsePolynomial::operator = (const ParsePolynomial & setting)
+{
+	if(this == &setting)
+		return *this;
+
+	strPolynomial = setting.strPolynomial;
+	variables = setting.variables;
+	result = setting.result;
+
+	return *this;
+}
+
+void ParsePolynomial::clear()
+{
+	variables.clear();
+}
 
 
 

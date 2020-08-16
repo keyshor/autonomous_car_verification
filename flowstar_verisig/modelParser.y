@@ -84,6 +84,8 @@
 	LTI_Term *p_LTI_Term;
 	LTV_Term *p_LTV_Term;
 	ODE_String *p_ODE_String;
+	flowstar::Expression_AST *pExpression;
+	std::vector<std::vector<flowstar::Interval> > *piMatrix;
 }
 
 
@@ -109,11 +111,13 @@
 %token EXP SIN COS LOG SQRT
 %token NPODE_TAYLOR CUTOFF PRECISION
 %token GNUPLOT MATLAB COMPUTATIONPATHS
-%token LTI_ODE LTV_ODE PAR UNC
-%token UNIVARIATE_POLY
+%token LTIODE LTV_ODE PAR UNC
+%token UNIVARIATE_POLY MULTIVARIATE_POLY
 %token TIME_INV TIME_VAR STEP
 %token TRUE FALSE
 %token LINEARCONTINUOUSFLOW
+%token EXPRESSION
+%token MATRIX
 
 
 %type <poly> polynomial
@@ -148,6 +152,10 @@
 %type <pUpoly> univariate_polynomial
 %type <pVecFlowpipe> set_of_intervals
 %type <intVal> range_contracted
+%type <poly> multivariate_polynomial
+%type <pExpression> ode_expression
+%type <piMatrix> matrix_matlab
+%type <intVec> vector_matlab
 
 
 
@@ -813,6 +821,48 @@ NONPOLY_CENTER '{' non_polynomial_rhs_center '}'
 UNIVARIATE_POLY '{' univariate_polynomial '}'
 {
 	flowstar::up_parseresult = (*$3);
+	delete $3;
+}
+|
+MULTIVARIATE_POLY '{' multivariate_polynomial '}'
+{
+	flowstar::parsePolynomial.result = (*$3);
+	delete $3;
+}
+|
+EXPRESSION '{' ode_expression '}'
+{
+	flowstar::parseExpression.expression = (*$3);
+	delete $3;
+}
+|
+MATRIX '{' matrix_matlab '}'
+{
+	int rows = $3->size();
+	int cols = 0;
+
+	if(rows > 0)
+	{
+		cols = (*$3)[0].size();
+
+		flowstar::iMatrix matrix(rows, cols);
+
+		for(int i=0; i<rows; ++i)
+		{
+			for(int j=0; j<cols; ++j)
+			{
+				matrix[i][j] = (*$3)[i][j];
+			}
+		}
+
+		flowstar::matrixParseSetting.result = matrix;
+	}
+	else
+	{
+		flowstar::iMatrix matrix;
+		flowstar::matrixParseSetting.result = matrix;
+	}
+
 	delete $3;
 }
 ;
@@ -1782,7 +1832,7 @@ stateVarDecls SETTING '{' settings print '}' NPODE_TAYLOR '{' npode '}' INIT '{'
 	delete $9;
 }
 |
-stateVarDecls SETTING '{' settings print '}' LTI_ODE '{' lti_env '}' INIT '{' init '}'
+stateVarDecls SETTING '{' settings print '}' LTIODE '{' lti_env '}' INIT '{' init '}'
 {
 	if(initialSets.size() > 0)
 	{
@@ -1958,7 +2008,7 @@ stateVarDecls parDecls SETTING '{' settings print '}' NPODE_TAYLOR '{' npode '}'
 	delete $10;
 }
 |
-stateVarDecls parDecls SETTING '{' settings print '}' LTI_ODE '{' lti_env '}' INIT '{' init '}'
+stateVarDecls parDecls SETTING '{' settings print '}' LTIODE '{' lti_env '}' INIT '{' init '}'
 {
 	if(initialSets.size() > 0)
 	{
@@ -2204,7 +2254,7 @@ IDENT local_setting '{' NPODE_TAYLOR '{' npode '}' INV '{' polynomial_constraint
 	delete $10;
 }
 |
-modes IDENT local_setting '{' LTI_ODE '{' lti_ode_hybrid '}' INV '{' polynomial_constraints '}' '}'
+modes IDENT local_setting '{' LTIODE '{' lti_ode_hybrid '}' INV '{' polynomial_constraints '}' '}'
 {
 	flowstar::LTI_Dynamics lti_dyn(dyn_A, dyn_B);
 	hybridProblem.declareMode(*$2, lti_dyn, *$11, mode_local_setting);
@@ -2214,7 +2264,7 @@ modes IDENT local_setting '{' LTI_ODE '{' lti_ode_hybrid '}' INV '{' polynomial_
 	delete $11;
 }
 |
-IDENT local_setting '{' LTI_ODE '{' lti_ode_hybrid '}' INV '{' polynomial_constraints '}' '}'
+IDENT local_setting '{' LTIODE '{' lti_ode_hybrid '}' INV '{' polynomial_constraints '}' '}'
 {
 	flowstar::LTI_Dynamics lti_dyn(dyn_A, dyn_B);
 	hybridProblem.declareMode(*$1, lti_dyn, *$10, mode_local_setting);
@@ -5162,7 +5212,7 @@ non_polynomial_rhs_picard '^' NUM
 			if(degree & 1)
 			{
 				res.mul_insert_ctrunc_normal_assign(intPoly1, intTrunc, pow, intPoly2, parseSetting.step_exp_table, parseSetting.order, parseSetting.cutoff_threshold);
-				
+
 				parseSetting.ranges.push_back(intPoly1);
 				parseSetting.ranges.push_back(intPoly2);
 				parseSetting.ranges.push_back(intTrunc);
@@ -5173,7 +5223,7 @@ non_polynomial_rhs_picard '^' NUM
 			if(degree > 0)
 			{
 				pow.mul_insert_ctrunc_normal_assign(intPoly1, intTrunc, pow, intPoly2, parseSetting.step_exp_table, parseSetting.order, parseSetting.cutoff_threshold);
-				
+
 				parseSetting.ranges.push_back(intPoly1);
 				parseSetting.ranges.push_back(intPoly2);
 				parseSetting.ranges.push_back(intTrunc);
@@ -7044,10 +7094,248 @@ NUM
 
 
 
+multivariate_polynomial: multivariate_polynomial '+' multivariate_polynomial
+{
+	$$ = $1;
+	(*$$) += (*$3);
+
+	delete $3;
+}
+|
+multivariate_polynomial '-' multivariate_polynomial
+{
+	$$ = $1;
+	(*$$) -= (*$3);
+
+	delete $3;
+}
+|
+'(' multivariate_polynomial ')'
+{
+	$$ = $2; 
+}
+|
+multivariate_polynomial '*' multivariate_polynomial
+{
+	$$ = $1;
+	(*$$) *= (*$3);
+
+	delete $3;
+}
+|
+multivariate_polynomial '^' NUM
+{
+	int exp = (int) $3;
+
+	if(exp == 0)
+	{
+		flowstar::Interval I(1);
+		$$ = new flowstar::Polynomial(I, flowstar::parsePolynomial.variables.size());
+	}
+	else
+	{
+		$$ = new flowstar::Polynomial;
+		(*$1).pow(*$$, exp);
+	}
+
+	delete $1;
+}
+|
+'-' multivariate_polynomial %prec uminus
+{
+	flowstar::Interval I(-1);
+	$$ = $2;
+	$$->mul_assign(I);
+}
+|
+IDENT
+{
+	int id = flowstar::parsePolynomial.variables.getIDForVar(*$1);
+
+	if(id < 0)
+	{
+		char errMsg[MSG_SIZE];
+		sprintf(errMsg, "Variable %s is not declared.", (*$1).c_str());
+		parseError(errMsg, lineNum);
+		exit(1);
+	}
+
+	int numVars = flowstar::parsePolynomial.variables.size();
+	flowstar::Interval I(1);
+
+	std::vector<int> degrees;
+	for(int i=0; i<numVars; ++i)
+	{
+		degrees.push_back(0);
+	}
+
+	degrees[id] = 1;
+	flowstar::Monomial monomial(I, degrees);
+
+	$$ = new flowstar::Polynomial(monomial);
+
+	delete $1;
+}
+|
+'[' NUM ',' NUM ']'
+{
+	int numVars = flowstar::parsePolynomial.variables.size();
+	flowstar::Interval I($2, $4);
+	$$ = new flowstar::Polynomial(I, numVars);
+}
+|
+NUM
+{
+	int numVars = flowstar::parsePolynomial.variables.size();
+	flowstar::Interval I($1);
+	$$ = new flowstar::Polynomial(I, numVars);
+}
+;
 
 
 
 
+
+
+
+
+
+
+
+
+
+ode_expression: ode_expression '+' ode_expression
+{
+	$$ = $1;
+	(*$$) += (*$3);
+
+	delete $3;
+}
+|
+ode_expression '-' ode_expression
+{
+	$$ = $1;
+	(*$$) -= (*$3);
+
+	delete $3;
+}
+|
+'(' ode_expression ')'
+{
+	$$ = $2; 
+}
+|
+ode_expression '*' ode_expression
+{
+	$$ = $1;
+	(*$$) *= (*$3);
+
+	delete $3;
+}
+|
+ode_expression '^' NUM
+{
+	$$ = $1;
+	$$->pow_assign((int)$3);
+}
+|
+'-' ode_expression %prec uminus
+{
+	$$ = $2;
+	$$->inv_assign();
+}
+|
+IDENT
+{
+	$$ = new flowstar::Expression_AST(*$1, flowstar::parseExpression.variables, flowstar::parseExpression.parameters, 0);
+
+	delete $1;
+}
+|
+'[' NUM ',' NUM ']'
+{
+	flowstar::Interval I($2, $4);
+	$$ = new flowstar::Expression_AST(I);
+}
+|
+NUM
+{
+	flowstar::Interval I($1);
+	$$ = new flowstar::Expression_AST(I);
+}
+|
+ode_expression '/' ode_expression
+{
+	$$ = $1;
+	(*$$) /= (*$3);
+
+	delete $3;
+}
+|
+EXP '(' ode_expression ')'
+{
+	$$ = $3;
+	$$->exp_assign();
+}
+|
+SIN '(' ode_expression ')'
+{
+	$$ = $3;
+	$$->sin_assign();
+}
+|
+COS '(' ode_expression ')'
+{
+	$$ = $3;
+	$$->cos_assign();
+}
+|
+LOG '(' ode_expression ')'
+{
+	$$ = $3;
+	$$->log_assign();
+}
+|
+SQRT '(' ode_expression ')'
+{
+	$$ = $3;
+	$$->sqrt_assign();
+}
+;
+
+
+
+
+
+
+
+matrix_matlab: matrix_matlab ';' vector_matlab
+{
+	$$ = $1;
+	$$->push_back(*$3);
+	delete $3;
+}
+|
+vector_matlab
+{
+	$$ = new std::vector<std::vector<flowstar::Interval> >(0);
+	$$->push_back(*$1);
+	delete $1;
+}
+;
+
+vector_matlab: vector_matlab ',' NUM
+{
+	$$ = $1;
+	$$->push_back($3);
+}
+|
+NUM
+{
+	$$ = new std::vector<flowstar::Interval>(0);
+	$$->push_back($1);
+}
+;
 
 
 

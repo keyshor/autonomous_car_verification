@@ -105,14 +105,17 @@ number ("-"?)(({digit}+)|({digit}*"."{digit}*)|({digit}+"e"(({digit}+)|("-"{digi
 "computation paths" {return COMPUTATIONPATHS;}
 "par" {return PAR;}
 "uncertain" {return UNC;}
-"lti ode" {return LTI_ODE;}
+"lti ode" {return LTIODE;}
 "ltv ode" {return LTV_ODE;}
 "univariate polynomial" {return UNIVARIATE_POLY;}
+"multivariate polynomial" {return MULTIVARIATE_POLY;}
 "time-inv" {return TIME_INV;}
 "time-var" {return TIME_VAR;}
 "step" {return STEP;}
 "true" {return TRUE;}
 "false" {return FALSE;}
+"expression" {return EXPRESSION;}
+"matrix" {return MATRIX;}
 
 
 
@@ -187,4 +190,64 @@ void parseUnivariatePolynomial(const std::string & strPolynomial)
 	yy_switch_to_buffer(current);
 
 	delete [] strInput;
+}
+
+void parseMultivariatePolynomial()
+{
+	int length = flowstar::parsePolynomial.strPolynomial.size();
+	char *strPolynomial = new char[length+5];
+
+	sprintf(strPolynomial, "%s", flowstar::parsePolynomial.strPolynomial.c_str());
+
+	YY_BUFFER_STATE current = YY_CURRENT_BUFFER;
+
+	YY_BUFFER_STATE yybs = yy_scan_string(strPolynomial);
+
+	yy_switch_to_buffer(yybs);
+	yyparse();
+    yy_delete_buffer(yybs);
+
+	yy_switch_to_buffer(current);
+
+	delete [] strPolynomial;
+}
+
+void parse_ODE_Expression()
+{
+	int length = flowstar::parseExpression.strExpression.size();
+	char *strExpression = new char[length+5];
+
+	sprintf(strExpression, "%s", flowstar::parseExpression.strExpression.c_str());
+
+	YY_BUFFER_STATE current = YY_CURRENT_BUFFER;
+
+	YY_BUFFER_STATE yybs = yy_scan_string(strExpression);
+
+	yy_switch_to_buffer(yybs);
+	yyparse();
+    yy_delete_buffer(yybs);
+
+	yy_switch_to_buffer(current);
+
+	delete [] strExpression;
+}
+
+void parse_Matrix()
+{
+	int length = flowstar::parseExpression.strExpression.size();
+	char *strExpression = new char[length+5];
+
+	sprintf(strExpression, "%s", flowstar::matrixParseSetting.strExpression.c_str());
+
+	YY_BUFFER_STATE current = YY_CURRENT_BUFFER;
+
+	YY_BUFFER_STATE yybs = yy_scan_string(strExpression);
+
+	yy_switch_to_buffer(yybs);
+	yyparse();
+    yy_delete_buffer(yybs);
+
+	yy_switch_to_buffer(current);
+
+	delete [] strExpression;
 }

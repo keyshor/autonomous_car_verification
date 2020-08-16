@@ -175,3 +175,5 @@ flowstar/flowstar
 
 # model files
 *.model
+*.flow
+*.plt

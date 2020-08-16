@@ -43,7 +43,14 @@ Real::~Real()
 
 bool Real::isZero() const
 {
-	return mpfr_cmp_ui(value, 0L);
+	if(mpfr_cmp_ui(value, 0L) == 0)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
 }
 
 double Real::getValue_RNDD() const
@@ -59,6 +66,16 @@ double Real::getValue_RNDU() const
 void Real::abs(Real & real) const
 {
 	mpfr_abs(real.value, value, MPFR_RNDU);
+}
+
+double Real::abs() const
+{
+	mpfr_t tmp;
+	mpfr_inits2(intervalNumPrecision, tmp, (mpfr_ptr) 0);
+
+	mpfr_abs(tmp, value, MPFR_RNDU);
+
+	return mpfr_get_d(tmp, MPFR_RNDU);
 }
 
 void Real::abs_assign()
@@ -85,6 +102,11 @@ void Real::exp_assign_RNDU()
 void Real::pow_assign_RNDU(const int n)
 {
 	mpfr_pow_ui(value, value, n, MPFR_RNDU);
+}
+
+void Real::pow_assign(const int n)
+{
+	mpfr_pow_ui(value, value, n, MPFR_RNDN);
 }
 
 void Real::rec(Real & result) const
@@ -225,6 +247,59 @@ void Real::div_assign_RNDU(const int n)
 void Real::output(FILE *fp) const
 {
 	mpfr_out_str(fp, 10, PN, value, MPFR_RNDN);
+}
+
+void Real::sin_assign()
+{
+	mpfr_sin(value, value, MPFR_RNDN);
+}
+
+void Real::cos_assign()
+{
+	mpfr_cos(value, value, MPFR_RNDN);
+}
+
+void Real::exp_assign()
+{
+	mpfr_exp(value, value, MPFR_RNDN);
+}
+
+void Real::log_assign()
+{
+	mpfr_log(value, value, MPFR_RNDN);
+}
+
+void Real::sqrt_assign()
+{
+	mpfr_sqrt(value, value, MPFR_RNDN);
+}
+/*
+Real & Real::operator *= (const Interval & I)
+{
+	// we assume that value is a non-negative value
+//	Real tmp;
+//	I.mag(tmp);
+	mpfr_mul(value, value, I.up, MPFR_RNDU);
+
+	return *this;
+}
+*/
+Interval Real::operator * (const Interval & I) const
+{
+	Interval result;
+
+	if(mpfr_cmp_si(value, 0L) > 0)
+	{
+		mpfr_mul(result.lo, I.lo, value, MPFR_RNDD);
+		mpfr_mul(result.up, I.up, value, MPFR_RNDU);
+	}
+	else
+	{
+		mpfr_mul(result.lo, I.up, value, MPFR_RNDD);
+		mpfr_mul(result.up, I.lo, value, MPFR_RNDU);
+	}
+
+	return result;
 }
 
 Real & Real::operator += (const Real & r)
@@ -1220,6 +1295,24 @@ const Interval Interval::operator * (const Interval & I) const
 {
 	Interval result = *this;
 	result *= I;
+	return result;
+}
+
+const Interval Interval::operator * (const Real & r) const
+{
+	Interval result;
+
+	if(mpfr_cmp_si(r.value, 0L) > 0)
+	{
+		mpfr_mul(result.lo, lo, r.value, MPFR_RNDD);
+		mpfr_mul(result.up, up, r.value, MPFR_RNDU);
+	}
+	else
+	{
+		mpfr_mul(result.lo, up, r.value, MPFR_RNDD);
+		mpfr_mul(result.up, lo, r.value, MPFR_RNDU);
+	}
+
 	return result;
 }
 
@@ -2481,6 +2574,19 @@ double Interval::widthRatio(const Interval & I) const
 	return result;
 }
 
+void Interval::hull_assign(const Interval & I)
+{
+	if(mpfr_cmp(lo, I.lo) > 0)
+	{
+		mpfr_set(lo, I.lo, MPFR_RNDD);
+	}
+
+	if(mpfr_cmp(up, I.up) < 0)
+	{
+		mpfr_set(up, I.up, MPFR_RNDU);
+	}
+}
+
 void Interval::toString(std::string & result) const
 {
 	char strTemp[30];
@@ -2522,7 +2628,35 @@ void Interval::output(FILE * fp, const char * msg, const char * msg2) const
 	fprintf(fp, " ] %s", msg2);
 }
 
+void Interval::output_midpoint(FILE * fp, const int n) const
+{
+	mpfr_t tmp;
+	mpfr_inits2(intervalNumPrecision, tmp, (mpfr_ptr) 0);
 
+	mpfr_add(tmp, lo, up, MPFR_RNDN);
+	mpfr_div_d(tmp, tmp, 2.0, MPFR_RNDN);
+
+	mpfr_out_str(fp, 10, n, tmp, MPFR_RNDD);
+
+	mpfr_clear(tmp);
+}
+
+void Interval::round(Interval & remainder)
+{
+	mpfr_t tmp;
+	mpfr_inits2(intervalNumPrecision, tmp, (mpfr_ptr) 0);
+
+	mpfr_add(tmp, lo, up, MPFR_RNDN);
+	mpfr_div_d(tmp, tmp, 2.0, MPFR_RNDN);
+
+	mpfr_sub(remainder.lo, lo, tmp, MPFR_RNDD);
+	mpfr_sub(remainder.up, up, tmp, MPFR_RNDU);
+
+	mpfr_set(lo, tmp, MPFR_RNDD);
+	mpfr_set(up, tmp, MPFR_RNDU);
+
+	mpfr_clear(tmp);
+}
 
 
 

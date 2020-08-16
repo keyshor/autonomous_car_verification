@@ -133,14 +133,19 @@ const char str_prefix_combination_remainder[] = "combination remainder { ";
 const char str_prefix_combination_polynomial[] = "combination polynomial { ";
 
 const char str_prefix_univariate_polynomial[] = "univariate polynomial { ";
+const char str_prefix_multivariate_polynomial[] = "multivariate polynomial { ";
+
+const char str_prefix_expression[] = "expression { ";
+
+const char str_prefix_matrix[] = "matrix { ";
 
 const char str_suffix[] = " }";
 
 const char str_counterexample_dumping_name_suffix[] = ".counterexample";
 
+
 extern int lineNum;
 
 extern void parseODE();
-extern void parsePolynomialLib();
 
 #endif /* INCLUDE_H_ */

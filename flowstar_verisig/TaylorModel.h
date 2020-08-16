@@ -14,6 +14,34 @@
 namespace flowstar
 {
 
+class Expression_AST;
+
+class Taylor_Model_Computation_Setting
+{
+protected:
+	Variables vars;		// state variables
+	Variables pars;		// parameters which are defined based on the state variables
+	Interval cutoff_threshold;
+	std::vector<Interval> domain;
+
+public:
+	Taylor_Model_Computation_Setting(const Variables & variables, const std::vector<Interval> & ranges, const Variables & parameters);
+	Taylor_Model_Computation_Setting(const Variables & variables, const std::vector<Interval> & ranges);
+	Taylor_Model_Computation_Setting(const Taylor_Model_Computation_Setting & setting);
+	~Taylor_Model_Computation_Setting();
+
+	Taylor_Model_Computation_Setting & operator = (const Taylor_Model_Computation_Setting & setting);
+
+	bool setCutoff(const Interval & cutoff);
+	bool setPrecision(const int prec);
+
+	friend class TaylorModel;
+	friend class AST_Node;
+	friend class Expression_AST;
+};
+
+
+
 class TaylorModel			// Taylor models: R^n -> R. We use t to denote the time variable and x to denote the state variable.
 {
 public:
@@ -32,10 +60,16 @@ public:
 	TaylorModel(const TaylorModel & tm);
 	virtual ~TaylorModel();
 
+	TaylorModel(const std::string & strPolynomial, const Variables & vars);
+	TaylorModel(const std::string & strPolynomial, const Interval & rem, const Variables & vars);
+
 	void clear();
 	void dump_interval(FILE *fp, const std::vector<std::string> & varNames) const;
 	void dump_constant(FILE *fp, const std::vector<std::string> & varNames) const;
+	void output(FILE *fp, const Variables & vars) const;
+
 	void constant(Interval & result) const;									// Return the constant part of the expansion.
+	void constant(Real & result) const;
 
 	void intEval(Interval & result, const std::vector<Interval> & domain) const;
 	void intEvalNormal(Interval & result, const std::vector<Interval> & step_exp_table) const;
@@ -47,8 +81,6 @@ public:
 	void inv(TaylorModel & result) const;									// additive inverse
 	void inv_assign();
 
-	void add(TaylorModel & result, const TaylorModel & tm) const;			// addition
-	void sub(TaylorModel & result, const TaylorModel & tm) const;			// subtraction
 	void add_assign(const TaylorModel & tm);
 	void sub_assign(const TaylorModel & tm);
 
@@ -136,10 +168,34 @@ public:
 	void log_taylor(TaylorModel & result, std::list<Interval> & ranges, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
 	void sqrt_taylor(TaylorModel & result, std::list<Interval> & ranges, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
 
+	void exp_taylor(TaylorModel & result, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
+	void rec_taylor(TaylorModel & result, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
+	void sin_taylor(TaylorModel & result, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
+	void cos_taylor(TaylorModel & result, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
+	void log_taylor(TaylorModel & result, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
+	void sqrt_taylor(TaylorModel & result, const std::vector<Interval> & step_exp_table, const int numVars, const int order, const Interval & cutoff_threshold) const;
+
+
+	// ================== API ==================
+	void exp_taylor(TaylorModel & result, const int order, const Taylor_Model_Computation_Setting & setting) const;
+	void rec_taylor(TaylorModel & result, const int order, const Taylor_Model_Computation_Setting & setting) const;
+	void sin_taylor(TaylorModel & result, const int order, const Taylor_Model_Computation_Setting & setting) const;
+	void cos_taylor(TaylorModel & result, const int order, const Taylor_Model_Computation_Setting & setting) const;
+	void log_taylor(TaylorModel & result, const int order, const Taylor_Model_Computation_Setting & setting) const;
+	void sqrt_taylor(TaylorModel & result, const int order, const Taylor_Model_Computation_Setting & setting) const;
+
+	void add(TaylorModel & result, const TaylorModel & tm) const;			// addition
+	void sub(TaylorModel & result, const TaylorModel & tm) const;			// subtraction
+	void mul(TaylorModel & result, const TaylorModel & tm, const int order, const Taylor_Model_Computation_Setting & setting) const;
+	void intEval(Interval & result, const Taylor_Model_Computation_Setting & setting) const;
+	// =========================================
+
+
 	Interval getRemainder() const;
 	void getExpansion(Polynomial & P) const;
 
 	void extend(const int num);
+	void extend();
 
 	void substitute(TaylorModel & result, const std::vector<int> & varIDs, const std::vector<Interval> & intVals) const;
 	void substitute_with_precond(const std::vector<bool> & substitution, const std::vector<Interval> & step_exp_table);
@@ -172,6 +228,8 @@ public:
 	TaylorModelVec(const std::vector<std::vector<Interval> > & coefficients);
 	TaylorModelVec(const std::vector<std::vector<Interval> > & coefficients, const std::vector<Interval> & remainders);
 	TaylorModelVec(const std::vector<Interval> & intVec, std::vector<Interval> & domain);
+	TaylorModelVec(iMatrix & box, std::vector<Interval> & domain);
+	TaylorModelVec(const int dim);
 	TaylorModelVec(const TaylorModelVec & tmv);
 	~TaylorModelVec();
 
@@ -261,6 +319,7 @@ public:
 	void Remainder(iMatrix & rem) const;
 
 	void extend(const int num);
+	void extend();
 
 	void get_lti_matrices(iMatrix & A, iMatrix & B) const;
 	void get_ltv_matrices(upMatrix & A, upMatrix & B) const;
@@ -312,6 +371,16 @@ public:
 	void Picard_non_polynomial_taylor_only_remainder(std::vector<Interval> & result, const TaylorModelVec & x0, const std::vector<std::string> & strOde, const Interval & timeStep, const int order, const std::vector<bool> & constant) const;
 	void Picard_non_polynomial_taylor_only_remainder(std::vector<Interval> & result, const TaylorModelVec & x0, const std::vector<std::string> & strOde, const Interval & timeStep, const std::vector<int> & orders, const std::vector<bool> & constant) const;
 
+	// ================ Picard operation for the new expression data structure ================
+
+	void Picard_trunc_no_remainder(TaylorModelVec & result, const TaylorModelVec & x0, const std::vector<Expression_AST> & ode, const int numVars, const int order, const Interval & cutoff_threshold, const std::vector<bool> & constant, const std::vector<Interval> & constant_part) const;
+	void Picard_trunc_no_remainder_assign(const TaylorModelVec & x0, const std::vector<Expression_AST> & ode, const int numVars, const int order, const Interval & cutoff_threshold, const std::vector<bool> & constant, const std::vector<Interval> & constant_part);
+	void Picard_ctrunc_normal(TaylorModelVec & result, const TaylorModelVec & x0, const std::vector<Expression_AST> & ode, const std::vector<Interval> & step_exp_table, const int order, const int numVars, const Interval & cutoff_threshold, const std::vector<bool> & constant, const std::vector<Interval> & constant_part, std::list<Interval> & intermediate_ranges) const;
+	void Picard_ctrunc_normal_remainder(std::vector<Interval> & result, const TaylorModelVec & x0, const std::vector<Expression_AST> & ode, const Interval & timeStep, const int order, const std::vector<bool> & constant, std::list<Interval> & intermediate_ranges) const;
+
+	// ========================================================================================
+
+
 	void normalize(std::vector<Interval> & domain);		// we assume that the original domain is full-dimensional
 
 	void polyRange(std::vector<Interval> & result, const std::vector<Interval> & domain) const;
@@ -322,6 +391,8 @@ public:
 	void substitute_with_precond(const std::vector<bool> & substitution, const std::vector<Interval> & step_exp_table);
 	void substitute_with_precond(const std::vector<std::vector<bool> > & substitution, const std::vector<Interval> & step_exp_table);
 	void substitute_with_precond_no_remainder(const std::vector<bool> & substitution);
+
+	void get_samples(rMatrix & samples) const;	// the domain is assumed to be normalized to [-1,1]
 
 	TaylorModelVec & operator = (const TaylorModelVec & tmv);
 };
@@ -373,6 +444,15 @@ void sin_taylor_remainder(Interval & result, const Interval & C, const Interval 
 void cos_taylor_remainder(Interval & result, const Interval & C, const Interval & tmRange, const int order);
 void log_taylor_remainder(Interval & result, const Interval & tmRange, const int order);
 void sqrt_taylor_remainder(Interval & result, const Interval & tmRange, const int order);
+
+
+void exp_taylor_remainder_external(Interval & result, const Interval & tmRange, const int order);
+void rec_taylor_remainder_external(Interval & result, const Interval & tmRange, const int order);
+void sin_taylor_remainder_external(Interval & result, const Interval & C, const Interval & tmRange, const int order);
+void cos_taylor_remainder_external(Interval & result, const Interval & C, const Interval & tmRange, const int order);
+void log_taylor_remainder_external(Interval & result, const Interval & tmRange, const int order);
+void sqrt_taylor_remainder_external(Interval & result, const Interval & tmRange, const int order);
+
 
 void exp_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const int order);
 void rec_taylor_only_remainder(Interval & result, const Interval & remainder, std::list<Interval>::iterator & iterRange, const int order);

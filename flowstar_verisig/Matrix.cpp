@@ -12,6 +12,11 @@
 
 using namespace flowstar;
 
+namespace flowstar
+{
+MatrixParseSetting matrixParseSetting;
+}
+
 Matrix::Matrix()
 {
 	data = NULL;
@@ -951,6 +956,20 @@ rMatrix::rMatrix(const int n)
 	}
 }
 
+rMatrix::rMatrix(const iMatrix & int_matrix)
+{
+	size1 = int_matrix.size1;
+	size2 = int_matrix.size2;
+
+	int size_total = size1 * size2;
+	data = new Real[size_total];
+
+	for(int i=0; i<size_total; ++i)
+	{
+		int_matrix.data[i].midpoint(data[i]);
+	}
+}
+
 rMatrix::rMatrix(const rMatrix & rmatrix)
 {
 	size1 = rmatrix.size1;
@@ -974,6 +993,23 @@ int rMatrix::rows() const
 int rMatrix::cols() const
 {
 	return size2;
+}
+
+double rMatrix::mag() const
+{
+	int size_total = size1 * size2;
+
+	double max = 0;
+	for(int i=0; i<size_total; ++i)
+	{
+		double tmp = data[i].abs();
+		if(max < tmp)
+		{
+			max = tmp;
+		}
+	}
+
+	return max;
 }
 
 void rMatrix::abs(rMatrix & result) const
@@ -1225,7 +1261,36 @@ rMatrix & rMatrix::operator *= (const rMatrix & B)
 	*this = result;
 	return *this;
 }
+/*
+rMatrix & rMatrix::operator *= (const iMatrix & B)
+{
+	if(size2 != B.size1)
+	{
+		printf("Real matrix multiplication: Dimensions do not match.\n");
+		exit(1);
+	}
 
+	rMatrix result(size1, B.size2);
+
+	for(int i=0; i<size1; ++i)
+	{
+		for(int j=0; j<B.size2; ++j)
+		{
+			Real tmp;
+
+			for(int p=0; p<size2; ++p)
+			{
+				tmp += data[i*size2 + p] * B.data[p*B.size2 + j];
+			}
+
+			result.data[i*B.size2 + j] = tmp;
+		}
+	}
+
+	*this = result;
+	return *this;
+}
+*/
 rMatrix rMatrix::operator + (const rMatrix & B) const
 {
 	rMatrix result = *this;
@@ -1262,6 +1327,62 @@ rMatrix rMatrix::operator * (const rMatrix & B) const
 			}
 
 			result.data[i*B.size2 + j] = tmp;
+		}
+	}
+
+	return result;
+}
+
+iMatrix rMatrix::operator * (const iMatrix & B) const
+{
+	if(size2 != B.size1)
+	{
+		printf("Real matrix multiplication: Dimensions do not match.\n");
+		exit(1);
+	}
+
+	iMatrix result(size1, B.size2);
+
+	for(int i=0; i<size1; ++i)
+	{
+		for(int j=0; j<B.size2; ++j)
+		{
+			Interval I;
+
+			for(int p=0; p<size2; ++p)
+			{
+				I += data[i*size2 + p] * B.data[p*B.size2 + j];
+			}
+
+			result.data[i*B.size2 + j] = I;
+		}
+	}
+
+	return result;
+}
+
+upMatrix rMatrix::operator * (const upMatrix & B) const
+{
+	if(size2 != B.size1)
+	{
+		printf("Real matrix multiplication: Dimensions do not match.\n");
+		exit(1);
+	}
+
+	upMatrix result(size1, B.size2);
+
+	for(int i=0; i<size1; ++i)
+	{
+		for(int j=0; j<B.size2; ++j)
+		{
+			UnivariatePolynomial unipoly;
+
+			for(int p=0; p<size2; ++p)
+			{
+				unipoly += B.data[p*B.size2 + j] * data[i*size2 + p];
+			}
+
+			result.data[i*B.size2 + j] = unipoly;
 		}
 	}
 
@@ -1403,6 +1524,28 @@ iMatrix::iMatrix(const std::vector<Interval> & box)
 	for(int i=0; i<size1; ++i)
 	{
 		data[i] = box[i];
+	}
+}
+
+iMatrix::iMatrix(const std::string & matlab_format)
+{
+	std::string prefix(str_prefix_matrix);
+	std::string suffix(str_suffix);
+
+	matrixParseSetting.strExpression = prefix + matlab_format + suffix;
+
+	parse_Matrix();
+
+	size1 = matrixParseSetting.result.size1;
+	size2 = matrixParseSetting.result.size2;
+
+	int size_total = size1 * size2;
+	data = new Interval[size_total];
+
+	for(int i=0; i<size_total; ++i)
+	{
+		Interval I(matrixParseSetting.result.data[i]);
+		data[i] = I;
 	}
 }
 
@@ -1581,6 +1724,32 @@ void iMatrix::center()
 	}
 }
 
+void iMatrix::bloat(const double e)
+{
+	int size_total = size1 * size2;
+
+	for(int i=0; i<size_total; ++i)
+	{
+		data[i].bloat(e);
+	}
+}
+
+double iMatrix::width() const
+{
+	int size_total = size1 * size2;
+	double max_width = 0;
+
+	for(int i=0; i<size_total; ++i)
+	{
+		double w = data[i].width();
+
+		if(w > max_width)
+			max_width = w;
+	}
+
+	return max_width;
+}
+
 void iMatrix::linearTrans(std::vector<Polynomial> & result, const std::vector<Polynomial> & polyVec) const
 {
 	if(size2 != polyVec.size())
@@ -1651,6 +1820,26 @@ void iMatrix::output(FILE *fp) const
 		{
 			data[i*size2 + j].dump(fp);
 			fprintf(fp, "\t");
+		}
+
+		fprintf(fp, "\n");
+	}
+}
+
+void iMatrix::output_by_line(FILE *fp) const
+{
+	Interval intZero;
+
+	for(int i=0; i<size1; ++i)
+	{
+		for(int j=0; j<size2; ++j)
+		{
+			if(!data[i*size2 + j].subseteq(intZero))
+			{
+				fprintf(fp, "A[%d][%d] = ", i, j);
+				data[i*size2 + j].output_midpoint(fp, 21);
+				fprintf(fp, ";\n");
+			}
 		}
 
 		fprintf(fp, "\n");
@@ -2473,6 +2662,20 @@ upMatrix::upMatrix(const int n)
 	data = new UnivariatePolynomial[n * n];
 }
 
+upMatrix::upMatrix(const rMatrix & A)
+{
+	size1 = A.size1;
+	size2 = A.size2;
+
+	int size_total = size1 * size2;
+	data = new UnivariatePolynomial[size_total];
+
+	for(int i=0; i<size_total; ++i)
+	{
+		data[i] = A.data[i];
+	}
+}
+
 upMatrix::upMatrix(const iMatrix & A)
 {
 	size1 = A.size1;
@@ -2525,6 +2728,22 @@ int upMatrix::rows() const
 int upMatrix::cols() const
 {
 	return size2;
+}
+
+double iMatrix2::width() const
+{
+	int size_total = radius.size1 * radius.size2;
+	double max_width = 0;
+
+	for(int i=0; i<size_total; ++i)
+	{
+		double w = radius.data[i].abs();
+
+		if(w > max_width)
+			max_width = w;
+	}
+
+	return max_width;
 }
 
 bool upMatrix::isZero() const
@@ -2793,6 +3012,16 @@ void upMatrix::nctrunc(const int order)
 	for(int i=0; i<size_total; ++i)
 	{
 		data[i].nctrunc(order);
+	}
+}
+
+void upMatrix::round(iMatrix & remainder, const Interval & val)
+{
+	int size_total = size1 * size2;
+
+	for(int i=0; i<size_total; ++i)
+	{
+		data[i].round(remainder.data[i], val);
 	}
 }
 
@@ -3119,6 +3348,34 @@ upMatrix upMatrix::operator * (const upMatrix & upm) const
 	return result;
 }
 
+upMatrix upMatrix::operator * (const rMatrix & A) const
+{
+	if(size2 != A.size1)
+	{
+		printf("Univariate polynomial multiplication: Dimensions do not match.\n");
+		exit(1);
+	}
+
+	upMatrix result(size1, A.size2);
+
+	for(int i=0; i<size1; ++i)
+	{
+		for(int j=0; j<A.size2; ++j)
+		{
+			UnivariatePolynomial tmp;
+
+			for(int p=0; p<size2; ++p)
+			{
+				tmp += data[i*size2 + p] * A.data[p*A.size2 + j];
+			}
+
+			result.data[i*A.size2 + j] = tmp;
+		}
+	}
+
+	return result;
+}
+
 upMatrix upMatrix::operator * (const iMatrix & A) const
 {
 	if(size2 != A.size1)
@@ -3243,6 +3500,27 @@ upMatrix & upMatrix::operator = (const upMatrix & upm)
 	return *this;
 }
 
+void upMatrix::evaluate(const std::vector<Interval> & val_exp_table)
+{
+	int size_total = size1 * size2;
+
+	for(int i=0; i<size_total; ++i)
+	{
+		Interval I = data[i].intEval(val_exp_table);
+		data[i] = I;
+	}
+}
+
+void upMatrix::evaluate(const Interval & val)
+{
+	int size_total = size1 * size2;
+
+	for(int i=0; i<size_total; ++i)
+	{
+		Interval I = data[i].intEval(val);
+		data[i] = I;
+	}
+}
 
 
 
@@ -3414,6 +3692,39 @@ mpMatrix & mpMatrix::operator = (const mpMatrix & mpm)
 
 	return *this;
 }
+
+
+
+
+
+MatrixParseSetting::MatrixParseSetting()
+{
+}
+
+MatrixParseSetting::MatrixParseSetting(const MatrixParseSetting & setting)
+{
+	strExpression = setting.strExpression;
+	result = setting.result;
+}
+
+MatrixParseSetting::~MatrixParseSetting()
+{
+}
+
+MatrixParseSetting & MatrixParseSetting::operator = (const MatrixParseSetting & setting)
+{
+	if(this == &setting)
+		return *this;
+
+	strExpression = setting.strExpression;
+	result = setting.result;
+
+	return *this;
+}
+
+
+
+
 
 namespace flowstar
 {

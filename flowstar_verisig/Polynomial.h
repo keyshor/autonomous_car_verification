@@ -25,6 +25,55 @@ extern std::vector<Interval> factorial_rec;
 extern std::vector<Interval> power_4;
 extern std::vector<Interval> double_factorial;
 
+
+class Variables
+{
+public:
+	std::map<std::string,int> varTab;
+	std::vector<std::string> varNames;
+
+public:
+	Variables();
+	~Variables();
+	Variables(const Variables & variables);
+
+	Variables & operator = (const Variables & variables);
+
+	bool declareVar(const std::string & vName);
+	int getIDForVar(const std::string & vName) const;
+	bool getVarName(std::string & vName, const int id) const;
+	int size() const;
+
+	void clear();
+};
+
+class Parameters
+{
+public:
+	std::map<std::string,int> parTab;
+	std::vector<std::string> parNames;
+	std::vector<Interval> parValues;
+
+public:
+	Parameters();
+	~Parameters();
+	Parameters(const Parameters & parameters);
+
+	bool declarePar(const std::string & pName, const Interval & value);
+	int getIDForPar(const std::string & pName) const;
+
+	bool getParName(std::string & pName, const int id) const;
+
+	bool getParValue(Interval & pValue, const std::string & pName) const;
+	bool getParValue(Interval & pValue, const int id) const;
+
+	Parameters & operator = (const Parameters & parameters);
+
+	int size() const;
+	void clear();
+};
+
+
 class RangeTree
 {
 public:
@@ -84,7 +133,7 @@ public:
 
 class Polynomial				// polynomials in monomial form
 {
-protected:
+public:
 	std::list<Monomial> monomials;
 public:
 	Polynomial();														// empty polynomial
@@ -99,6 +148,8 @@ public:
 	Polynomial(const Polynomial & polynomial);
 	virtual ~Polynomial();
 
+	Polynomial(const std::string & strPolynomial, const Variables & vars);
+
 	void reorder();														// sort the monomials.
 	void clear();
 
@@ -106,6 +157,7 @@ public:
 	void dump_constant(FILE *fp, const std::vector<std::string> & varNames) const;
 
 	void constant(Interval & result) const;											// constant part of the polynomial
+	void constant(Real & result) const;
 
 	void intEval(Interval & result, const std::vector<Interval> & domain) const;	// interval evaluation of the polynomial
 	void intEvalNormal(Interval & result, const std::vector<Interval> & step_exp_table) const;	// fast evaluation over normalized domain
@@ -200,7 +252,8 @@ public:
 
 	void evaluate_t(Polynomial & result, const std::vector<Interval> & step_exp_table) const;
 
-	void extend(const int num);		// current dim -> num
+	void extend(const int num);		// current dim -> dim + num
+	void extend();					// current dim -> dim + 1
 
 	void insert(TaylorModel & result, const TaylorModelVec & vars, const std::vector<Interval> & varsPolyRange, const std::vector<Interval> & domain, const Interval & cutoff_threshold) const;
 	void insert_normal(TaylorModel & result, const TaylorModelVec & vars, const std::vector<Interval> & varsPolyRange, const std::vector<Interval> & step_exp_table, const int numVars, const Interval & cutoff_threshold) const;
@@ -222,6 +275,7 @@ public:
 	UnivariatePolynomial();
 	UnivariatePolynomial(const std::vector<Interval> & coeffs);
 	UnivariatePolynomial(const UnivariatePolynomial & polynomial);
+	UnivariatePolynomial(const Real & r);
 	UnivariatePolynomial(const Interval & I);
 	UnivariatePolynomial(const double c);
 	UnivariatePolynomial(const double c, const int d);
@@ -230,6 +284,7 @@ public:
 	~UnivariatePolynomial();
 
 	void set2zero();
+	void round(Interval & remainder, const Interval & val);
 	int degree() const;
 
 	bool isZero() const;
@@ -263,6 +318,7 @@ public:
 	void output(FILE *fp) const;
 
 	UnivariatePolynomial & operator = (const UnivariatePolynomial & polynomial);
+	UnivariatePolynomial & operator = (const Real & r);
 	UnivariatePolynomial & operator = (const Interval & I);
 
 	UnivariatePolynomial & operator += (const UnivariatePolynomial & polynomial);
@@ -285,10 +341,30 @@ public:
 	UnivariatePolynomial operator * (const Interval & I) const;
 	UnivariatePolynomial operator / (const Interval & I) const;
 
+	UnivariatePolynomial operator * (const Real & r) const;
+
 	friend class Polynomial;
 	friend class TaylorModel;
 	friend class TaylorModelVec;
 	friend class upMatrix;
+};
+
+
+class ParsePolynomial
+{
+public:
+	std::string strPolynomial;
+	Variables variables;
+	Polynomial result;
+
+public:
+	ParsePolynomial();
+	ParsePolynomial(const ParsePolynomial & setting);
+	~ParsePolynomial();
+
+	ParsePolynomial & operator = (const ParsePolynomial & setting);
+
+	void clear();
 };
 
 
@@ -306,8 +382,10 @@ void increaseExpansionOrder(std::vector<HornerForm> & resultHF, std::vector<Poly
 void increaseExpansionOrder(HornerForm & resultHF, Polynomial & resultMF, Polynomial & highest, const Polynomial & taylorExpansion, const std::vector<Polynomial> & ode, const int order);
 
 extern UnivariatePolynomial up_parseresult;
+extern ParsePolynomial parsePolynomial;
 }
 
 void parseUnivariatePolynomial(const std::string & strPolynomial);
+void parseMultivariatePolynomial();
 
 #endif /* POLYNOMIAL_H_ */

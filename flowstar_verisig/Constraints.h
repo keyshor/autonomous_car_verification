@@ -25,6 +25,7 @@ public:
 public:
 	LinearConstraint();
 	LinearConstraint(const std::vector<Interval> & A_input, const Interval & B_input);
+	LinearConstraint(iMatrix & A_input, const Interval & B_input);
 	LinearConstraint(const LinearConstraint & lc);
 	~LinearConstraint();
 
@@ -43,6 +44,7 @@ public:
 	PolynomialConstraint();
 	PolynomialConstraint(const Polynomial & p_input, const Interval & B_input);
 	PolynomialConstraint(const PolynomialConstraint & pc);
+	PolynomialConstraint(const std::string & strPolynomial, const Variables & vars);
 	~PolynomialConstraint();
 
 	void dump(FILE *fp, const std::vector<std::string> & stateVarNames) const;

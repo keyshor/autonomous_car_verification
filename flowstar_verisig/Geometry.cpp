@@ -722,3 +722,351 @@ Zonotope & Zonotope::operator = (iMatrix2 & box)
 }
 */
 
+
+
+bool Zonotope::belongsto(const std::vector<double> & x)
+{
+	int d = generators.size();
+	int n = x.size();
+	int size = n*d;
+
+	int *rowInd = new int[ 1 + size ];
+	int *colInd = new int[ 1 + size ];
+	double *coes = new double [ 1 + size ];
+
+	glp_term_out(GLP_OFF);
+
+	glp_prob *lp;
+	lp = glp_create_prob();
+	glp_set_obj_dir(lp, GLP_MAX);
+
+	glp_add_rows(lp, n);
+
+	for(int i=1; i<=n; ++i)
+	{
+		double tmp = x[i-1] - center[i-1][0].midpoint();
+		glp_set_row_bnds(lp, i, GLP_FX, tmp, 0.0);
+	}
+
+	glp_add_cols(lp, d);
+	for(int i=1; i<=d; ++i)
+	{
+		glp_set_col_bnds(lp, i, GLP_DB, -1.0, 1.0);
+		glp_set_obj_coef(lp, i, 1.0);
+	}
+
+	for(int i=1; i<=n; ++i)
+	{
+		std::list<iMatrix>::iterator iter = generators.begin();
+		for(int j=1; j<=d; ++j)
+		{
+			int pos = j + (i-1)*d;
+			rowInd[pos] = i;
+			colInd[pos] = j;
+			coes[pos] = (*iter)[i-1][0].midpoint();
+			++iter;
+		}
+	}
+
+	glp_load_matrix(lp, size, rowInd, colInd, coes);
+	glp_simplex(lp, NULL);
+
+	int status = glp_get_status(lp);
+
+	glp_delete_prob(lp);
+	delete[] rowInd;
+	delete[] colInd;
+	delete[] coes;
+
+	if(status == GLP_OPT || status == GLP_FEAS)
+	{
+		return true;
+	}
+	else
+	{
+		return false;
+	}
+}
+
+int Zonotope::contract(const LinearConstraint & constraint)
+{
+	int rangeDim = center.rows();
+	int domainDim = generators.size();
+
+	std::vector<Polynomial> polynomials;
+	toPolynomial(polynomials);
+
+	std::vector<Interval> domain;
+	Interval intUnit(-1,1);
+	for(int i=0; i<domainDim; ++i)
+	{
+		domain.push_back(intUnit);
+	}
+
+	Polynomial obj;
+	for(int i=0; i<constraint.A.size(); ++i)
+	{
+		Polynomial polyTemp = polynomials[i];
+		polyTemp.mul_assign(constraint.A[i]);
+		obj += polyTemp;
+	}
+
+	HornerForm obj_hf;
+	obj.toHornerForm(obj_hf);
+
+
+	bool bvalid = true;
+	bool bcontinue = true;
+	Interval W;
+	Interval intZero;
+
+	for(; bcontinue; )
+	{
+		std::vector<Interval> oldDomain = domain;
+
+		// contract the domain
+		for(int i=0; i<domainDim; ++i)
+		{
+			Interval newInt = domain[i];
+
+			newInt.width(W);
+
+			// search an approximation for the lower bound
+			for(; W >= DC_THRESHOLD_SEARCH;)
+			{
+				Interval intLeft;
+				Interval intRight;
+				newInt.split(intLeft, intRight);
+
+				std::vector<Interval> newDomain = domain;
+				newDomain[i] = intLeft;
+
+				Interval intTemp;
+				obj_hf.intEval(intTemp, newDomain);
+
+				if(intTemp > constraint.B)
+				{
+					// no intersection on the left half
+					newInt = intRight;
+					newInt.width(W);
+					break;
+				}
+				else if(intTemp.smallereq(constraint.B))
+				{
+					// do not need to apply domain contraction w.r.t. the current constraint
+					newInt = intLeft;
+					newInt.width(W);
+				}
+				else
+				{
+					// refine the interval
+					newInt = intLeft;
+					newInt.width(W);
+				}
+			}
+
+
+			// set the lower bound
+			Interval Inf;
+			newInt.inf(Inf);
+			domain[i].setInf(Inf);
+
+			newInt = domain[i];
+
+			newInt.width(W);
+
+			// search an approximation for the upper bound
+			for(; W >= DC_THRESHOLD_SEARCH;)
+			{
+				Interval intLeft;
+				Interval intRight;
+				newInt.split(intLeft, intRight);
+
+				std::vector<Interval> newDomain = domain;
+				newDomain[i] = intRight;
+
+				Interval intTemp;
+				obj_hf.intEval(intTemp, newDomain);
+
+				if(intTemp > constraint.B)
+				{
+					// no intersection on the right half
+					newInt = intLeft;
+					newInt.width(W);
+					break;
+				}
+				else if(intTemp.smallereq(constraint.B))
+				{
+					// do not need to apply domain contraction w.r.t. the current constraint
+					newInt = intRight;
+					newInt.width(W);
+				}
+				else
+				{
+					// refine the interval
+					newInt = intRight;
+					newInt.width(W);
+				}
+			}
+
+			Interval Sup;
+			newInt.sup(Sup);
+			domain[i].setSup(Sup);	// set the upper bound
+
+			if(!domain[i].valid())
+			{
+				bvalid = false;
+				break;
+			}
+		}
+
+		if(!bvalid)
+		{
+			break;
+		}
+
+		bcontinue = false;
+		for(int i=0; i<domainDim; ++i)
+		{
+			if(oldDomain[i].widthRatio(domain[i]) <= DC_THRESHOLD_IMPROV)
+			{
+				bcontinue = true;
+				break;
+			}
+		}
+	}
+
+	if(!bvalid)
+	{
+		return -1;
+	}
+	else
+	{
+		// compute the contracted zonotope
+
+		for(int i=0; i<rangeDim; ++i)
+		{
+			std::list<iMatrix>::iterator iter = generators.begin();
+			for(int j=0; j<domain.size(); ++j)
+			{
+				Interval M;
+				domain[j].remove_midpoint(M);
+
+				center[i][0] += (*iter)[i][0] * M;
+
+				(*iter)[i][0] *= domain[j].sup();
+
+				++iter;
+			}
+		}
+
+		return 1;
+	}
+}
+
+void Zonotope::toPolynomial(std::vector<Polynomial> & result)
+{
+	int rangeDim = center.rows();
+	int domainDim = generators.size();
+
+	Interval intZero;
+
+	result.clear();
+
+	for(int i=0; i<rangeDim; ++i)
+	{
+		std::vector<Interval> coefficients;
+
+		std::list<iMatrix>::iterator iter = generators.begin();
+
+		for(; iter != generators.end(); ++iter)
+		{
+			coefficients.push_back((*iter)[i][0]);
+		}
+
+		Polynomial polyTemp(coefficients);
+		Polynomial constant(center[i][0], domainDim);
+
+		result.push_back(polyTemp + constant);
+	}
+}
+
+void Zonotope::to2DBox(iMatrix & box, const int x, const int y)
+{
+	std::list<iMatrix>::iterator iter = generators.begin();
+
+	double radius_x = 0, radius_y = 0;
+
+	for(; iter != generators.end(); ++iter)
+	{
+		radius_x += (*iter)[x][0].mag();
+		radius_y += (*iter)[y][0].mag();
+	}
+
+	double center_x = center[x][0].midpoint();
+	double center_y = center[y][0].midpoint();
+
+	Interval int_x(center_x - radius_x, center_x + radius_x);
+	box[0][0] = int_x;
+
+	Interval int_y(center_y - radius_y, center_y + radius_y);
+	box[1][0] = int_y;
+}
+
+void Zonotope::intervalRange(Interval & range, const int x)
+{
+	double c = center[x][0].midpoint();
+	double r = 0;
+
+	std::list<iMatrix>::iterator iter = generators.begin();
+	for(; iter != generators.end(); ++iter)
+	{
+		r += (*iter)[x][0].mag();
+	}
+
+	range.setSup(c + r);
+	range.setInf(c - r);
+}
+
+void Zonotope::plot(FILE *fp, const int x, const int y)
+{
+/*
+	// use CORA 2016 to plot the exact zonotope
+
+	fprintf(fp, "Z = zonotope([ ");
+
+	fprintf(fp, "%e ", center[x][0].midpoint());
+
+	std::list<iMatrix>::iterator iter = generators.begin();
+
+	for(; iter != generators.end(); ++iter)
+	{
+		fprintf(fp, "%e ", (*iter)[x][0].midpoint());
+	}
+
+	fprintf(fp, "; ");
+
+	fprintf(fp, "%e ", center[y][0].midpoint());
+
+	iter = generators.begin();
+
+	for(; iter != generators.end(); ++iter)
+	{
+		fprintf(fp, "%e ", (*iter)[y][0].midpoint());
+	}
+
+	fprintf(fp, "; ");
+
+	fprintf(fp, " ]);\nplot(Z);\nhold on;\n");
+*/
+
+
+
+	iMatrix box(2,1);
+	to2DBox(box, x, y);
+
+	fprintf(fp,"plot( [%e,%e,%e,%e,%e] , [%e,%e,%e,%e,%e] , 'color' , 'b');\nhold on;\nclear;\n",
+			box[0][0].inf(), box[0][0].sup(), box[0][0].sup(), box[0][0].inf(), box[0][0].inf(), box[1][0].inf(),
+			box[1][0].inf(), box[1][0].sup(), box[1][0].sup(), box[1][0].inf());
+
+}
