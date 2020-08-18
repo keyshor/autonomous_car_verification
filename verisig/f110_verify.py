@@ -157,7 +157,7 @@ def writeControllerJumps(stream, numRays, dynamics):
 
         # lidar ray detected wall
         stream.write('\t\t' + start_mode + ' -> ' + thresh_mode + '\n')
-        stream.write('\t\tguard { clock = 0 f' + str(i+1) + ' > '
+        stream.write('\t\tguard { clock = 0 f' + str(i+1) + ' >= '
                      + str(CONTROLLER_THRESH) + ' }\n')
         stream.write('\t\treset { ')
         stream.write('f{}\' := 1 '.format(i+1))
