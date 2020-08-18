@@ -1,5 +1,6 @@
 '''
-Copyright (C) 2019 Radoslav Ivanov, Taylor J Carpenter, James Weimer, Rajeev Alur, George J. Pappa, Insup Lee
+Copyright (C) 2019 Radoslav Ivanov, Taylor J Carpenter, James Weimer,
+                   Rajeev Alur, George J. Pappa, Insup Lee
 
 This file is part of Verisig.
 
@@ -19,9 +20,10 @@ This is a python prototype of the tool Verisig, specifically written
 to handle the F1/10 case study, which does not fit the SpaceEx format
 that the released tool works with.
 
-Example usage:
+Modified for sketch based verification by Kishor Jothimurugan.
 
-python verisig_multi_runner.py ../dnns/TD3_L21_64x64_C1.yml ../plant_models/dynamics_21.pickle ../plant_models/glue_21.pickle
+Example usage:
+    python f110_verify.py 21
 
 '''
 
@@ -30,6 +32,11 @@ import os
 import subprocess
 from subprocess import PIPE
 import sys
+
+CONTROLLER_THRESH = 0.005
+P_COEFF = 5
+D_COEFF = 0.6
+PD_COEFF = P_COEFF + D_COEFF
 
 
 def writeControllerModes(stream, numRays, dynamics):
@@ -40,9 +47,13 @@ def writeControllerModes(stream, numRays, dynamics):
     # Ouput mode
     writeOneMode(stream, 1, numRays, dynamics)
 
+    # Intermediate modes for computing error function
+    for i in range(numRays):
+        writeOneMode(stream, i+1, numRays, dynamics, name='_thresh')
+
 
 def writeOneMode(stream, modeIndex, numStates, dynamics, name=''):
-    stream.write('\t\t' + name + 'm' + str(modeIndex) + '\n')
+    stream.write('\t\t' + 'm' + name + str(modeIndex) + '\n')
     stream.write('\t\t{\n')
     stream.write('\t\t\tnonpoly ode\n')
     stream.write('\t\t\t{\n')
@@ -62,6 +73,7 @@ def writeOneMode(stream, modeIndex, numStates, dynamics, name=''):
             if sysState != 'clock':
                 stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
+    stream.write('\t\t\t\tprevErr\' = 0\n')
     stream.write('\t\t\t\tclock\' = 1\n')
     stream.write('\t\t\t}\n')
 
@@ -101,6 +113,7 @@ def writePlantModes(stream, plant, numRays, numNeurLayers):
             if fName not in plant[modeId]['dynamics']:
                 stream.write('\t\t\t\t' + fName + '\' = 0\n')
 
+        stream.write('\t\t\t\tprevErr\' = 0\n')
         stream.write('\t\t\t\tclock\' = 1\n')
         stream.write('\t\t\t}\n')
         stream.write('\t\t\tinv\n')
@@ -124,23 +137,63 @@ def writePlantModes(stream, plant, numRays, numNeurLayers):
 
 def writeControllerJumps(stream, numRays, dynamics):
 
-    # jump from m0 to DNN-----------------------------------------------------
-    writeConstantControllerJump(stream, 'm0', 'm1', numRays, dynamics)
+    for i in range(numRays):
+        if i == 0:
+            start_mode = 'm0'
+        else:
+            start_mode = 'm_thresh{}'.format(i)
+
+        thresh_mode = 'm_thresh{}'.format(i+1)
+
+        # lidar ray did not detect wall
+        stream.write('\t\t' + start_mode + ' -> ' + thresh_mode + '\n')
+        stream.write('\t\tguard { clock = 0 f' + str(i+1) + ' <= '
+                     + str(CONTROLLER_THRESH) + ' }\n')
+        stream.write('\t\treset { ')
+        stream.write('f{}\' := 0 '.format(i+1))
+        stream.write('clock\' := 0')
+        stream.write('}\n')
+        stream.write('\t\tinterval aggregation\n')
+
+        # lidar ray detected wall
+        stream.write('\t\t' + start_mode + ' -> ' + thresh_mode + '\n')
+        stream.write('\t\tguard { clock = 0 f' + str(i+1) + ' > '
+                     + str(CONTROLLER_THRESH) + ' }\n')
+        stream.write('\t\treset { ')
+        stream.write('f{}\' := 1 '.format(i+1))
+        stream.write('clock\' := 0')
+        stream.write('}\n')
+        stream.write('\t\tinterval aggregation\n')
+
+    # Final controll updates
+    # Compute control input and store in f1
+    # Store error function value in prevErr
+    right_sum = '(f1'
+    for i in range(1, numRays//2):
+        right_sum += ' + f{}'.format(i+1)
+    right_sum += ')'
+    left_sum = '(f{}'.format((numRays//2)+1)
+    for i in range((numRays//2)+2, numRays):
+        left_sum += ' + f{}'.format(i+1)
+    left_sum += ')'
+    err_expr = '(' + left_sum + ' - ' + right_sum + ')'
+    result_expr = str(PD_COEFF) + '*' + err_expr + ' - ' + str(D_COEFF) + '*prevErr'
+
+    stream.write('\t\tm_thresh{} -> m1\n'.format(numRays))
+    stream.write('\t\tguard { clock = 0 }\n')
+    stream.write('\t\treset { ')
+    stream.write('f1\' := ' + result_expr + ' ')
+    stream.write('prevErr\' := ' + err_expr + ' ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
 
 
-def writeConstantControllerJump(stream, curModeName, nextModeName, numRays, dynamics):
+def writeConstantControllerJump(stream, curModeName, nextModeName):
 
     stream.write('\t\t' + curModeName + ' -> ' + nextModeName + '\n')
-
     stream.write('\t\tguard { clock = 0 }\n')
-
     stream.write('\t\treset { ')
-    stream.write('f1\' := ' + str(0.5) + ' ')
-
-    # not resetting plant states in dnn jumps anymore since they might overlap
-    # for sysState in dynamics:
-    #     stream.write(str(sysState) +'\' := ' + str(sysState) + ' ')
-
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
@@ -303,14 +356,7 @@ def getInputLBUB(state, bounds, weights, offsets):
 
 '''
 1. initProps is a list of properties written in strings that can be parsed by Flow*
-  -- assumes the states are given as 'xi'
-2. dnn is a dictionary such that:
-  -- key 'weights' is a dictionary mapping layer index
-     to a MxN-dimensional list of weights
-  -- key 'offsets'  is a dictionary mapping layer index
-     to a list of offsets per neuron in that layer
-  -- key 'activations' is a dictionary mapping layer index
-     to the layer activation function type
+2. numRays is the number of Lidar rays in the plant model.
 3. plant is a dictionary such that:
   -- Each dictionary key is a mode id that maps to a dictionary such that:
     -- key 'dynamics' maps to a dictionary of the dynamics of each var in that mode such that:
@@ -363,6 +409,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
         for i in range(numRays):
             stream.write('f' + str(i + 1) + ', ')
 
+        stream.write('prevErr, ')
         stream.write('clock\n\n')
 
         # settings---------------------------------------------------------------------------------
@@ -378,9 +425,9 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
         stream.write('\t\tfixed orders 4\n')
         stream.write('\t\tcutoff 1e-12\n')
         stream.write('\t\tprecision 100\n')
-        stream.write('\t\toutput autosig\n')
+        stream.write('\t\toutput {}\n'.format(os.path.basename(filename[:-6])))
         stream.write('\t\tmax jumps ' + str((1 + 2 + 10 +
-                                             5 * numRays) * numSteps) + '\n')  # F1/10 case study
+                                             6 * numRays) * numSteps) + '\n')  # F1/10 case study
         stream.write('\t\tprint on\n')
         stream.write('\t}\n\n')
 
@@ -437,7 +484,10 @@ def main(argv):
     numSteps = 70
 
     # F1/10 (HSCC)
-    safetyProps = 'unsafe\n{\tcont_m2\n\t{\n\t\ty1 <= 0.3\n\n\t}\n\tcont_m2\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n\tcont_m2\n\t{\n\t\ty1 >= 1.5\n\t\ty2 >= 1.2\n\n\t}\n\tcont_m2\n\t{\n\t\ty2 <= 0.3\n\n\t}\n}'
+    safetyProps = 'unsafe\n{\tcont_m2\n\t{\n\t\ty1 <= 0.3\n\n\t}\n' \
+        + '\tcont_m2\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
+        + '\tcont_m2\n\t{\n\t\ty1 >= 1.5\n\t\ty2 >= 1.2\n\n\t}\n' \
+        + '\tcont_m2\n\t{\n\t\ty2 <= 0.3\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -462,7 +512,7 @@ def main(argv):
         writeComposedSystem(curModelFile, initProps, numRays,
                             plant, glue, safetyProps, numSteps)
 
-        args = '../flowstar/flowstar' + ' < ' + curModelFile
+        args = '../flowstar_verisig/flowstar' + ' < ' + curModelFile
         _ = subprocess.Popen(args, shell=True, stdin=PIPE)
 
         curLBPos += posOffset

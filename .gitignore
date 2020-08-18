@@ -177,3 +177,5 @@ flowstar/flowstar
 *.model
 *.flow
 *.plt
+outputs/
+*.DS_Store
