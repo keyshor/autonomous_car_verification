@@ -34,8 +34,8 @@ from subprocess import PIPE
 import sys
 
 CONTROLLER_THRESH = 0.005
-P_COEFF = 5
-D_COEFF = 0.6
+P_COEFF = 0.5
+D_COEFF = 0.06
 PD_COEFF = P_COEFF + D_COEFF
 
 
@@ -176,7 +176,7 @@ def writeControllerJumps(stream, numRays, dynamics):
     for i in range((numRays//2)+2, numRays):
         left_sum += ' + f{}'.format(i+1)
     left_sum += ')'
-    err_expr = '(' + right_sum + ' - ' + left_sum + ')'
+    err_expr = '(' + left_sum + ' - ' + right_sum + ')'
     result_expr = str(PD_COEFF) + '*' + err_expr + ' - ' + str(D_COEFF) + '*prevErr'
 
     stream.write('\t\tm_thresh{} -> m1\n'.format(numRays))
