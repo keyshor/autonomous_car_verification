@@ -512,7 +512,7 @@ def main(argv):
         writeComposedSystem(curModelFile, initProps, numRays,
                             plant, glue, safetyProps, numSteps)
 
-        args = '../flowstar_verisig/flowstar' + ' < ' + curModelFile
+        args = '../flowstar/flowstar' + ' < ' + curModelFile
         _ = subprocess.Popen(args, shell=True, stdin=PIPE)
 
         curLBPos += posOffset
