@@ -179,3 +179,4 @@ flowstar/flowstar
 *.plt
 outputs/
 *.DS_Store
+*.eps

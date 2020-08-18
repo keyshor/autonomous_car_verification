@@ -176,7 +176,7 @@ def writeControllerJumps(stream, numRays, dynamics):
     for i in range((numRays//2)+2, numRays):
         left_sum += ' + f{}'.format(i+1)
     left_sum += ')'
-    err_expr = '(' + left_sum + ' - ' + right_sum + ')'
+    err_expr = '(' + right_sum + ' - ' + left_sum + ')'
     result_expr = str(PD_COEFF) + '*' + err_expr + ' - ' + str(D_COEFF) + '*prevErr'
 
     stream.write('\t\tm_thresh{} -> m1\n'.format(numRays))
@@ -500,7 +500,7 @@ def main(argv):
 
     count = 1
 
-    while curLBPos < 0.66:
+    while curLBPos < 0.655:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [9.9, 9.9]', 'y3 in [0, 0]', 'y4 in [0, 0]', 'k in [0, 0]',
