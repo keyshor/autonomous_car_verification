@@ -1,20 +1,38 @@
 from Car import World
 import numpy as np
-import random
-from keras import models
 import matplotlib.pyplot as plt
-import sys
+
 
 def normalize(s):
     mean = [2.5]
     spread = [5.0]
     return (s - mean) / spread
 
-def main(argv):
 
-    input_filename = argv[0]
-    
-    model = models.load_model(input_filename)
+def predict(observation, prevErr):
+    thresh = 0.005
+    pee = 5
+    dee = 0.6
+    err = errorFunc(observation, thresh)
+    result = pee*err + dee*(err - prevErr)
+    return result, err
+
+
+def errorFunc(observation, thresh):
+    mid = len(observation)//2
+    rightView = observation[0:mid]
+    leftView = observation[mid+1:]
+    numRight = sum([int(a > thresh) for a in rightView])
+    numLeft = sum([int(a > thresh) for a in leftView])
+    err = numLeft - numRight
+    return err
+
+
+def main():
+
+    # input_filename = argv[0]
+
+    # model = models.load_model(input_filename)
 
     numTrajectories = 100
 
@@ -28,23 +46,24 @@ def main(argv):
     time_step = 0.1
 
     lidar_field_of_view = 115
-    lidar_num_rays = model.get_layer(index=0).input_shape[1]
+    lidar_num_rays = 21
 
     # Change this to 0.1 or 0.2 to generate Figure 3 or 5 in the paper, respectively
     lidar_noise = 0.2
 
     # Change this to 0 or 5 to generate Figure 3 or 5 in the paper, respectively
-    missing_lidar_rays = 5
+    missing_lidar_rays = 0
 
     num_unsafe = 0
+    prev_err = 0
 
-    w = World(hallWidths, hallLengths, turns,\
-              car_dist_s, car_dist_f, car_heading,\
-              episode_length, time_step, lidar_field_of_view,\
+    w = World(hallWidths, hallLengths, turns,
+              car_dist_s, car_dist_f, car_heading,
+              episode_length, time_step, lidar_field_of_view,
               lidar_num_rays, lidar_noise, missing_lidar_rays, True)
 
     throttle = 16
-    
+
     allX = []
     allY = []
     allR = []
@@ -61,7 +80,8 @@ def main(argv):
 
             observation = normalize(observation)
 
-            delta = 15 * model.predict(observation.reshape(1,len(observation)))
+            delta, prev_err = predict(observation, prev_err)
+            # 15 * model.predict(observation.reshape(1, len(observation)))
 
             observation, reward, done, info = w.step(delta, throttle)
 
@@ -69,7 +89,7 @@ def main(argv):
 
                 if e < episode_length - 1:
                     num_unsafe += 1
-                
+
                 break
 
             rew += reward
@@ -78,21 +98,21 @@ def main(argv):
         allY.append(w.allY)
         allR.append(rew)
 
-
     print(np.mean(allR))
     print('number of crashes: ' + str(num_unsafe))
-    
-    fig = plt.figure(figsize=(12,10))
+
+    plt.figure(figsize=(12, 10))
     w.plotHalls()
-    
-    plt.ylim((-1,11))
-    plt.xlim((-1.75,10.25))
+
+    plt.ylim((-1, 11))
+    plt.xlim((-1.75, 10.25))
     plt.tick_params(labelsize=20)
 
     for i in range(numTrajectories):
         plt.plot(allX[i], allY[i], 'r-')
 
     plt.show()
-    
+
+
 if __name__ == '__main__':
-    main(sys.argv[1:])
+    main()

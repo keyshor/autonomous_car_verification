@@ -309,6 +309,7 @@ def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
     for i in range(numRays):
         stream.write('\t\t\tf' + str(i + 1) + ' in [0, 0]\n')
 
+    stream.write('\t\t\tprevErr in [0, 0]\n')
     stream.write('\t\t\tclock in [0, 0]\n')
     stream.write('\t\t}\n')
     stream.write('\t}\n')
