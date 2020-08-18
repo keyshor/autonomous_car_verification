@@ -34,8 +34,8 @@ from subprocess import PIPE
 import sys
 
 CONTROLLER_THRESH = 0.005
-P_COEFF = 0.5
-D_COEFF = 0.06
+P_COEFF = 5
+D_COEFF = 0.6
 PD_COEFF = P_COEFF + D_COEFF
 
 
