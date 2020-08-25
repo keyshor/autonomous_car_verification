@@ -28,7 +28,6 @@ LIDAR_OFFSET = 12 * np.pi / 180  # in radians
 NUM_RAYS = int(round((2 * LIDAR_RANGE) / LIDAR_OFFSET)) + 1
 
 print(NUM_RAYS)
-print("FUSCKSCASD")
 
 HALLWAY_WIDTH = 1.5
 HALLWAY_LENGTH = 20
@@ -848,7 +847,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 1)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp2 <= 0.01']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 1)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 8)/8) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0',
          'angle\' := (' + str(np.pi/2) + ' + angle)']
 
     # (theta_r, theta_l]
@@ -857,14 +856,14 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi),
          'temp2 >= 0.01', 'temp1 <= 0.01']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 2)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 8)/8) + '\' := 0', 'angle\' := angle']
+        ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0', 'angle\' := angle']
 
     # (theta_l, LIDAR_RANGE]
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)] = {}
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp1 >= 0.01']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 8)/8) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0',
          'angle\' := (' + str(np.pi/2) + ' - angle)']
 
     # compute cos(angle) [-LIDAR_RANGE, theta_r]
@@ -921,7 +920,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg1 + index +
           4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 7)]['guards1'] = ['clock = 0']
     plant[mode1_reg1 + index + 4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 7)]['reset1'] = [
-        'clock\' := 0', 'f' + str((index + 8)/8) + '\' := angle * (' + str(HALLWAY_WIDTH) + ' - y1)']
+        'clock\' := 0', 'f' + str((index + 8)//8) + '\' := angle * (' + str(HALLWAY_WIDTH) + ' - y1)']
 
     # compute cos(angle) (theta_r, theta_l]
     plant[mode1_reg1 + index + 2] = {}
@@ -978,7 +977,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg1 + index +
           5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 7)]['guards1'] = ['clock = 0']
     plant[mode1_reg1 + index + 5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 7)]['reset1'] = [
-        'clock\' := 0', 'f' + str((index + 8)/8) + '\' := angle * y2']
+        'clock\' := 0', 'f' + str((index + 8)//8) + '\' := angle * y2']
 
     # compute cos(angle) (theta_l, LIDAR_RANGE]
     plant[mode1_reg1 + index + 3] = {}
@@ -1034,7 +1033,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg1 + index +
           6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)]['guards1'] = ['clock = 0']
     plant[mode1_reg1 + index + 6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)]['reset1'] = [
-        'clock\' := 0', 'f' + str((index + 8)/8) + '\' := angle * y1']
+        'clock\' := 0', 'f' + str((index + 8)//8) + '\' := angle * y1']
 
     # last mode
     plant[mode1_reg1 + index + 7] = {}
@@ -1066,15 +1065,15 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg1 + index +
           7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)] = {}
     plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['guards1'] =\
-        ['clock = 0', 'f' + str((index + 8)/8) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
+        ['clock = 0', 'f' + str((index + 8)//8) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
     plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['reset1'] =\
-        ['f' + str((index + 8)/8) + '\' := ' + str(LIDAR_MAX_DISTANCE),
+        ['f' + str((index + 8)//8) + '\' := ' + str(LIDAR_MAX_DISTANCE),
          'angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
     plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['guards2'] =\
-        ['clock = 0', 'f' + str((index + 8)/8) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
+        ['clock = 0', 'f' + str((index + 8)//8) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
     plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['reset2'] =\
         ['angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
@@ -1139,7 +1138,7 @@ while curRay <= NUM_RAYS:
          'angle <= ' + str(np.pi),
          'temp2 <= 0.01']
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 1)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi / 2) + ' + angle']
 
     # (theta_r, -90)
@@ -1150,7 +1149,7 @@ while curRay <= NUM_RAYS:
          'temp2 >= 0.01',
          'angle <= ' + str(-np.pi/2)]
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 2)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi) + ' + angle']
 
     # (-90, theta_l]
@@ -1161,7 +1160,7 @@ while curRay <= NUM_RAYS:
          'temp1 <= 0.01',
          'angle >= ' + str(-np.pi/2)]
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 3)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := angle']
 
     # (theta_l, LIDAR_RANGE]
@@ -1171,7 +1170,7 @@ while curRay <= NUM_RAYS:
          'angle <= ' + str(np.pi),
          'temp1 >= 0.01']
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 4)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi/2) + ' - angle']
 
     # compute cos(angle) [-LIDAR_RANGE, theta_r]
@@ -1228,7 +1227,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index +
           5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := (' +
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
          str(HALLWAY_WIDTH) + ' - y1) * angle']
 
     # compute cos(angle) (theta_r, -90)
@@ -1285,7 +1284,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index +
           6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg2 + index + 6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := (' +
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
          str(HALLWAY_WIDTH) + ' - y2) * angle']
 
     # compute cos(angle) (-90, theta_l]
@@ -1342,7 +1341,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index +
           7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := y2 * angle']
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := y2 * angle']
 
     # compute cos(angle) (theta_l, 180]
     plant[mode1_reg2 + index + 4] = {}
@@ -1398,7 +1397,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index +
           8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg2 + index + 8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := y1 * angle']
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := y1 * angle']
 
     # last mode
     plant[mode1_reg2 + index + 9] = {}
@@ -1430,15 +1429,15 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index +
           9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)] = {}
     plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['guards1'] =\
-        ['clock = 0', 'f' + str((index + 10)/10) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
+        ['clock = 0', 'f' + str((index + 10)//10) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
     plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['reset1'] =\
-        ['f' + str((index + 10)/10) + '\' := ' + str(LIDAR_MAX_DISTANCE),
+        ['f' + str((index + 10)//10) + '\' := ' + str(LIDAR_MAX_DISTANCE),
          'angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
     plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['guards2'] =\
-        ['clock = 0', 'f' + str((index + 10)/10) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
+        ['clock = 0', 'f' + str((index + 10)//10) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
     plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['reset2'] =\
         ['angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
@@ -1507,7 +1506,7 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi), 'angle <= ' + str(-90.6 * np.pi / 180)]
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 1)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi) + ' + angle']
 
     # [-90.6, -89.4]
@@ -1517,7 +1516,7 @@ while curRay <= NUM_RAYS:
          'angle <= ' + str(-89.4 * np.pi / 180)]
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 9)]['reset1'] =\
         ['clock\' := 0',
-         'f' + str((index + 10)/10) + '\' := ' + str(LIDAR_MAX_DISTANCE + 1),
+         'f' + str((index + 10)//10) + '\' := ' + str(LIDAR_MAX_DISTANCE + 1),
          'angle\' := angle']
 
     # (-89.4, theta_l]
@@ -1526,7 +1525,7 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi),
          'temp1 <= 0.01', 'angle >= ' + str(-89.4 * np.pi / 180)]
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 2)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := angle']
 
     # (theta_l, theta_r]
@@ -1536,7 +1535,7 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi), 'temp1 >= 0.01', 'temp2 <= 0.01']
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 3)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi/2) + ' - angle']
 
     # (theta_r, LIDAR_RANGE]
@@ -1545,7 +1544,7 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi), 'temp2 >= 0.01']
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 4)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi) + ' - angle']
 
     # compute cos(angle) [-LIDAR_RANGE, -90)
@@ -1602,7 +1601,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg3 + index +
           5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg3 + index + 5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := (' +
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
          str(HALLWAY_WIDTH) + ' - y2) * angle']
 
     # compute cos(angle) (-90, theta_l]
@@ -1659,7 +1658,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg3 + index +
           6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg3 + index + 6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := y2 * angle']
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := y2 * angle']
 
     # compute cos(angle) (theta_l, theta_r]
     plant[mode1_reg3 + index + 3] = {}
@@ -1716,7 +1715,7 @@ while curRay <= NUM_RAYS:
           7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg3 + index + 7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 9)]['reset1'] =\
                                                 ['clock\' := 0', 'f' +
-                                                    str((index + 10)/10) + '\' := y1 * angle']
+                                                    str((index + 10)//10) + '\' := y1 * angle']
 
     # compute cos(angle) (theta_r, LIDAR_RANGE)
     plant[mode1_reg3 + index + 4] = {}
@@ -1772,7 +1771,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg3 + index +
           8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
     plant[mode1_reg3 + index + 8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)/10) + '\' := (' +
+        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
          str(HALLWAY_WIDTH) + ' - y2) * angle']
 
     # last mode
@@ -1806,15 +1805,15 @@ while curRay <= NUM_RAYS:
           9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)] = {}
 
     plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['guards1'] =\
-        ['clock = 0', 'f' + str((index + 10)/10) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
+        ['clock = 0', 'f' + str((index + 10)//10) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
     plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['reset1'] =\
-        ['f' + str((index + 10)/10) + '\' := ' + str(LIDAR_MAX_DISTANCE),
+        ['f' + str((index + 10)//10) + '\' := ' + str(LIDAR_MAX_DISTANCE),
          'angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
     plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['guards2'] =\
-        ['clock = 0', 'f' + str((index + 10)/10) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
+        ['clock = 0', 'f' + str((index + 10)//10) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
     plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['reset2'] =\
         ['angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
