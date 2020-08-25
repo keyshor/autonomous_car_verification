@@ -74,6 +74,8 @@ def writeOneMode(stream, modeIndex, numStates, dynamics, name=''):
                 stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
     stream.write('\t\t\t\tprevErr\' = 0\n')
+    stream.write('\t\t\t\ttime\' = 1\n')
+    stream.write('\t\t\t\torientation\' = 0\n')
     stream.write('\t\t\t\tclock\' = 1\n')
     stream.write('\t\t\t}\n')
 
@@ -114,6 +116,8 @@ def writePlantModes(stream, plant, numRays, numNeurLayers):
                 stream.write('\t\t\t\t' + fName + '\' = 0\n')
 
         stream.write('\t\t\t\tprevErr\' = 0\n')
+        stream.write('\t\t\t\ttime\' = 1\n')
+        stream.write('\t\t\t\torientation\' = 0\n')
         stream.write('\t\t\t\tclock\' = 1\n')
         stream.write('\t\t\t}\n')
         stream.write('\t\t\tinv\n')
@@ -133,6 +137,42 @@ def writePlantModes(stream, plant, numRays, numNeurLayers):
         stream.write('\n')
         stream.write('\t\t\t}\n')
         stream.write('\t\t}\n')
+
+
+def writeEndMode(stream, numRays, dynamics):
+    stream.write('\t\tm_end\n')
+    stream.write('\t\t{\n')
+    stream.write('\t\t\tnonpoly ode\n')
+    stream.write('\t\t\t{\n')
+
+    lidarStates = []
+
+    for lidarState in range(numRays):
+
+        fName = 'f' + str(lidarState + 1)
+        lidarStates.append(fName)
+
+        stream.write('\t\t\t\t' + fName + '\' = 0\n')
+
+    for sysState in dynamics:
+
+        if sysState not in lidarStates:
+            if sysState != 'clock':
+                stream.write('\t\t\t\t' + sysState + '\' = 0\n')
+
+    stream.write('\t\t\t\tprevErr\' = 0\n')
+    stream.write('\t\t\t\ttime\' = 1\n')
+    stream.write('\t\t\t\torientation\' = 0\n')
+    stream.write('\t\t\t\tclock\' = 1\n')
+    stream.write('\t\t\t}\n')
+
+    stream.write('\t\t\tinv\n')
+    stream.write('\t\t\t{\n')
+
+    stream.write('\t\t\t\tclock >= 0\n')
+
+    stream.write('\t\t\t}\n')
+    stream.write('\t\t}\n')
 
 
 def writeControllerJumps(stream, numRays, dynamics):
@@ -296,6 +336,16 @@ def writePlant2ControllerJumps(stream, trans, dynamics, numRays, numNeurLayers):
             stream.write('\t\tinterval aggregation\n')
 
 
+def writeEndJump(stream):
+
+    stream.write('\t\tcont_m2 ->  m_end\n')
+    stream.write('\t\tguard { orientation = 1 y2 = 10.0}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+
 def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
 
     stream.write('\tinit\n')
@@ -310,6 +360,8 @@ def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
         stream.write('\t\t\tf' + str(i + 1) + ' in [0, 0]\n')
 
     stream.write('\t\t\tprevErr in [0, 0]\n')
+    stream.write('\t\t\ttime in [0, 0]\n')
+    stream.write('\t\t\torientation in [0, 0]\n')
     stream.write('\t\t\tclock in [0, 0]\n')
     stream.write('\t\t}\n')
     stream.write('\t}\n')
@@ -410,7 +462,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
         for i in range(numRays):
             stream.write('f' + str(i + 1) + ', ')
 
-        stream.write('prevErr, ')
+        stream.write('prevErr, time, orientation, ')
         stream.write('clock\n\n')
 
         # settings---------------------------------------------------------------------------------
@@ -438,6 +490,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
 
         writeControllerModes(stream, numRays, plant[1]['dynamics'])
         writePlantModes(stream, plant, numRays, 1)
+        writeEndMode(stream, numRays, plant[1]['dynamics'])
 
         # close modes brace
         stream.write('\t}\n')
@@ -452,6 +505,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
         writePlantJumps(stream, plant, numRays, 1)
         writePlant2ControllerJumps(
             stream, glueTrans['plant2dnn'], plant[1]['dynamics'], numRays, 1)
+        writeEndJump(stream)
 
         # close jumps brace
         stream.write('\t}\n')
@@ -482,13 +536,17 @@ def main(argv):
 
         glue = pickle.load(f)
 
-    numSteps = 70
+    numSteps = 100
 
-    # F1/10 (HSCC)
+    # F1/10 Safety + Reachability
     safetyProps = 'unsafe\n{\tcont_m2\n\t{\n\t\ty1 <= 0.3\n\n\t}\n' \
         + '\tcont_m2\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
         + '\tcont_m2\n\t{\n\t\ty1 >= 1.5\n\t\ty2 >= 1.2\n\n\t}\n' \
-        + '\tcont_m2\n\t{\n\t\ty2 <= 0.3\n\n\t}\n}'
+        + '\tcont_m2\n\t{\n\t\ty2 <= 0.3\n\n\t}\n' \
+        + '\tm_end\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
+        + '\tm_end\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
+        + '\tm_end\n\t{\n\t\ty4 >= 0.02\n\n\t}\n' \
+        + '\tm_end\n\t{\n\t\ty4 <= -0.02\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -504,7 +562,7 @@ def main(argv):
     while curLBPos < 0.655:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                     'y2 in [9.9, 9.9]', 'y3 in [0, 0]', 'y4 in [0, 0]', 'k in [0, 0]',
+                     'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [-0.005, 0.005]', 'k in [0, 0]',
                      'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
                      'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
 
