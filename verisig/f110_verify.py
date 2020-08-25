@@ -74,8 +74,8 @@ def writeOneMode(stream, modeIndex, numStates, dynamics, name=''):
                 stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
     stream.write('\t\t\t\tprevErr\' = 0\n')
-    stream.write('\t\t\t\ttime\' = 1\n')
-    stream.write('\t\t\t\torientation\' = 0\n')
+    stream.write('\t\t\t\tt\' = 1\n')
+    stream.write('\t\t\t\tax\' = 0\n')
     stream.write('\t\t\t\tclock\' = 1\n')
     stream.write('\t\t\t}\n')
 
@@ -116,8 +116,8 @@ def writePlantModes(stream, plant, numRays, numNeurLayers):
                 stream.write('\t\t\t\t' + fName + '\' = 0\n')
 
         stream.write('\t\t\t\tprevErr\' = 0\n')
-        stream.write('\t\t\t\ttime\' = 1\n')
-        stream.write('\t\t\t\torientation\' = 0\n')
+        stream.write('\t\t\t\tt\' = 1\n')
+        stream.write('\t\t\t\tax\' = 0\n')
         stream.write('\t\t\t\tclock\' = 1\n')
         stream.write('\t\t\t}\n')
         stream.write('\t\t\tinv\n')
@@ -161,8 +161,8 @@ def writeEndMode(stream, numRays, dynamics):
                 stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
     stream.write('\t\t\t\tprevErr\' = 0\n')
-    stream.write('\t\t\t\ttime\' = 1\n')
-    stream.write('\t\t\t\torientation\' = 0\n')
+    stream.write('\t\t\t\tt\' = 1\n')
+    stream.write('\t\t\t\tax\' = 0\n')
     stream.write('\t\t\t\tclock\' = 1\n')
     stream.write('\t\t\t}\n')
 
@@ -339,7 +339,7 @@ def writePlant2ControllerJumps(stream, trans, dynamics, numRays, numNeurLayers):
 def writeEndJump(stream):
 
     stream.write('\t\tcont_m2 ->  m_end\n')
-    stream.write('\t\tguard { orientation = 1 y2 = 10.0}\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -360,8 +360,8 @@ def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
         stream.write('\t\t\tf' + str(i + 1) + ' in [0, 0]\n')
 
     stream.write('\t\t\tprevErr in [0, 0]\n')
-    stream.write('\t\t\ttime in [0, 0]\n')
-    stream.write('\t\t\torientation in [0, 0]\n')
+    stream.write('\t\t\tt in [0, 0]\n')
+    stream.write('\t\t\tax in [0, 0]\n')
     stream.write('\t\t\tclock in [0, 0]\n')
     stream.write('\t\t}\n')
     stream.write('\t}\n')
@@ -462,7 +462,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
         for i in range(numRays):
             stream.write('f' + str(i + 1) + ', ')
 
-        stream.write('prevErr, time, orientation, ')
+        stream.write('prevErr, t, ax, ')
         stream.write('clock\n\n')
 
         # settings---------------------------------------------------------------------------------
@@ -543,6 +543,7 @@ def main(argv):
         + '\tcont_m2\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
         + '\tcont_m2\n\t{\n\t\ty1 >= 1.5\n\t\ty2 >= 1.2\n\n\t}\n' \
         + '\tcont_m2\n\t{\n\t\ty2 <= 0.3\n\n\t}\n' \
+        + '\tcont_m2\n\t{\n\t\tt >= 9.6\n\n\t}\n' \
         + '\tm_end\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
         + '\tm_end\n\t{\n\t\ty4 >= 0.02\n\n\t}\n' \

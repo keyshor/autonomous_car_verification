@@ -68,14 +68,14 @@ for i in range(NUM_RAYS):
     plant[1]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
 plant[1]['invariants'] = ['clock <= ' + str(TIME_STEP),
-                          'orientation*(y2 - 10.0) >= 0']
+                          'ax*(y2 - 10.0) >= 0']
 plant[1]['transitions'] = {}
 plant[1]['transitions'][(1, 2)] = {}
 plant[1]['transitions'][(1, 2)]['guards1'] =\
     ['clock = ' + str(TIME_STEP), 'y1 >= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET)]
 plant[1]['transitions'][(1, 2)]['reset1'] =\
     ['clock\' := 0', 'k\' := k + 1', 'y4\' := y4 + ' + str(PIBY2), 'y1\' := y2',
-     'y2\' := ' + str(HALLWAY_LENGTH) + ' - y1', 'orientation\' := 1']
+     'y2\' := ' + str(HALLWAY_LENGTH) + ' - y1', 'ax\' := 1']
 plant[1]['transitions'][(1, 2)]['guards2'] =\
     ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET)]
 plant[1]['transitions'][(1, 2)]['reset2'] = ['clock\' := 0', 'k\' := k + 1']
