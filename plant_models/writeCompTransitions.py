@@ -2,12 +2,14 @@ import numpy as np
 from six.moves import cPickle as pickle
 
 LIDAR_MAX_DISTANCE = 5  # in m
-LIDAR_RANGE = 120  # in degrees
-LIDAR_OFFSET = 12  # in degrees
+LIDAR_RANGE = 115  # in degrees
+LIDAR_OFFSET = 11.5  # in degrees
 NUM_RAYS = int(round((2 * LIDAR_RANGE) / LIDAR_OFFSET)) + 1
 PIBY180 = np.pi / 180.0
 INPUT_CONST = 15  # in degrees // NB: This is not used currently since the last layer is tanh
 MAX_TURNING_INPUT = 15
+
+print(NUM_RAYS)
 
 mode1_reg1 = 24
 # 8 modes per ray in region 1 currently

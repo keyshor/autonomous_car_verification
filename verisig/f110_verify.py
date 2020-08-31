@@ -563,7 +563,7 @@ def main(argv):
     while curLBPos < 0.655:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                     'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [-0.005, 0.005]', 'k in [0, 0]',
+                     'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [0, 0]', 'k in [0, 0]',
                      'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
                      'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
 

@@ -49,7 +49,7 @@ def main():
     lidar_num_rays = 21
 
     # Change this to 0.1 or 0.2 to generate Figure 3 or 5 in the paper, respectively
-    lidar_noise = 0.2
+    lidar_noise = 0
 
     # Change this to 0 or 5 to generate Figure 3 or 5 in the paper, respectively
     missing_lidar_rays = 0
