@@ -536,7 +536,7 @@ def main(argv):
 
         glue = pickle.load(f)
 
-    numSteps = 100
+    numSteps = 1
 
     # F1/10 Safety + Reachability
     safetyProps = 'unsafe\n{\tcont_m2\n\t{\n\t\ty1 <= 0.3\n\n\t}\n' \

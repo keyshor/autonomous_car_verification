@@ -42,7 +42,7 @@ def main():
     car_dist_s = hallWidths[0]/2.0
     car_dist_f = 9.9
     car_heading = 0
-    episode_length = 70
+    episode_length = 100
     time_step = 0.1
 
     lidar_field_of_view = 115
@@ -68,9 +68,24 @@ def main():
     allY = []
     allR = []
 
+    np.random.seed(50)
+
+    # dynamics noise parameters
+    x_dynamics_noise = 0
+    y_dynamics_noise = 0
+    v_dynamics_noise = 0
+    theta_dynamics_noise = 0
+
+    # initial uncertainty
+    init_pos_noise = 0.2
+    init_heading_noise = 0.1
+
     for step in range(numTrajectories):
 
-        w.reset()
+        w.reset(pos_noise = init_pos_noise, heading_noise = init_heading_noise)
+
+        init_cond_s = w.car_dist_s
+        init_cond_h = w.car_heading
 
         observation = w.scan_lidar()
 
@@ -88,6 +103,9 @@ def main():
             if done:
 
                 if e < episode_length - 1:
+                    print(init_cond_s)
+                    print(init_cond_h)
+                    exit()
                     num_unsafe += 1
 
                 break
@@ -105,7 +123,7 @@ def main():
     w.plotHalls()
 
     plt.ylim((-1, 11))
-    plt.xlim((-1.75, 10.25))
+    plt.xlim((-1.75, 15))
     plt.tick_params(labelsize=20)
 
     for i in range(numTrajectories):

@@ -1,25 +1,3 @@
-'''Copyright (C) 2019 Radoslav Ivanov, Taylor J Carpenter, James
-Weimer, Rajeev Alur, George J. Pappa, Insup Lee
-
-This file is an F1/10 autonomomus car racing simulator.
-
-Version 1 was written by James Weimer. The current version was written
-by Radoslav Ivanov.
-
-This simulator is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or (at
-your option) any later version.
-
-This simulator is distributed in the hope that it will be useful, but
-WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-General Public License for more details.  You should have received a
-copy of the GNU General Public License along with Verisig.  If not,
-see <https://www.gnu.org/licenses/>.
-
-'''
-
 import gym
 from gym import spaces
 import numpy as np
@@ -39,7 +17,7 @@ MAX_TURNING_INPUT = 15 # in degrees
 LIDAR_RANGE = 5 # in m
 
 # safety parameter
-SAFE_DISTANCE = 0.3 # in m
+SAFE_DISTANCE = 0.1 # in m
 
 # default throttle if left unspecified
 CONST_THROTTLE = 16
@@ -48,6 +26,12 @@ CONST_THROTTLE = 16
 STEP_REWARD_GAIN = 10
 INPUT_REWARD_GAIN = -0.05
 CRASH_REWARD = -100
+
+# direction parameters
+UP = 0
+DOWN = 1
+RIGHT = 2
+LEFT = 3
 
 class World:
 
@@ -73,6 +57,12 @@ class World:
         self.car_global_x = -self.hallWidths[0] / 2.0 + self.car_dist_s
         self.car_global_y = self.hallLengths[0] / 2.0 - car_dist_f
         self.car_global_heading = self.car_heading + np.pi / 2 #first hall goes "up" by default
+        self.direction = UP
+
+        # car initial conditions (used in reset)
+        self.init_car_dist_s = self.car_dist_s
+        self.init_car_dist_f = self.car_dist_f
+        self.init_car_heading = self.car_heading
 
         # step parameters
         self.time_step = time_step
@@ -101,26 +91,88 @@ class World:
         self.obs_low = np.zeros(self.lidar_num_rays, )
         self.obs_high = LIDAR_RANGE * np.ones(self.lidar_num_rays, )
 
-        self.action_space = spaces.Box(low=-MAX_TURNING_INPUT, high=MAX_TURNING_INPUT, shape=(1,))
-        self.observation_space = spaces.Box(low=self.obs_low, high=self.obs_high)
+        self.action_space = spaces.Box(low=-MAX_TURNING_INPUT, high=MAX_TURNING_INPUT, shape=(1,), dtype=np.float32)
+        self.observation_space = spaces.Box(low=self.obs_low, high=self.obs_high, dtype=np.float32)
 
         self._max_episode_steps = episode_length
 
-    def reset(self, pos = None):
+    # this is a limited-support function for setting the car state in the first hallway
+    def set_state_local(self, x, y, theta):
+        
+        self.car_dist_s = x
+        self.car_dist_f = y
+        self.car_heading = theta
+
+        self.car_global_x = x - self.hallWidths[0]/2
+        self.car_global_y = -y + self.hallLengths[0]/2
+        self.car_global_heading = theta + np.pi / 2
+        self.direction = UP
+
+        #test if in Region 3
+        if y > self.hallLengths[0] - LIDAR_RANGE:
+
+            self.direction = RIGHT
+            
+            temp = x
+            self.car_dist_s = self.hallLengths[0] - y
+            self.car_dist_f = temp
+            self.car_heading = theta - np.pi / 2
+
+            if self.car_heading < - np.pi:
+                self.car_heading = self.car_heading + 2 * np.pi
+
+        if self.car_global_heading > np.pi:
+            self.car_global_heading = self.car_global_heading - 2 * np.pi
+
+    # this is a limited-support function for setting the car state in the first hallway
+    def set_state_global(self, x, y, theta):
+
+        self.car_dist_s = x + self.hallWidths[0]/2
+        self.car_dist_f = -y + self.hallLengths[0]/2
+        self.car_heading = theta - np.pi / 2
+
+        self.car_global_x = x
+        self.car_global_y = y
+        self.car_global_heading = theta
+        
+        self.direction = UP
+
+        #test if in Region 3
+        if y > self.hallLengths[0] - LIDAR_RANGE:
+
+            self.direction = RIGHT
+            
+            temp = x
+            self.car_dist_s = self.hallLengths[0] - y
+            self.car_dist_f = temp
+            self.car_heading = theta - np.pi / 2
+
+            if self.car_heading < - np.pi:
+                self.car_heading = self.car_heading + 2 * np.pi
+
+        if self.car_global_heading > np.pi:
+            self.car_global_heading = self.car_global_heading - 2 * np.pi        
+
+    def reset(self, side_pos = None, pos_noise = 0.2, heading_noise = 0.3):
         self.curHall = 0
 
-        self.car_dist_s = self.hallWidths[0] / 2.0 + np.random.uniform(-0.2, 0.2)
+        self.car_dist_s = self.init_car_dist_s + np.random.uniform(-pos_noise, pos_noise)
 
-        if not pos == None:
-            self.car_dist_s = pos
+        if not side_pos == None:
+            self.car_dist_s = side_pos
         
-        self.car_dist_f = self.hallLengths[0] / 2.0
+        self.car_dist_f = self.init_car_dist_f
         self.car_V = 0
-        self.car_heading = 0 + np.random.uniform(-0.3, 0.3)
+        self.car_heading = self.init_car_heading + np.random.uniform(-heading_noise, heading_noise)
         
         self.car_global_x = -self.hallWidths[0] / 2.0 + self.car_dist_s
-        self.car_global_y = 0
+        if 'left' in self.turns[0]:
+            self.car_global_x = -self.car_global_x
+        
+        self.car_global_y = self.hallLengths[0] / 2.0 - self.car_dist_f
+        
         self.car_global_heading = self.car_heading + np.pi / 2 #first hall goes "up" by default
+        self.direction = UP
 
         self.missing_indices = np.random.choice(self.lidar_num_rays, self.cur_num_missing_rays)
         
@@ -153,7 +205,7 @@ class World:
         else:
             dVdt = - CAR_ACCEL_CONST * x[2]
             
-        # V * cos(beta) * tan(delta) / l
+
         dtheta_ldt = x[2] * np.cos(np.arctan(CAR_CENTER_OF_MASS * np.tan(delta) / CAR_LENGTH)) * np.tan(delta) / CAR_LENGTH 
 
         # V * cos(theta_global + beta)
@@ -203,9 +255,9 @@ class World:
 
         dXdt = [dsdt, dfdt, dVdt, dtheta_ldt, dxdt, dydt, dtheta_gdt]
         
-        return dXdt    
-
-    def step(self, delta, throttle = CONST_THROTTLE):
+        return dXdt
+    
+    def step(self, delta, throttle = CONST_THROTTLE, x_noise = 0, y_noise = 0, v_noise = 0, theta_noise = 0):
         self.cur_step += 1
 
         # Constrain turning input
@@ -223,6 +275,65 @@ class World:
         new_x = odeint(self.bicycle_dynamics_no_beta, x0, t, args=(throttle, delta * np.pi / 180, self.turns[self.curHall],))
 
         new_x = new_x[1]
+
+        # add noise
+        x_added_noise = x_noise * (2 * np.random.random() - 1)
+        y_added_noise = y_noise * (2 * np.random.random() - 1)
+        v_added_noise = v_noise * (2 * np.random.random() - 1)
+        #theta_added_noise = theta_noise * (2 * np.random.random() - 1)
+        theta_added_noise = theta_noise * (np.random.random())
+
+
+        new_x[0] = new_x[0] + x_added_noise
+
+        if self.direction == UP and 'right' in self.turns[self.curHall]\
+           or self.direction == DOWN and 'left' in self.turns[self.curHall]:
+            new_x[4] = new_x[4] + x_added_noise
+            
+        elif self.direction == DOWN and 'right' in self.turns[self.curHall]\
+             or self.direction == UP and 'left' in self.turns[self.curHall]:
+            new_x[4] = new_x[4] - x_added_noise
+            
+        elif self.direction == RIGHT and 'right' in self.turns[self.curHall]\
+             or self.direction == LEFT and 'left' in self.turns[self.curHall]:
+            new_x[4] = new_x[4] - y_added_noise
+            
+        elif self.direction == LEFT and 'right' in self.turns[self.curHall]\
+             or self.direction == RIGHT and 'left' in self.turns[self.curHall]:
+            new_x[4] = new_x[4] + y_added_noise
+        
+        new_x[1] = new_x[1] + y_added_noise
+
+        if self.direction == UP and 'right' in self.turns[self.curHall]\
+           or self.direction == DOWN and 'left' in self.turns[self.curHall]:
+            new_x[5] = new_x[5] - y_added_noise
+            
+        elif self.direction == DOWN and 'right' in self.turns[self.curHall]\
+             or self.direction == UP and 'left' in self.turns[self.curHall]:
+            new_x[5] = new_x[5] + y_added_noise
+            
+        elif self.direction == RIGHT and 'right' in self.turns[self.curHall]\
+             or self.direction == LEFT and 'left' in self.turns[self.curHall]:
+            new_x[5] = new_x[5] - x_added_noise
+            
+        elif self.direction == LEFT and 'right' in self.turns[self.curHall]\
+             or self.direction == RIGHT and 'left' in self.turns[self.curHall]:
+            new_x[5] = new_x[5] + x_added_noise
+        
+        new_x[2] = new_x[2] + v_added_noise
+        
+        # new_x[3] = new_x[3] + theta_added_noise
+        # new_x[6] = new_x[6] + theta_added_noise
+
+        # NB: The heading noise only affects heading in the direction
+        # of less change
+        if new_x[3] < x0[3]:
+            new_x[3] = new_x[3] + theta_added_noise
+            new_x[6] = new_x[6] + theta_added_noise
+        else:
+            new_x[3] = new_x[3] - theta_added_noise
+            new_x[6] = new_x[6] - theta_added_noise
+        # end of adding noise
 
         self.car_dist_s, self.car_dist_f, self.car_V, self.car_heading, self.car_global_x, self.car_global_y, self.car_global_heading =\
                     new_x[0], new_x[1], new_x[2], new_x[3], new_x[4], new_x[5], new_x[6]
@@ -275,10 +386,19 @@ class World:
                     self.curHall = 0
 
                 self.car_dist_f = self.hallLengths[self.curHall] - temp
+
+                if self.direction == UP:
+                    self.direction = RIGHT
+                elif self.direction == RIGHT:
+                    self.direction = DOWN
+                elif self.direction == DOWN:
+                    self.direction = LEFT
+                elif self.direction == LEFT:
+                    self.direction = UP
     
         else: # left turn 
     
-            if self.car_dist_s > self.hallWidths[self.curHall] + 2:
+            if self.car_dist_s > LIDAR_RANGE:
                 temp = self.car_dist_s
                 self.car_heading = self.car_heading - np.pi / 2
                 self.car_dist_s = self.car_dist_f # front wall is now the left wall
@@ -289,6 +409,15 @@ class World:
                     self.curHall = 0                
 
                 self.car_dist_f = self.hallLengths[self.curHall] - temp
+
+                if self.direction == UP:
+                    self.direction = LEFT
+                elif self.direction == RIGHT:
+                    self.direction = UP
+                elif self.direction == DOWN:
+                    self.direction = RIGHT
+                elif self.direction == LEFT:
+                    self.direction = DOWN                
 
         self.allX.append(self.car_global_x)
         self.allY.append(self.car_global_y)
@@ -408,7 +537,7 @@ class World:
                                 (np.cos( (angle) * np.pi / 180))
 
                     elif angle > 90 and angle <= theta_l:
-                        data[index] = (self.hallWidth - self.car_dist_f) /\
+                        data[index] = (self.hallWidths[(self.curHall + 1) % self.numHalls] - self.car_dist_f) /\
                                 (np.cos( (180 + angle) * np.pi / 180))
                     else:
                         data[index] = (dist_l) /\
@@ -544,7 +673,36 @@ class World:
 
         plt.show()
 
-    def plotHalls(self):
+    def plot_real_lidar(self, data, newfig = True):
+
+
+        if newfig:
+            fig = plt.figure()
+
+            self.plotHalls()
+
+        plt.scatter([self.car_global_x], [self.car_global_y], c = 'red')
+
+        lidX = []
+        lidY = []
+
+        theta_t = np.linspace(-self.lidar_field_of_view, self.lidar_field_of_view, self.lidar_num_rays)
+
+        index = 0
+
+        for curAngle in theta_t:    
+
+            lidX.append(self.car_global_x + data[index] * np.cos(curAngle * np.pi / 180 + self.car_global_heading))
+            lidY.append(self.car_global_y + data[index] * np.sin(curAngle * np.pi / 180 + self.car_global_heading))
+                          
+            index += 1
+
+        plt.scatter(lidX, lidY, c = 'green')
+
+        if newfig: 
+            plt.show()
+
+    def plotHalls(self, wallwidth = 3):
 
         # 1st hall going up by default and centralized around origin
         midX = 0
@@ -705,5 +863,5 @@ class World:
             l1y = np.array([y1, y2])
             l2x = np.array([x3, x4])
             l2y = np.array([y3, y4])
-            plt.plot(l1x, l1y, 'b', linewidth=3)
-            plt.plot(l2x, l2y, 'b', linewidth=3)
+            plt.plot(l1x, l1y, 'b', linewidth=wallwidth)
+            plt.plot(l2x, l2y, 'b', linewidth=wallwidth)
