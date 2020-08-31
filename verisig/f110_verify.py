@@ -208,15 +208,15 @@ def writeControllerJumps(stream, numRays, dynamics):
     # Final controll updates
     # Compute control input and store in f1
     # Store error function value in prevErr
-    right_sum = '(f1'
+    left_sum = '(f1'
     for i in range(1, numRays//2):
-        right_sum += ' + f{}'.format(i+1)
-    right_sum += ')'
-    left_sum = '(f{}'.format((numRays//2)+1)
-    for i in range((numRays//2)+2, numRays):
         left_sum += ' + f{}'.format(i+1)
     left_sum += ')'
-    err_expr = '(' + left_sum + ' - ' + right_sum + ')'
+    right_sum = '(f{}'.format((numRays//2)+2)
+    for i in range((numRays//2)+2, numRays):
+        right_sum += ' + f{}'.format(i+1)
+    right_sum += ')'
+    err_expr = '(' + right_sum + ' - ' + left_sum + ')'
     result_expr = str(PD_COEFF) + '*' + err_expr + ' - ' + str(D_COEFF) + '*prevErr'
 
     stream.write('\t\tm_thresh{} -> m1\n'.format(numRays))
@@ -536,7 +536,7 @@ def main(argv):
 
         glue = pickle.load(f)
 
-    numSteps = 1
+    numSteps = 100
 
     # F1/10 Safety + Reachability
     safetyProps = 'unsafe\n{\tcont_m2\n\t{\n\t\ty1 <= 0.3\n\n\t}\n' \
@@ -546,8 +546,8 @@ def main(argv):
         + '\tcont_m2\n\t{\n\t\tt >= 9.6\n\n\t}\n' \
         + '\tm_end\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
-        + '\tm_end\n\t{\n\t\ty4 >= 0.02\n\n\t}\n' \
-        + '\tm_end\n\t{\n\t\ty4 <= -0.02\n\n\t}\n}'
+        + '\tm_end\n\t{\n\t\ty4 >= 0.05\n\n\t}\n' \
+        + '\tm_end\n\t{\n\t\ty4 <= -0.05\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
