@@ -560,7 +560,7 @@ def main(argv):
 
     count = 1
 
-    while curLBPos < 0.655:
+    while curLBPos < 0.85:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [0, 0]', 'k in [0, 0]',
@@ -568,11 +568,12 @@ def main(argv):
                      'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
 
         curModelFile = modelFile + '_' + str(count) + '.model'
+        curOutFile = 'outputs/console_{}.txt'.format(count)
 
         writeComposedSystem(curModelFile, initProps, numRays,
                             plant, glue, safetyProps, numSteps)
 
-        args = '../flowstar_verisig/flowstar' + ' < ' + curModelFile
+        args = '../flowstar_verisig/flowstar' + ' < ' + curModelFile + ' > ' + curOutFile
         _ = subprocess.Popen(args, shell=True, stdin=PIPE)
 
         curLBPos += posOffset
