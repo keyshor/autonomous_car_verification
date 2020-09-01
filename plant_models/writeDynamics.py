@@ -66,8 +66,8 @@ plant[1]['dynamics']['temp2'] = 'temp2\' = 0\n'
 for i in range(NUM_RAYS):
     plant[1]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-plant[1]['invariants'] = ['clock <= ' + str(TIME_STEP),
-                          'ax*(y2 - 10.0) >= 0']
+plant[1]['invariants'] = ['clock <= ' + str(TIME_STEP)]
+
 plant[1]['transitions'] = {}
 plant[1]['transitions'][(1, 2)] = {}
 plant[1]['transitions'][(1, 2)]['guards1'] =\
@@ -78,6 +78,136 @@ plant[1]['transitions'][(1, 2)]['reset1'] =\
 plant[1]['transitions'][(1, 2)]['guards2'] =\
     ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET)]
 plant[1]['transitions'][(1, 2)]['reset2'] = ['clock\' := 0', 'k\' := k + 1']
+
+plant[1]['transitions'][(1, 1000000)] = {}
+plant[1]['transitions'][(1, 1000000)]['guards1'] = ['y2 <= 10', 'ax = 1']
+plant[1]['transitions'][(1, 1000000)]['reset1'] = []
+
+plant[1]['transitions'][(1, 2000000)] = {}
+plant[1]['transitions'][(1, 2000000)]['guards1'] = ['y1 <= 0.3']
+plant[1]['transitions'][(1, 2000000)]['reset1'] = []
+
+plant[1]['transitions'][(1, 3000000)] = {}
+plant[1]['transitions'][(1, 3000000)]['guards1'] = ['y1 >= 1.2']
+plant[1]['transitions'][(1, 3000000)]['reset1'] = []
+
+plant[1]['transitions'][(1, 4000000)] = {}
+plant[1]['transitions'][(1, 4000000)]['guards1'] = ['y2 <= 0.3']
+plant[1]['transitions'][(1, 4000000)]['reset1'] = []
+
+plant[1]['transitions'][(1, 5000000)] = {}
+plant[1]['transitions'][(1, 5000000)]['guards1'] = ['y1 >= 1.5', 'y2 >= 1.2']
+plant[1]['transitions'][(1, 5000000)]['reset1'] = []
+
+plant[1000000] = {}
+plant[1000000]['name'] = 'past_goal'
+plant[1000000]['odetype'] = 'nonpoly ode'
+plant[1000000]['dynamics'] = {}
+plant[1000000]['dynamics']['y1'] = 'y1\' = 0\n'
+plant[1000000]['dynamics']['y2'] = 'y2\' = 0\n'
+plant[1000000]['dynamics']['y3'] = 'y3\' = 0\n'
+plant[1000000]['dynamics']['y4'] = 'y4\' = 0\n'
+plant[1000000]['dynamics']['k'] = 'k\' = 0\n'
+plant[1000000]['dynamics']['u'] = 'u\' = 0\n'
+plant[1000000]['dynamics']['angle'] = 'angle\' = 0\n'
+plant[1000000]['dynamics']['clock'] = 'clock\' = 0\n'
+plant[1000000]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+plant[1000000]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+plant[1000000]['dynamics']['temp1'] = 'temp1\' = 0\n'
+plant[1000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
+for i in range(NUM_RAYS):
+    plant[1000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+plant[1000000]['invariants'] = []
+plant[1000000]['transitions'] = {}
+
+plant[2000000] = {}
+plant[2000000]['name'] = 'left_wall'
+plant[2000000]['odetype'] = 'nonpoly ode'
+plant[2000000]['dynamics'] = {}
+plant[2000000]['dynamics']['y1'] = 'y1\' = 0\n'
+plant[2000000]['dynamics']['y2'] = 'y2\' = 0\n'
+plant[2000000]['dynamics']['y3'] = 'y3\' = 0\n'
+plant[2000000]['dynamics']['y4'] = 'y4\' = 0\n'
+plant[2000000]['dynamics']['k'] = 'k\' = 0\n'
+plant[2000000]['dynamics']['u'] = 'u\' = 0\n'
+plant[2000000]['dynamics']['angle'] = 'angle\' = 0\n'
+plant[2000000]['dynamics']['clock'] = 'clock\' = 0\n'
+plant[2000000]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+plant[2000000]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+plant[2000000]['dynamics']['temp1'] = 'temp1\' = 0\n'
+plant[2000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
+for i in range(NUM_RAYS):
+    plant[2000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+plant[2000000]['invariants'] = []
+plant[2000000]['transitions'] = {}    
+
+plant[3000000] = {}
+plant[3000000]['name'] = 'right_wall'
+plant[3000000]['odetype'] = 'nonpoly ode'
+plant[3000000]['dynamics'] = {}
+plant[3000000]['dynamics']['y1'] = 'y1\' = 0\n'
+plant[3000000]['dynamics']['y2'] = 'y2\' = 0\n'
+plant[3000000]['dynamics']['y3'] = 'y3\' = 0\n'
+plant[3000000]['dynamics']['y4'] = 'y4\' = 0\n'
+plant[3000000]['dynamics']['k'] = 'k\' = 0\n'
+plant[3000000]['dynamics']['u'] = 'u\' = 0\n'
+plant[3000000]['dynamics']['angle'] = 'angle\' = 0\n'
+plant[3000000]['dynamics']['clock'] = 'clock\' = 0\n'
+plant[3000000]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+plant[3000000]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+plant[3000000]['dynamics']['temp1'] = 'temp1\' = 0\n'
+plant[3000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
+for i in range(NUM_RAYS):
+    plant[3000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+plant[3000000]['invariants'] = []
+plant[3000000]['transitions'] = {}    
+
+plant[4000000] = {}
+plant[4000000]['name'] = 'top_wall'
+plant[4000000]['odetype'] = 'nonpoly ode'
+plant[4000000]['dynamics'] = {}
+plant[4000000]['dynamics']['y1'] = 'y1\' = 0\n'
+plant[4000000]['dynamics']['y2'] = 'y2\' = 0\n'
+plant[4000000]['dynamics']['y3'] = 'y3\' = 0\n'
+plant[4000000]['dynamics']['y4'] = 'y4\' = 0\n'
+plant[4000000]['dynamics']['k'] = 'k\' = 0\n'
+plant[4000000]['dynamics']['u'] = 'u\' = 0\n'
+plant[4000000]['dynamics']['angle'] = 'angle\' = 0\n'
+plant[4000000]['dynamics']['clock'] = 'clock\' = 0\n'
+plant[4000000]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+plant[4000000]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+plant[4000000]['dynamics']['temp1'] = 'temp1\' = 0\n'
+plant[4000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
+for i in range(NUM_RAYS):
+    plant[4000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+plant[4000000]['invariants'] = []
+plant[4000000]['transitions'] = {}    
+
+plant[5000000] = {}
+plant[5000000]['name'] = 'bottom_wall'
+plant[5000000]['odetype'] = 'nonpoly ode'
+plant[5000000]['dynamics'] = {}
+plant[5000000]['dynamics']['y1'] = 'y1\' = 0\n'
+plant[5000000]['dynamics']['y2'] = 'y2\' = 0\n'
+plant[5000000]['dynamics']['y3'] = 'y3\' = 0\n'
+plant[5000000]['dynamics']['y4'] = 'y4\' = 0\n'
+plant[5000000]['dynamics']['k'] = 'k\' = 0\n'
+plant[5000000]['dynamics']['u'] = 'u\' = 0\n'
+plant[5000000]['dynamics']['angle'] = 'angle\' = 0\n'
+plant[5000000]['dynamics']['clock'] = 'clock\' = 0\n'
+plant[5000000]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+plant[5000000]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+plant[5000000]['dynamics']['temp1'] = 'temp1\' = 0\n'
+plant[5000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
+for i in range(NUM_RAYS):
+    plant[5000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+plant[5000000]['invariants'] = []
+plant[5000000]['transitions'] = {}    
 
 # end of plant dynanmics
 

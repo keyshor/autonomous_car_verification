@@ -6785,9 +6785,24 @@ int HybridSystem::reach_continuous_non_polynomial_taylor(std::list<TaylorModelVe
 
 				if(clockBounds.sup() == clockInv.sup() && clockBounds.inf() < clockBounds.sup()){
 
+				        Real time_domain_end;
+					newFlowpipe.domain[0].sup(time_domain_end);
+					Interval time_domain_end_int = Interval(time_domain_end);
+
+					TaylorModelVec tmv_saved;
+					
+					std::vector<Interval> temp_step_exp_table;
+					construct_step_exp_table(temp_step_exp_table, time_domain_end_int, (order+1)*2);					
+					newFlowpipe.tmvPre.evaluate_t(tmv_saved, temp_step_exp_table);
+
 				        //store this flowpipe
-				        dnn::saved_plant_states[dnn::curBranchId] = Flowpipe(newFlowpipe);
+				        dnn::saved_plant_states[dnn::curBranchId] = Flowpipe();
+					dnn::saved_plant_states[dnn::curBranchId].tmv = newFlowpipe.tmv;
+					dnn::saved_plant_states[dnn::curBranchId].tmvPre = tmv_saved;
+					dnn::saved_plant_states[dnn::curBranchId].domain = newFlowpipe.domain;					
 				}
+
+				
 			  
 			}
 
@@ -8744,7 +8759,7 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 				
 				if(!strncmp(modeName.c_str(), "cont", strlen("cont")) &&
 				   dnn::saved_plant_states.find(dnn::curBranchId) != dnn::saved_plant_states.end()){
-
+					  
  				        Flowpipe curFP = dnn::saved_plant_states[dnn::curBranchId];
 					
 					/*
@@ -8909,14 +8924,20 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 				        dnn::plant_reset = true;
 				}
 
-				//quick test by Rado
-				std::vector<Interval> all_ranges;
-				fpAggregation.intEval(all_ranges, cutoff_threshold);
+				//print state ranges after reset
 				if(bPrint){
+				        std::vector<Interval> all_ranges;
+					fpAggregation.intEval(all_ranges, cutoff_threshold);
+					TaylorModelVec tmv_printing;
+					fpAggregation.composition(tmv_printing, cutoff_threshold);				  
 				        for(int varInd = 0; varInd < transitions[initMode][i].resetMap.tmvReset.tms.size(); varInd ++){
 				  
-					        printf("%s bounds after reset: [%13.10f, %13.10f]\n", stateVarNames[varInd].c_str(), all_ranges[varInd].inf(), all_ranges[varInd].sup());
-						//printf("%s remainder after reset: [%13.10f, %13.10f]\n", stateVarNames[varInd].c_str(), tmvImage.tms[varInd].remainder.inf(), tmvImage.tms[varInd].remainder.sup());												
+					        printf("%s bounds after reset: [%13.10f, %13.10f]\n",
+						       stateVarNames[varInd].c_str(), all_ranges[varInd].inf(), all_ranges[varInd].sup());
+						
+						printf("%s remainder after reset: [%13.10f, %13.10f]\n",
+						       stateVarNames[varInd].c_str(), tmv_printing.tms[varInd].remainder.inf(),
+						       tmv_printing.tms[varInd].remainder.sup());
 					}
 				}
 
