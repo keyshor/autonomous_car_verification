@@ -27,8 +27,12 @@ modeL_reg3 = mode1_reg3 + NUM_RAYS * 10 - 1
 trans = {}
 trans['dnn2plant'] = {}
 trans['dnn2plant'][1] = {}
-trans['dnn2plant'][1]['guards1'] = ['clock = 0']
+trans['dnn2plant'][1]['guards1'] = ['clock = 0', 'f1 <= ' + str(MAX_TURNING_INPUT), 'f1 >= ' + str(-MAX_TURNING_INPUT)]
 trans['dnn2plant'][1]['reset1'] = ['clock\' := 0', 'u\' := ' + str(PIBY180) + ' * f1']
+trans['dnn2plant'][1]['guards2'] = ['clock = 0', 'f1 >= ' + str(MAX_TURNING_INPUT)]
+trans['dnn2plant'][1]['reset2'] = ['clock\' := 0', 'u\' := ' + str(PIBY180 * MAX_TURNING_INPUT)]
+trans['dnn2plant'][1]['guards3'] = ['clock = 0', 'f1 <= ' + str(-MAX_TURNING_INPUT)]
+trans['dnn2plant'][1]['reset3'] = ['clock\' := 0', 'u\' := ' + str(-PIBY180 * MAX_TURNING_INPUT)]
 
 # the normalization below is performed here as it was harder to do in the dynamics model
 trans['plant2dnn'] = {}

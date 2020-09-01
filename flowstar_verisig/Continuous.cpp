@@ -7,6 +7,7 @@
 ---*/
 
 #include "Continuous.h"
+#include "DNN.h"
 
 using namespace flowstar;
 
@@ -14862,16 +14863,11 @@ ContinuousSystem & ContinuousSystem::operator = (const ContinuousSystem & system
 
 
 
-
-
-
-
 // class ContinuousReachability
-
 ContinuousReachability::ContinuousReachability()
 {
-	bPlot = false;
-	bDump = true;
+	bPlot = dnn::plottingEnabled;
+	bDump = dnn::dumpingEnabled;
 }
 
 ContinuousReachability::~ContinuousReachability()

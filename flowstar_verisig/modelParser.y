@@ -9,6 +9,7 @@
 
 
 	#include "modelParser.h"
+  	#include "DNN.h"
 
 	extern int yyerror(const char *);
 	extern int yyerror(std::string);
@@ -871,38 +872,38 @@ output_env: OUTPUT IDENT
 {
 	strcpy(continuousProblem.outputFileName, $2->c_str());
 	strcpy(hybridProblem.outputFileName, $2->c_str());
-	continuousProblem.bDump = true;
-	continuousProblem.bPlot = true;
-	hybridProblem.bDump = true;
-	hybridProblem.bPlot = true;
+	continuousProblem.bDump = dnn::dumpingEnabled;
+	continuousProblem.bPlot = dnn::plottingEnabled;
+	hybridProblem.bDump = dnn::dumpingEnabled;
+	hybridProblem.bPlot = dnn::plottingEnabled;
 }
 |
 PLOT OUTPUT IDENT
 {
 	strcpy(continuousProblem.outputFileName, $3->c_str());
 	strcpy(hybridProblem.outputFileName, $3->c_str());
-	continuousProblem.bDump = false;
-	continuousProblem.bPlot = true;
-	hybridProblem.bDump = false;
-	hybridProblem.bPlot = true;
+	continuousProblem.bDump = dnn::dumpingEnabled;
+	continuousProblem.bPlot = dnn::plottingEnabled;
+	hybridProblem.bDump = dnn::dumpingEnabled;
+	hybridProblem.bPlot = dnn::plottingEnabled;
 }
 |
 TM OUTPUT IDENT
 {
 	strcpy(continuousProblem.outputFileName, $3->c_str());
 	strcpy(hybridProblem.outputFileName, $3->c_str());
-	continuousProblem.bDump = true;
-	continuousProblem.bPlot = false;
-	hybridProblem.bDump = true;
-	hybridProblem.bPlot = false;
+	continuousProblem.bDump = dnn::dumpingEnabled;
+	continuousProblem.bPlot = dnn::plottingEnabled;
+	hybridProblem.bDump = dnn::dumpingEnabled;
+	hybridProblem.bPlot = dnn::plottingEnabled;
 }
 |
 NOOUTPUT
 {
-	continuousProblem.bDump = false;
-	continuousProblem.bPlot = false;
-	hybridProblem.bDump = false;
-	hybridProblem.bPlot = false;
+	continuousProblem.bDump = dnn::dumpingEnabled;
+	continuousProblem.bPlot = dnn::plottingEnabled;
+	hybridProblem.bDump = dnn::dumpingEnabled;
+	hybridProblem.bPlot = dnn::plottingEnabled;
 }
 ;
 

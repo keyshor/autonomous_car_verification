@@ -25,6 +25,8 @@ extern int curBranchId;
 extern float dnn_runtime;
 extern bool storedInitialConds;
 extern std::vector<std::string> initialConds;
+extern bool plottingEnabled;
+extern bool dumpingEnabled;
 
 void sig_reset(TaylorModel &tmReset, const Interval intC, const int varInd, const int numVars);
   

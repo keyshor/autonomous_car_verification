@@ -6,6 +6,7 @@
   The code is released as is under the GNU General Public License (GPL).
 ---*/
 
+#include "unistd.h"
 #include "modelParser.h"
 #include "DNN.h"
 
@@ -19,10 +20,39 @@ extern std::vector<std::string> dnn::initialConds;
 //extern float dnn::totalNumBranches;
 //extern float dnn::dnn_runtime;
 
-int main(int argc, const char *argv[])
+bool dnn::plottingEnabled = false;
+bool dnn::dumpingEnabled = false;
+
+int main(int argc, char **argv)
 {
-        if(argc > 1) {
-	        dnn::DNN_Filename = argv[1];
+	int c;
+	while( (c = getopt(argc, argv, "pd")) != -1 ) {
+		switch (c) {
+			case 'p':
+				dnn::plottingEnabled = true;
+				break;
+			case 'd':
+				dnn::dumpingEnabled = true;
+				break;
+			case '?':
+				if (isprint (optopt))
+					fprintf (stderr, "Unknown option `-%c'.\n", optopt);
+				else
+					fprintf (stderr,
+							"Unknown option character `\\x%x'.\n",
+							optopt);
+        		return 1;
+      		default:
+        		abort ();
+		}
+	}
+
+	if( optind < argc ) {
+		dnn::DNN_Filename = argv[optind];
+	}
+
+	if (dnn::DNN_Filename.empty() ) {
+		fprintf( stderr, "Missing DNN filename. Expected usage: 'flowstar [-p, -d] <dnn filename>'\n" );
 	}
 	
         dnn::dnn_initialized = false;
