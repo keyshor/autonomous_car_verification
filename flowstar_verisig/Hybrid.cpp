@@ -8248,20 +8248,20 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 
 					//This if-case deals with a Flow* issue where the angle bound is not correctly computed
 					//Rado: do we need this??
-					if (invariants[initMode].size() > 1){
-					        Interval angleInv = invariants[initMode][1].B;
+					// if (invariants[initMode].size() > 1){
+					//         Interval angleInv = invariants[initMode][1].B;
 
-						//NB: this assumes that this invariant is written as -angle <= PI/2
-						if(intC.sup() < 0 && -angleInv.sup() > intC.inf() && -angleInv.sup() < intC.sup()){
-						        intC.setInf(-angleInv.sup());
-						}
+					// 	//NB: this assumes that this invariant is written as -angle <= PI/2
+					// 	if(intC.sup() < 0 && -angleInv.sup() > intC.inf() && -angleInv.sup() < intC.sup()){
+					// 	        intC.setInf(-angleInv.sup());
+					// 	}
 
-						//NB: this assumes that this invariant is written as angle <= PI/2
-						if(intC.inf() > 0 && angleInv.sup() > intC.inf() && angleInv.sup() < intC.sup()){
-						        intC.setSup(angleInv.sup());
-						} 
+					// 	//NB: this assumes that this invariant is written as angle <= PI/2
+					// 	if(intC.inf() > 0 && angleInv.sup() > intC.inf() && angleInv.sup() < intC.sup()){
+					// 	        intC.setSup(angleInv.sup());
+					// 	} 
 
-					}
+					// }
 
 					TaylorModel new_tm_reset;
 					sec_reset(new_tm_reset, intC, varStoreInd, varDenInd, numVars, tmvAggregation, doAggregation);

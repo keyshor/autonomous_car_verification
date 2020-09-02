@@ -320,6 +320,135 @@ Real getSecDerBound(Interval intC, int order){
 	return derBound;
 }
 
+Real getSecRemUpperBound(Interval intC, int order){
+
+        Real derBound;
+	if (intC.inf() > -M_PI/2 && intC.sup() < M_PI/2){
+
+	        if (order == 5){
+		        derBound = sec5thDer(intC.sup());
+		}
+	  
+	        if (order == 4){
+		        derBound = sec4thDer(intC.sup());
+			
+			if (sec4thDer(intC.inf()) > derBound)
+			        derBound = sec4thDer(intC.inf());
+		}
+
+	        if (order == 3){
+		        derBound = sec3rdDer(intC.sup());
+		}	
+	}
+	else if (intC.inf() > M_PI/2 && intC.sup() <= M_PI){
+	        if (order == 5)
+		        derBound = sec5thDer(intC.inf());
+	  
+	        if (order == 4)
+		        derBound = sec4thDer(intC.sup());
+
+		if (order == 3)
+		        derBound = sec3rdDer(intC.inf());
+	}
+	else if (intC.inf() >= -M_PI && intC.sup() < -M_PI/2){
+	        if (order == 5)
+		        derBound = sec5thDer(intC.inf());
+	  
+	        if (order == 4)
+		        derBound = sec4thDer(intC.inf());
+
+		if (order == 3)		  
+		        derBound = sec3rdDer(intC.inf());
+	}
+	else{
+	        printf("Uncertainty too large. Please try decreasing the initial set size.\n");
+		exit(-1);
+	}
+
+	return derBound;
+}
+
+Real getSecRemLowerBound(Interval intC, int order){
+
+        Real derBound;
+	if (intC.inf() > -M_PI/2 && intC.sup() < M_PI/2){
+
+	        if (order == 5){
+		        derBound = sec5thDer(intC.inf());
+		}
+	  
+	        if (order == 4){
+		        derBound = sec4thDer(intC.sup());
+			
+			if (derBound > sec4thDer(intC.inf()))
+			        derBound = sec4thDer(intC.inf());
+		}
+
+	        if (order == 3){
+		        derBound = sec3rdDer(intC.inf());
+		}	
+	}
+	else if (intC.inf() > M_PI/2 && intC.sup() <= M_PI){
+	        if (order == 5)
+		        derBound = sec5thDer(intC.sup());
+	  
+	        if (order == 4)
+		        derBound = sec4thDer(intC.inf());
+
+		if (order == 3)
+		        derBound = sec3rdDer(intC.sup());
+	}
+	else if (intC.inf() >= -M_PI && intC.sup() < -M_PI/2){
+	        if (order == 5)
+		        derBound = sec5thDer(intC.sup());
+	  
+	        if (order == 4)
+		        derBound = sec4thDer(intC.sup());
+
+		if (order == 3)		  
+		        derBound = sec3rdDer(intC.sup());
+	}
+	else{
+	        printf("Uncertainty too large. Please try decreasing the initial set size.\n");
+		exit(-1);
+	}
+
+	return derBound;
+}
+
+Interval getSecDerRemBound(const Interval inputBounds, const double apprPoint, const int order){
+  
+        Interval upper = Interval(apprPoint, inputBounds.sup());
+	Interval lower = Interval(inputBounds.inf(), apprPoint);
+  
+        Real Q_u = getSecRemUpperBound(upper, order);
+	Real Q_l = getSecRemUpperBound(lower, order);
+	Real q_u = getSecRemLowerBound(upper, order);
+	Real q_l = getSecRemLowerBound(lower, order);
+
+        Real fact = Real(24);
+	if(order == 5)
+	  fact = Real(120);
+	
+	Real maxPosDev = Real(inputBounds.sup() - apprPoint);
+	Real maxNegDev = Real(inputBounds.inf()- apprPoint);
+	maxPosDev.pow_assign(order);
+	maxNegDev.pow_assign(order);
+
+	Real u = (maxPosDev * Q_u) / fact;
+	Real l = (maxPosDev * q_u) / fact;
+
+	if((maxNegDev * Q_l) / fact > u) u = (maxNegDev * Q_l) / fact;
+	if(l > (maxNegDev * q_l) / fact) l = (maxNegDev * q_l) / fact;
+
+	//these checks are necessary because the remainder is always 0 at apprPoint
+	if(Real(0) > u) u = Real(0);
+	if(l > Real(0)) l = Real(0);
+	
+        return Interval(l.getValue_RNDD(), u.getValue_RNDU());
+    
+}
+
 Real getDivDerBound(int order, Interval intC){
 
         Real bound = Real(0);
@@ -922,29 +1051,32 @@ void sec_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
 
     Real apprPoint = sec(midPoint);
 					
-    //NB: This assumes a 2nd order TS approximation
+    //NB: This performs a 4th order TS approximation
     Real coef1 = sec1stDer(midPoint);
     Real coef2 = sec2ndDer(midPoint)/2;
     Real coef3 = sec3rdDer(midPoint)/6;
+    Real coef4 = sec4thDer(midPoint)/24;
 
-    Real derBound = getSecDerBound(intC, 3);
+    //Real derBound = getSecDerBound(intC, 5);
+
+    rem = getSecDerRemBound(intC, intC.midpoint(), 5);
     
     Real maxDev = Real(intC.sup()) - midPoint;
     if (midPoint - Real(intC.inf()) > maxDev){
         maxDev = midPoint - Real(intC.inf());
     }
     
-    Real fact = 6;
-    maxDev.pow_assign(3);
-
+    Real fact = Real(120);
+    maxDev.pow_assign(5);
 					
-    Real remainder = (derBound * maxDev) / fact;
+    //Real remainder = (derBound * maxDev) / fact;
     
     Interval apprInt = Interval(apprPoint);
     
     Interval deg1Int = Interval(coef1);
     Interval deg2Int = Interval(coef2);
     Interval deg3Int = Interval(coef3);
+    Interval deg4Int = Interval(coef4);
     
     std::vector<int> deg1(numVars, 0);
     deg1[varInputInd + 1] = 1;
@@ -952,11 +1084,14 @@ void sec_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     deg2[varInputInd + 1] = 2;
     std::vector<int> deg3(numVars, 0);
     deg3[varInputInd + 1] = 3;
+    std::vector<int> deg4(numVars, 0);
+    deg4[varInputInd + 1] = 4;
 
     /*
       Poly approx. = apprPoint + coef1 * (x - midPoint) 
-      + coef2 * x^2 - 2 * coef2 * x * midPoint + coef2 * midPoint^2
-      + coef3 * x^3 - 3 * coef3 * x^2 * midpoint + 3 * coef3 * x * midPoint^2 - coef3 * midPoint^3
+      + coef2 * (x^2 - 2 * x * midPoint + midPoint^2)
+      + coef3 * (x^3 - 3 * x^2 * midpoint + 3 * x * midPoint^2 - midPoint^3)
+      + coef4 * (x^4 - 4 * x^3 * midpoint + 6 * x^2 * midPoint^2 - 4 * x * midPoint^3 + midPoint^4)
     */
 
     Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
@@ -967,156 +1102,22 @@ void sec_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
       Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
       Polynomial(Monomial(deg2Int, deg2));
+
+    Polynomial deg3Poly =
+      Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
+      Polynomial(Monomial(deg3Int, deg3));
+
+    Polynomial deg4Poly =
+      Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
+      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
+      Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
+      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
+      Polynomial(Monomial(deg4Int, deg4));    
 					
-    exp = deg0Poly + deg1Poly + deg2Poly;
-    remainder.to_sym_int(rem);
-
-    //if uncertainty too large, use a 3rd order approximation
-    if (rem.width() > 0.00001){
-
-        if(Real(1000) > coef3){
-	    fact = 24;
-	    maxDev = Real(intC.sup()) - midPoint;
-	    maxDev.pow_assign(4);
-	    derBound = getSecDerBound(intC, 4);
-	    
-	    remainder = (derBound * maxDev) / fact;
-	    remainder.to_sym_int(rem);
-							
-	    Polynomial deg3Poly =
-	      Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
-	      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
-	      Polynomial(Monomial(deg3Int, deg3));
-	    
-	    exp += deg3Poly;
-	}
-    }
-
-    //if uncertainty too large, use a 4th order approximation
-    // if (rem.width() > 0.00001){
-
-    //     Real coef4 = sec4thDer(midPoint)/24;
-	
-    // 	if(Real(10) > coef4){
-
-    // 	    fact = 120;
-    // 	    maxDev = Real(intC.sup()) - midPoint;
-    // 	    maxDev.pow_assign(5);
-    // 	    derBound = getSecDerBound(intC, 5);					       
-
-    // 	    std::vector<int> deg4(numVars, 0);
-    // 	    deg4[varInputInd + 1] = 4;
-
-    // 	    remainder = (derBound * maxDev) / fact;
-    // 	    remainder.to_sym_int(rem);
-						
-    // 	    Interval deg4Int = Interval(coef4);
-	    
-    // 	    Polynomial deg4Poly =
-    // 	      Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
-    // 	      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) -
-    // 	      Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
-    // 	      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
-    // 	      Polynomial(Monomial(deg4Int, deg4));
-					        
-						
-    // 	    exp += deg4Poly;
-    // 	}
-    // }
-
-    //if uncertainty still too large, use worst-case bounds
-    //NB: this case is specific to the F1/10 case study
-    // if (rem.width() > 0.1){
-    //     Real secSup = sec(Real(intC.sup()));
-    // 	Real secInf = sec(Real(intC.inf()));
-
-    // 	//NB: 1 and 2 are hardcoded indices
-    // 	Interval intDistS;
-    // 	tmvAggregation.tms[1].intEval(intDistS, doAggregation);
-    // 	Interval intDistF;
-    // 	tmvAggregation.tms[2].intEval(intDistF, doAggregation);	
-	
-    // 	Interval secBounds;
-
-    // 	//NB: These hardcoded resets are specific to the F1/10 case study
-    // 	double LIDAR_MAX_DISTANCE = 5;
-    // 	double hallwayWidth = 1.5;
-
-    // 	if (intC.inf() > -M_PI/2 && intC.sup() <= 0){
-    // 	    secBounds = Interval(secSup, secInf, 100);
-
-    // 	    if (secBounds.inf() * (hallwayWidth - intDistS.sup()) > LIDAR_MAX_DISTANCE &&
-    // 		secBounds.inf() * (hallwayWidth - intDistS.inf()) > LIDAR_MAX_DISTANCE &&
-    // 		hallwayWidth - intDistS.sup() > 0){
-	      
-    // 	        secBounds.setInf((LIDAR_MAX_DISTANCE + 1) / std::min((hallwayWidth - intDistS.sup()), (hallwayWidth - intDistS.inf())));
-    // 	    }
-    // 	    if (secBounds.sup() * (hallwayWidth - intDistS.sup()) > LIDAR_MAX_DISTANCE &&
-    // 		secBounds.sup() * (hallwayWidth - intDistS.inf()) > LIDAR_MAX_DISTANCE &&
-    // 		hallwayWidth - intDistS.sup() > 0){
-	      
-    // 	        secBounds.setSup((LIDAR_MAX_DISTANCE + 1) / std::min((hallwayWidth - intDistS.sup()), (hallwayWidth - intDistS.inf())));
-    // 	    }
-    // 	}
-
-    // 	else if(intC.inf() >= 0 && intC.sup() < M_PI/2){
-    // 	    secBounds = Interval(secInf, secSup, 100);
-
-    // 	    if (secBounds.inf() * (hallwayWidth - intDistF.sup()) > LIDAR_MAX_DISTANCE &&
-    // 		secBounds.inf() * (hallwayWidth - intDistF.inf()) > LIDAR_MAX_DISTANCE &&
-    // 		hallwayWidth - intDistF.sup() > 0){
-
-    // 	        secBounds.setInf((LIDAR_MAX_DISTANCE + 1) / std::min((hallwayWidth - intDistF.sup()), (hallwayWidth - intDistF.inf())));
-    // 	    }
-    // 	    if (secBounds.sup() * (hallwayWidth - intDistF.sup()) > LIDAR_MAX_DISTANCE &&
-    // 		secBounds.sup() * (hallwayWidth - intDistF.inf()) > LIDAR_MAX_DISTANCE &&
-    // 		hallwayWidth - intDistF.sup() > 0){
-	      
-    // 	        secBounds.setSup((LIDAR_MAX_DISTANCE + 1) / std::min((hallwayWidth - intDistF.sup()), (hallwayWidth - intDistF.inf())));
-    // 	    }
-    // 	}
-
-    // 	else if(intC.inf() > -M_PI/2 && intC.sup() < M_PI/2){
-    // 	    Real low = Real(1);
-    // 	    Real high = sec(Real(intC.sup()));
-
-    // 	    if(sec(Real(intC.inf())) > high) high = sec(Real(intC.inf()));
-	    
-    // 	    secBounds = Interval(low, high, 100);
-    // 	}
-	
-    // 	else if (intC.inf() > M_PI/2 && intC.sup() <= M_PI){
-    // 	    secBounds = Interval(secInf, secSup, 100);
-    // 	}
-						
-    // 	else if (intC.inf() >= -M_PI && intC.sup() < -M_PI/2){
-	  
-    // 	    secBounds = Interval(secSup, secInf, 100);							
-    // 	}
-
-    // 	else{
-    // 	    printf("Uncertainty too large. Please try decreasing the initial set.\n");
-    // 	    exit(-1);
-    // 	}					
-				  
-    // 	exp = Polynomial(Monomial(secBounds, numVars));
-    // 	rem = Interval(0.0, 0.0);
-    // }
-
-    /*
-      NB: this remainder check is commented out because secants are
-      reset to a max value in the F1/10 case study (i.e., large
-      uncertainty typically occurs in cases that are reset to a
-      constant anyway). In any case, if the remainder gets too big,
-      then the verification will break down somewhere else, so it is
-      not necessary to have this check in every mode.
-     */
-    
-    // if(rem.width() > 10){
-    //     printf("Uncertainty too large. Please increase Taylor Model order.\n");
-    // 	exit(-1);
-    // }
+    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly + deg4Poly;
+    //remainder.to_sym_int(rem);
     
     tmReset.expansion = exp;
     tmReset.remainder = rem;
@@ -1227,7 +1228,7 @@ void div_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
 	    
     // 	    Polynomial deg4Poly =
     // 	      Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
-    // 	      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) -
+    // 	      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
     // 	      Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
     // 	      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
     // 	      Polynomial(Monomial(deg4Int, deg4));
