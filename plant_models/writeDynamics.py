@@ -88,10 +88,6 @@ plant[1]['transitions'][(1, 2)]['guards3'] =\
      'ax = 1', 'y2 >= ' + str(HALLWAY_LENGTH / 2)]
 plant[1]['transitions'][(1, 2)]['reset3'] = ['clock\' := 0', 'k\' := k + 1']
 
-plant[1]['transitions'][(1, 1000000)] = {}
-plant[1]['transitions'][(1, 1000000)]['guards1'] = ['y2 <= 10', 'ax = 1']
-plant[1]['transitions'][(1, 1000000)]['reset1'] = []
-
 plant[1]['transitions'][(1, 2000000)] = {}
 plant[1]['transitions'][(1, 2000000)]['guards1'] = ['y1 <= ' + WALL_MIN]
 plant[1]['transitions'][(1, 2000000)]['reset1'] = []
