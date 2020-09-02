@@ -353,14 +353,14 @@ def writeEndJump(stream):
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\tcont_m2 ->  m_end_hr\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 <= -0.05}\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 <= -0.05}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\tcont_m2 ->  m_end_hl\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 >= 0.05}\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 >= 0.05}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -567,7 +567,7 @@ def main(argv):
         + '\tright_wallm3000001\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
         + '\tbottom_wallm5000001\n\t{\n\t\ty1 >= 1.5\n\t\ty2 >= 1.2\n\n\t}\n' \
         + '\ttop_wallm4000001\n\t{\n\t\ty2 <= 0.3\n\n\t}\n' \
-        + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
+        + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\t\ty2 >= 10.0\n\n\t}\n' \
         + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end_pr\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
         + '\tm_end_hl\n\t{\n\t\ty4 >= 0.05\n\n\t}\n' \

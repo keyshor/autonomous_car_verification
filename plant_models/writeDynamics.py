@@ -76,8 +76,11 @@ plant[1]['transitions'][(1, 2)]['reset1'] =\
     ['clock\' := 0', 'k\' := k + 1', 'y4\' := y4 + ' + str(PIBY2), 'y1\' := y2',
      'y2\' := ' + str(HALLWAY_LENGTH) + ' - y1', 'ax\' := 1']
 plant[1]['transitions'][(1, 2)]['guards2'] =\
-    ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET)]
+    ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET), 'ax = 0']
 plant[1]['transitions'][(1, 2)]['reset2'] = ['clock\' := 0', 'k\' := k + 1']
+plant[1]['transitions'][(1, 2)]['guards3'] =\
+    ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET), 'ax = 1', 'y2 >= ' + str(HALLWAY_LENGTH / 2)]
+plant[1]['transitions'][(1, 2)]['reset3'] = ['clock\' := 0', 'k\' := k + 1']
 
 plant[1]['transitions'][(1, 1000000)] = {}
 plant[1]['transitions'][(1, 1000000)]['guards1'] = ['y2 <= 10', 'ax = 1']

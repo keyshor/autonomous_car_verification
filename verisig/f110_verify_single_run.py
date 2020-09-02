@@ -353,14 +353,14 @@ def writeEndJump(stream):
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\tcont_m2 ->  m_end_hr\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 <= -0.05}\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 <= -0.05}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\tcont_m2 ->  m_end_hl\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 >= 0.05}\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 >= 0.05}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -560,14 +560,14 @@ def main(argv):
 
         glue = pickle.load(f)
 
-    numSteps = 50
+    numSteps = 100
 
     # F1/10 Safety + Reachability
     safetyProps = 'unsafe\n{\tleft_wallm2000001\n\t{\n\t\ty1 <= 0.3\n\n\t}\n' \
         + '\tright_wallm3000001\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
         + '\tbottom_wallm5000001\n\t{\n\t\ty1 >= 1.5\n\t\ty2 >= 1.2\n\n\t}\n' \
         + '\ttop_wallm4000001\n\t{\n\t\ty2 <= 0.3\n\n\t}\n' \
-        + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
+        + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\t\ty2 >= 10.0\n\n\t}\n' \
         + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end_pr\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
         + '\tm_end_hl\n\t{\n\t\ty4 >= 0.05\n\n\t}\n' \
@@ -585,7 +585,7 @@ def main(argv):
     count = 1
 
     initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                 'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [-0.01, 0.01]', 'k in [0, 0]',
+                 'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [0, 0.005]', 'k in [0, 0]',
                  'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
                  'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
 
