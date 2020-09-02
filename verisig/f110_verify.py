@@ -37,6 +37,7 @@ CONTROLLER_THRESH = 0.005
 P_COEFF = 5
 D_COEFF = 0.6
 PD_COEFF = P_COEFF + D_COEFF
+WALL_LIMIT = 0.15
 
 
 def writeControllerModes(stream, numRays, dynamics):
@@ -364,7 +365,7 @@ def writeEndJump(stream):
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')    
+    stream.write('\t\tinterval aggregation\n')
 
 
 def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
@@ -561,12 +562,15 @@ def main(argv):
         glue = pickle.load(f)
 
     numSteps = 100
+    WALL_MIN = str(WALL_LIMIT)
+    WALL_MAX = str(1.5 - WALL_LIMIT)
 
     # F1/10 Safety + Reachability
-    safetyProps = 'unsafe\n{\tleft_wallm2000001\n\t{\n\t\ty1 <= 0.3\n\n\t}\n' \
-        + '\tright_bottom_wallm3000001\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
-        + '\ttop_wallm4000001\n\t{\n\t\ty2 <= 0.3\n\n\t}\n' \
-        + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\t\ty2 >= 10.0\n\n\t}\n' \
+    safetyProps = 'unsafe\n{\tleft_wallm2000001\n\t{\n\t\ty1 <= ' + WALL_MIN + '\n\n\t}\n' \
+        + ('\tright_bottom_wallm3000001\n\t{'
+           + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + WALL_MAX + '\n\n\t}\n') \
+        + '\ttop_wallm4000001\n\t{\n\t\ty2 <= ' + WALL_MIN + '\n\n\t}\n' \
+        + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
         + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end_pr\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
         + '\tm_end_hl\n\t{\n\t\ty4 >= 0.05\n\n\t}\n' \

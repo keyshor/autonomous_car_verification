@@ -32,6 +32,7 @@ print(NUM_RAYS)
 HALLWAY_WIDTH = 1.5
 HALLWAY_LENGTH = 20
 MODE_SWITCH_OFFSET = 2
+WALL_LIMIT = 0.15
 
 TIME_STEP = 0.1  # in s
 
@@ -40,6 +41,9 @@ PIBY180 = np.pi / 180.0
 ONE80BYPI = 180.0 / np.pi
 
 HYSTERESIS_CONSTANT = 4
+
+WALL_MIN = str(WALL_LIMIT)
+WALL_MAX = str(HALLWAY_WIDTH - WALL_LIMIT)
 
 plant = {}
 
@@ -71,7 +75,8 @@ plant[1]['invariants'] = ['clock <= ' + str(TIME_STEP)]
 plant[1]['transitions'] = {}
 plant[1]['transitions'][(1, 2)] = {}
 plant[1]['transitions'][(1, 2)]['guards1'] =\
-    ['clock = ' + str(TIME_STEP), 'y1 >= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET)]
+    ['clock = ' + str(TIME_STEP), 'y1 >= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET),
+     'ax = 0']
 plant[1]['transitions'][(1, 2)]['reset1'] =\
     ['clock\' := 0', 'k\' := k + 1', 'y4\' := y4 + ' + str(PIBY2), 'y1\' := y2',
      'y2\' := ' + str(HALLWAY_LENGTH) + ' - y1', 'ax\' := 1']
@@ -79,7 +84,8 @@ plant[1]['transitions'][(1, 2)]['guards2'] =\
     ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET), 'ax = 0']
 plant[1]['transitions'][(1, 2)]['reset2'] = ['clock\' := 0', 'k\' := k + 1']
 plant[1]['transitions'][(1, 2)]['guards3'] =\
-    ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET), 'ax = 1', 'y2 >= ' + str(HALLWAY_LENGTH / 2)]
+    ['clock = ' + str(TIME_STEP), 'y1 <= ' + str(HALLWAY_WIDTH + MODE_SWITCH_OFFSET),
+     'ax = 1', 'y2 >= ' + str(HALLWAY_LENGTH / 2)]
 plant[1]['transitions'][(1, 2)]['reset3'] = ['clock\' := 0', 'k\' := k + 1']
 
 plant[1]['transitions'][(1, 1000000)] = {}
@@ -87,15 +93,15 @@ plant[1]['transitions'][(1, 1000000)]['guards1'] = ['y2 <= 10', 'ax = 1']
 plant[1]['transitions'][(1, 1000000)]['reset1'] = []
 
 plant[1]['transitions'][(1, 2000000)] = {}
-plant[1]['transitions'][(1, 2000000)]['guards1'] = ['y1 <= 0.3']
+plant[1]['transitions'][(1, 2000000)]['guards1'] = ['y1 <= ' + WALL_MIN]
 plant[1]['transitions'][(1, 2000000)]['reset1'] = []
 
 plant[1]['transitions'][(1, 3000000)] = {}
-plant[1]['transitions'][(1, 3000000)]['guards1'] = ['y1 >= 1.2', 'y2 >= 1.2']
+plant[1]['transitions'][(1, 3000000)]['guards1'] = ['y1 >= ' + WALL_MAX, 'y2 >= ' + WALL_MAX]
 plant[1]['transitions'][(1, 3000000)]['reset1'] = []
 
 plant[1]['transitions'][(1, 4000000)] = {}
-plant[1]['transitions'][(1, 4000000)]['guards1'] = ['y2 <= 0.3']
+plant[1]['transitions'][(1, 4000000)]['guards1'] = ['y2 <= ' + WALL_MIN]
 plant[1]['transitions'][(1, 4000000)]['reset1'] = []
 
 plant[1000000] = {}
@@ -140,7 +146,7 @@ for i in range(NUM_RAYS):
     plant[2000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
 plant[2000000]['invariants'] = []
-plant[2000000]['transitions'] = {}    
+plant[2000000]['transitions'] = {}
 
 plant[3000000] = {}
 plant[3000000]['name'] = 'right_bottom_wall'
@@ -162,7 +168,7 @@ for i in range(NUM_RAYS):
     plant[3000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
 plant[3000000]['invariants'] = []
-plant[3000000]['transitions'] = {}    
+plant[3000000]['transitions'] = {}
 
 plant[4000000] = {}
 plant[4000000]['name'] = 'top_wall'
@@ -184,7 +190,7 @@ for i in range(NUM_RAYS):
     plant[4000000]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
 plant[4000000]['invariants'] = []
-plant[4000000]['transitions'] = {}    
+plant[4000000]['transitions'] = {}
 
 # end of plant dynanmics
 
