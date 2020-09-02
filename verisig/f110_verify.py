@@ -564,8 +564,7 @@ def main(argv):
 
     # F1/10 Safety + Reachability
     safetyProps = 'unsafe\n{\tleft_wallm2000001\n\t{\n\t\ty1 <= 0.3\n\n\t}\n' \
-        + '\tright_wallm3000001\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
-        + '\tbottom_wallm5000001\n\t{\n\t\ty1 >= 1.5\n\t\ty2 >= 1.2\n\n\t}\n' \
+        + '\tright_bottom_wallm3000001\n\t{\n\t\ty1 >= 1.2\n\t\ty2 >= 1.5\n\n\t}\n' \
         + '\ttop_wallm4000001\n\t{\n\t\ty2 <= 0.3\n\n\t}\n' \
         + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\t\ty2 >= 10.0\n\n\t}\n' \
         + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
