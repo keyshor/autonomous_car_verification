@@ -613,6 +613,7 @@ def main(argv):
             count += 1
 
         curHeading += headingOffset
+        curLBPos = 0.65
 
 
 if __name__ == '__main__':
