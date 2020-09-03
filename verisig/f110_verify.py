@@ -503,7 +503,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
         stream.write('\t\toutput {}\n'.format(os.path.basename(filename[:-6])))
         stream.write('\t\tmax jumps ' + str((1 + 2 + 10 +
                                              6 * numRays) * numSteps) + '\n')  # F1/10 case study
-        stream.write('\t\tprint on\n')
+        stream.write('\t\tprint off\n')
         stream.write('\t}\n\n')
 
         # encode modes-----------------------------------------------------------------------------
@@ -585,26 +585,34 @@ def main(argv):
     curLBPos = 0.65
     posOffset = 0.005
 
+    curHeading = -0.05
+    headingOffset = 0.002
+
     count = 1
 
-    while curLBPos < 0.85:
+    while curHeading < 0.05:
 
-        initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                     'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [0, 0]', 'k in [0, 0]',
-                     'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
-                     'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
+        while curLBPos < 0.85:
 
-        curModelFile = modelFile + '_' + str(count) + '.model'
-        curOutFile = 'outputs/console_{}.txt'.format(count)
+            initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
+                         'y2 in [10.0, 10.0]', 'y3 in [0, 0]',
+                         'y4 in [' + str(curHeading) + ', ' + str(curHeading + headingOffset) + ']',
+                         'k in [0, 0]', 'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]',
+                         'temp2 in [0, 0]', 'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
 
-        writeComposedSystem(curModelFile, initProps, numRays,
-                            plant, glue, safetyProps, numSteps)
+            curModelFile = modelFile + '_' + str(count) + '.model'
+            curOutFile = 'outputs/console_{}.txt'.format(count)
 
-        args = '../flowstar_verisig/flowstar' + ' < ' + curModelFile + ' > ' + curOutFile
-        _ = subprocess.Popen(args, shell=True, stdin=PIPE)
+            writeComposedSystem(curModelFile, initProps, numRays,
+                                plant, glue, safetyProps, numSteps)
 
-        curLBPos += posOffset
-        count += 1
+            args = '../flowstar_verisig/flowstar' + ' < ' + curModelFile + ' > ' + curOutFile
+            _ = subprocess.Popen(args, shell=True, stdin=PIPE)
+
+            curLBPos += posOffset
+            count += 1
+
+        curHeading += headingOffset
 
 
 if __name__ == '__main__':
