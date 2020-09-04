@@ -950,11 +950,10 @@ while curRay <= NUM_RAYS:
 
     # transition to correct wall
 
-    # NB: some epsilons here
     # [-LIDAR_RANGE, theta_r]
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 1)] = {}
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 1)]['guards1'] =\
-        ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp2 <= 0.01']
+        ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp2 <= 0']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 1)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0',
          'angle\' := (' + str(np.pi/2) + ' + angle)']
@@ -963,14 +962,14 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 2)] = {}
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 2)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi),
-         'temp2 >= 0.01', 'temp1 <= 0.01']
+         'temp2 >= 0', 'temp1 <= 0']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 2)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0', 'angle\' := angle']
 
     # (theta_l, LIDAR_RANGE]
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)] = {}
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)]['guards1'] =\
-        ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp1 >= 0.01']
+        ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp1 >= 0']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0',
          'angle\' := (' + str(np.pi/2) + ' - angle)']
@@ -1173,6 +1172,7 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg1 + index +
           7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)] = {}
+
     plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['guards1'] =\
         ['clock = 0', 'f' + str((index + 8)//8) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
     plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['reset1'] =\
@@ -1239,13 +1239,12 @@ while curRay <= NUM_RAYS:
 
     # transition to correct wall
 
-    # NB: some epsilons here
     # [-LIDAR_RANGE, theta_r]
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 1)] = {}
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 1)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi),
-         'temp2 <= 0.01']
+         'temp2 <= 0']
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 1)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi / 2) + ' + angle']
@@ -1255,7 +1254,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 2)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi),
-         'temp2 >= 0.01',
+         'temp2 >= 0',
          'angle <= ' + str(-np.pi/2)]
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 2)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
@@ -1266,7 +1265,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 3)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi),
-         'temp1 <= 0.01',
+         'temp1 <= 0',
          'angle >= ' + str(-np.pi/2)]
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 3)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
@@ -1277,7 +1276,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 4)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi),
-         'temp1 >= 0.01']
+         'temp1 >= 0']
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 4)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi/2) + ' - angle']
@@ -1632,17 +1631,16 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 2)] = {}
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 2)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi),
-         'temp1 <= 0.01', 'angle >= ' + str(-89.4 * np.pi / 180)]
+         'temp1 <= 0', 'angle >= ' + str(-89.4 * np.pi / 180)]
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 2)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := angle']
 
     # (theta_l, theta_r]
-    # NB: some epsilons here
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 3)] = {}
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 3)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi),
-         'angle <= ' + str(np.pi), 'temp1 >= 0.01', 'temp2 <= 0.01']
+         'angle <= ' + str(np.pi), 'temp1 >= 0', 'temp2 <= 0']
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 3)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi/2) + ' - angle']
@@ -1651,7 +1649,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 4)] = {}
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 4)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi),
-         'angle <= ' + str(np.pi), 'temp2 >= 0.01']
+         'angle <= ' + str(np.pi), 'temp2 >= 0']
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 4)]['reset1'] =\
         ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
          'angle\' := ' + str(np.pi) + ' - angle']
