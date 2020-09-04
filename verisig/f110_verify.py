@@ -573,8 +573,8 @@ def main(argv):
         + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
         + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end_pr\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
-        + '\tm_end_hl\n\t{\n\t\ty4 >= 0.05\n\n\t}\n' \
-        + '\tm_end_hr\n\t{\n\t\ty4 <= -0.05\n\n\t}\n}'
+        + '\tm_end_hl\n\t{\n\t\ty4 >= 0.02\n\n\t}\n' \
+        + '\tm_end_hr\n\t{\n\t\ty4 <= -0.02\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -585,12 +585,12 @@ def main(argv):
     curLBPos = 0.65
     posOffset = 0.005
 
-    curHeading = -0.05
-    headingOffset = 0.002
+    curHeading = -0.02
+    headingOffset = 0.001
 
     count = 1
 
-    while curHeading < 0.05:
+    while curHeading < -0.015:
 
         while curLBPos < 0.85:
 
