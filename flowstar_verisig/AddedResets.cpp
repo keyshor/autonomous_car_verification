@@ -117,28 +117,99 @@ Real arctanCoef(int order){
 	else return Real(-1.0/order);
 }
 
-Real arctanDer(int order, Real input){
+// Real arctanDer(int order, Real input){
 
-	Real sum = 0;
+// 	Real sum = 0;
 
-	bool posSign = true;
+// 	bool posSign = true;
 
-	for(int i = 1; i <= order; i++){
-	        if (i % 2 != 0){
-		        Real nextEl = Real(input);
+// 	for(int i = 1; i <= order; i++){
+// 	        if (i % 2 != 0){
+// 		        Real nextEl = Real(input);
 
-			nextEl.pow_assign(i);
+// 			nextEl.pow_assign(i);
 
-			if(posSign) sum += nextEl/Real(i);
+// 			if(posSign) sum += nextEl/Real(i);
 
-			else sum -= nextEl/Real(i);
+// 			else sum -= nextEl/Real(i);
 
-			posSign = !posSign;
-		}
+// 			posSign = !posSign;
+// 		}
 
+// 	}
+
+// 	return sum;
+// }
+
+Real arctanDer(const int order, const Real input){
+
+        if(order == 1){
+
+	        Real result = input;
+		result.pow_assign(2);
+
+		return Real(1) / (Real(1) + result);
 	}
 
-	return sum;
+	if(order == 2){
+
+	        Real num = input;
+		num = Real(-2) * num;
+
+		Real denom = input;
+		denom.pow_assign(2);
+		denom = Real(1) + denom;
+		denom.pow_assign(2);
+
+		return num / denom;
+	}
+
+	if(order == 3){
+
+	        Real num = input;
+		num.pow_assign(2);
+		num = Real(6) * num + Real(-2);
+
+		Real denom = input;
+		denom.pow_assign(2);
+		denom = Real(1) + denom;
+		denom.pow_assign(3);
+
+		return num / denom;		
+	}
+
+	if(order == 4){
+
+	        Real num = input;
+		Real num2 = input;
+		num2.pow_assign(2);
+
+		num = Real(-24) * num * (num2 - Real(1));
+
+		Real denom = input;
+		denom.pow_assign(2);
+		denom = Real(1) + denom;
+		denom.pow_assign(4);
+
+		return num / denom;				
+	}
+
+	if(order == 5){
+
+		Real num2 = input;
+		num2.pow_assign(2);
+		Real num4 = input;
+		num4.pow_assign(4);
+		Real num = Real(24) * (Real(5) * num4 + Real(-10) * num2 + Real(1));
+
+		Real denom = input;
+		denom.pow_assign(2);
+		denom = Real(1) + denom;
+		denom.pow_assign(5);
+
+		return num / denom;
+	}
+  
 }
 
 Real tan1stDer(Real input){
@@ -616,10 +687,256 @@ Real getDivDerBound(int order, Interval intC){
 	return bound;
 }
 
-//NB: this assumes intC \subset [-1, 1]
-Real getArcTanDerBound(double dev, int order){
+void getGenericDerBounds(Real &upper, Real &lower, const bool left_segment_increasing, const std::vector<Real> extrema_locations,
+			 const std::vector<Real> extrema_magnitudes, const int reset_type, const int order, const Interval in_bounds){
 
-	return Real( (pow(dev, 2 * order + 1)) / (2 * order + 1));
+        Real cur_segment_low, cur_segment_high;
+
+	bool cur_segment_increasing = left_segment_increasing;
+
+	Real in_lower, in_upper;
+	in_bounds.inf(in_lower);
+	in_bounds.sup(in_upper);
+
+	Real cur_low, cur_high;
+
+	int num_extrema = extrema_locations.size();
+
+	// there are a total of (num_extrema + 1) segments to consider (hence the <=)
+	for(int i = 0; i <= num_extrema; i++){
+
+	        if(i == 0) cur_segment_low = in_lower;
+		else cur_segment_low = extrema_locations[i-1];
+
+		if(i == num_extrema) cur_segment_high = in_upper;
+		else cur_segment_high = extrema_locations[i];
+
+		// case 0 (input interval is to the right of current segment)
+		if(in_lower > cur_segment_high){
+		  
+		        // toggle the increasing bool
+		        cur_segment_increasing = !cur_segment_increasing;
+			
+			continue;
+		}
+
+		// case 1 (entire input interval is contained in current segment)
+		if(in_lower >= cur_segment_low && cur_segment_high >= in_upper){
+
+		        if(cur_segment_increasing){
+			        if(reset_type == ARC){
+				        upper = arctanDer(order, in_upper);
+				        lower = arctanDer(order, in_lower);
+				}
+			}
+			else{
+			        if(reset_type == ARC){
+				        upper = arctanDer(order, in_lower);
+				        lower = arctanDer(order, in_upper);
+				}
+			}
+
+			return;
+		}
+
+		// case 2 (only lower bound is in current segment)
+		if(in_lower >= cur_segment_low && cur_segment_high >= in_lower && in_upper > cur_segment_high){
+
+		        if(cur_segment_increasing){
+			        if(reset_type == ARC){
+				        cur_high = extrema_magnitudes[i];
+				        cur_low = arctanDer(order, in_lower);
+				}
+			}
+			else{
+			        if(reset_type == ARC){
+				        cur_high = arctanDer(order, in_lower);
+				        cur_low = extrema_magnitudes[i];
+				}
+			}		  
+		}
+
+		// case 3 (current segment is inside input bounds but does not contain either bound)
+		if(cur_segment_low > in_lower && in_upper > cur_segment_high){
+
+		        if(cur_segment_increasing){
+			        if(extrema_magnitudes[i] > cur_high) cur_high = extrema_magnitudes[i];
+			}
+
+			else{
+			        if(cur_low > extrema_magnitudes[i]) cur_low = extrema_magnitudes[i];
+			}
+		}
+
+		// case 4 (current segment contains only upper bound)
+		if(cur_segment_low > in_lower && in_upper >= cur_segment_low && cur_segment_high >= in_upper){
+		  
+		        if(cur_segment_increasing){
+			        if(reset_type == ARC){
+				        if(arctanDer(order, in_upper) > cur_high) cur_high = arctanDer(order, in_upper);
+				}
+			}
+
+			else{
+			        if(reset_type == ARC){
+				        if(cur_low > arctanDer(order, in_upper)) cur_low = arctanDer(order, in_upper);
+				}
+			}
+
+			break;
+		}
+
+		// toggle the increasing bool
+		cur_segment_increasing = !cur_segment_increasing;
+	}
+
+	upper = cur_high;
+	lower = cur_low;
+}
+
+void getGenericDerRemBound(Interval &remBounds, const bool left_segment_increasing, const std::vector<Real> extrema_locations,
+			   const std::vector<Real> extrema_magnitudes, const Interval inputBounds, const double apprPoint,
+			   const int reset_type, const int order){
+  
+        Interval upper = Interval(apprPoint, inputBounds.sup());
+	Interval lower = Interval(inputBounds.inf(), apprPoint);
+
+	Real Q_u, Q_l, q_u, q_l;
+
+	getGenericDerBounds(Q_u, q_u, left_segment_increasing, extrema_locations, extrema_magnitudes, reset_type, order, upper);
+	getGenericDerBounds(Q_l, q_l, left_segment_increasing, extrema_locations, extrema_magnitudes, reset_type, order, lower);
+
+	// NB: I am hardcoding the factorial since we only support orders 3 and 4 currently
+	// if order == 4
+	int factorial = 24;
+	
+	if(order == 5) factorial = 120;
+
+	if(order > 5){
+	        printf("Only orders supported currently are and 3 and 4\n");
+		exit(-1);
+	}
+	
+        Real fact = Real(factorial);
+	Real maxPosDev = Real(inputBounds.sup() - apprPoint);
+	Real maxNegDev = Real(inputBounds.inf()- apprPoint);
+	maxPosDev.pow_assign(order);
+	maxNegDev.pow_assign(order);
+
+	Real u = (maxPosDev * Q_u) / fact;
+	Real l = (maxPosDev * q_u) / fact;
+
+	if((maxNegDev * Q_l) / fact > u) u = (maxNegDev * Q_l) / fact;
+	if(l > (maxNegDev * q_l) / fact) l = (maxNegDev * q_l) / fact;
+
+	//these checks are necessary because the remainder is always 0 at apprPoint
+	if(Real(0) > u) u = Real(0);
+	if(l > Real(0)) l = Real(0);
+	
+        remBounds = Interval(l.getValue_RNDD(), u.getValue_RNDU());
+    
+}
+
+bool getArctanDerExtrema(std::vector<Real> &extrema_locations, std::vector<Real> &extrema_magnitudes, const int order){
+
+  
+        if(order == 4){
+	  
+	        // 5th derivative numerator can be factored as: 24 * (5 * x^4 - 10 * x^2 + 1)
+	        // Roots are x^2 = (10 +- sqrt(20)) / 10
+
+	        Real sqrt20 = Real(20);
+		sqrt20.sqrt_assign();
+
+		Real sol1 = (Real(10) + sqrt20) / Real(20);
+		Real sol2 = (Real(10) - sqrt20) / Real(20);
+
+		Real root1 = Real(sol1);
+		root1.sqrt_assign();
+	
+		Real root2 = Real(sol1);
+		root2.sqrt_assign();
+		root2 = Real(-1) * root2;
+
+		Real root3 = Real(sol2);
+		root3.sqrt_assign();
+	
+		Real root4 = Real(sol2);
+		root4.sqrt_assign();
+		root4 = Real(-1) * root4;
+
+		//NB: these are ordered in increasing order
+		extrema_locations.push_back(root2);
+		extrema_locations.push_back(root4);
+		extrema_locations.push_back(root3);
+		extrema_locations.push_back(root1);
+
+		extrema_magnitudes.push_back(arctanDer(4, root1));
+		extrema_magnitudes.push_back(arctanDer(4, root2));
+		extrema_magnitudes.push_back(arctanDer(4, root3));
+		extrema_magnitudes.push_back(arctanDer(4, root4));
+	}
+
+        return true;
+}
+
+//NB: this assumes intC \subset [-1, 1]
+// I got this remainder bound from mathexchange
+Real getArcRemUpperBound(const double dev, const int order){
+        return Real(fabs(pow(dev, 2 * order + 1)) / (2 * order + 1));
+}
+
+Real getArcRemLowerBound(const double dev, const int order){
+        return Real(- fabs(pow(dev, 2 * order + 1)) / (2 * order + 1));
+}
+
+
+Interval getArcDerRemBound(const Interval inputBounds, const double apprPoint, const int order){
+  
+        Interval upper = Interval(apprPoint, inputBounds.sup());
+	Interval lower = Interval(inputBounds.inf(), apprPoint);
+  
+        Real Q_u = getArcRemUpperBound(upper.sup(), order);
+	Real Q_l = getArcRemUpperBound(lower.inf(), order);
+	Real q_u = getArcRemLowerBound(upper.sup(), order);
+	Real q_l = getArcRemLowerBound(lower.inf(), order);
+
+        Real fact = Real(24);
+	if(order == 5)
+	  fact = Real(120);
+	
+	Real maxPosDev = Real(inputBounds.sup() - apprPoint);
+	Real maxNegDev = Real(inputBounds.inf()- apprPoint);
+	maxPosDev.pow_assign(order);
+	maxNegDev.pow_assign(order);
+
+	Real u = (maxPosDev * Q_u) / fact;
+	Real l = (maxPosDev * q_u) / fact;
+
+	if((maxNegDev * Q_l) / fact > u) u = (maxNegDev * Q_l) / fact;
+	if(l > (maxNegDev * q_l) / fact) l = (maxNegDev * q_l) / fact;
+
+	//these checks are necessary because the remainder is always 0 at apprPoint
+	if(Real(0) > u) u = Real(0);
+	if(l > Real(0)) l = Real(0);
+	
+        return Interval(l.getValue_RNDD(), u.getValue_RNDU());
+    
+}
+
+
+Real getArcTanDerBound(double dev, int order){
+        return Real( (pow(dev, 2 * order + 1)) / (2 * order + 1)); // Got this from mathexchange
+}
+
+Real getArcTanDerBound(const Real dev, const int order){
+
+        Real result = dev;
+	result.pow_assign(2 * order + 1);
+
+	return result / Real(2 * order + 1);
+  
+        //return Real( (pow(dev, 2 * order + 1)) / (2 * order + 1)); // Got this from mathexchange
 }
 
 Real getTanDerBound(int order, Interval intC){
@@ -1090,28 +1407,39 @@ void arc_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     Polynomial exp;
     Interval rem;
 
+    //NB: This performs a 3rd order TS approximation
+    int order = 3;
+
     Real midPoint = Real(intC.midpoint());
     
     Real apprPoint = arctan(intC.midpoint());
 
+    std::vector<Real> extrema_locations;
+    std::vector<Real> extrema_magnitudes;
 
-    //NB: This performs a 3rd order TS approximation
-    Real coef1 = arctanCoef(1);
-    Real coef2 = arctanCoef(2);
-    Real coef3 = arctanCoef(3);
+    bool left_segment_increasing = getArctanDerExtrema(extrema_locations, extrema_magnitudes, order+1);
+
+    getGenericDerRemBound(rem, left_segment_increasing, extrema_locations,
+			  extrema_magnitudes, intC, intC.midpoint(), ARC, order+1);
+
+    Real coef1 = arctanDer(1, midPoint);
+    Real coef2 = arctanDer(2, midPoint);
+    Real coef3 = arctanDer(3, midPoint);
+    //Real coef4 = arctanCoef(4, midPoint);
 
     Real maxDev = Real(intC.sup()) - midPoint;
     if (midPoint - Real(intC.inf()) > maxDev){
         maxDev = midPoint - Real(intC.inf());
     }
 
-    Real remainder = getArcTanDerBound(maxDev.getValue_RNDD(), 3);
+    //rem = getArcDerRemBound(intC, intC.midpoint(), 5);
     
     Interval apprInt = Interval(apprPoint);
     
     Interval deg1Int = Interval(coef1);
     Interval deg2Int = Interval(coef2);
     Interval deg3Int = Interval(coef3);
+    //Interval deg4Int = Interval(coef4);
 
     std::vector<int> deg1(numVars, 0);
     deg1[varInputInd + 1] = 1;
@@ -1119,6 +1447,8 @@ void arc_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     deg2[varInputInd + 1] = 2;
     std::vector<int> deg3(numVars, 0);
     deg3[varInputInd + 1] = 3;
+    //std::vector<int> deg4(numVars, 0);
+    //deg4[varInputInd + 1] = 4;
 
     Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
 
@@ -1128,23 +1458,139 @@ void arc_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
       Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
       Polynomial(Monomial(deg2Int, deg2));
+
+    Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
+      Polynomial(Monomial(deg3Int, deg3));
+
+    // Polynomial deg4Poly =
+    //   Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
+    //   Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
+    //   Polynomial(Monomial(deg4Int, deg4));    
 					
-    exp = deg0Poly + deg1Poly + deg2Poly;
+    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly;
+    //remainder.to_sym_int(rem);
+
+    tmReset.expansion = exp;
+    tmReset.remainder = rem;
+    
+}
+
+void arc_reset_second(TaylorModel &tmReset, const Interval intC, const int varStoreInd, const int varInputInd, const int numVars){
+
+    Polynomial exp;
+    Interval rem;
+    
+    //NB: This performs a 3rd order TS approximation
+    Real coef1 = arctanCoef(1);
+    Real coef3 = arctanCoef(3);
+
+    Real maxDevPos;
+    intC.sup(maxDevPos);
+    maxDevPos.abs_assign();
+
+    Real maxDevNeg;
+    intC.inf(maxDevNeg);
+    maxDevNeg.abs_assign();
+
+    Real maxDev = maxDevPos;
+    
+    if (maxDevNeg > maxDev){
+        maxDev = maxDevNeg;
+    }
+
+    Real remainder = getArcTanDerBound(maxDev, 2);
+    
+    Interval deg1Int = Interval(coef1);
+    Interval deg3Int = Interval(coef3);
+
+    std::vector<int> deg1(numVars, 0);
+    deg1[varInputInd + 1] = 1;
+    std::vector<int> deg3(numVars, 0);
+    deg3[varInputInd + 1] = 3;
+
+    Polynomial deg1Poly = Polynomial(Monomial(deg1Int, deg1));
+
+    Polynomial deg3Poly = Polynomial(Monomial(deg3Int, deg3));    
+					
+    exp = deg1Poly + deg3Poly;
+    //remainder.to_sym_int(rem);
+
+    //NB: this is only true when doing a 3rd order approximation
+    rem = Interval(0, remainder.getValue_RNDU());
+
+    tmReset.expansion = exp;
+    tmReset.remainder = rem;
+    
+}
+
+void arc_reset_original(TaylorModel &tmReset, const Interval intC, const int varStoreInd, const int varInputInd, const int numVars){
+
+    Polynomial exp;
+    Interval rem;
+
+    Real midPoint = Real(intC.midpoint());
+    
+    Real apprPoint = arctan(intC.midpoint());
+
+
+    //NB: This performs a 4th order TS approximation
+    Real coef1 = arctanCoef(1);
+    Real coef2 = arctanCoef(2);
+    Real coef3 = arctanCoef(3);
+    //Real coef4 = arctanCoef(4);
+
+    Real maxDev = Real(intC.sup()) - midPoint;
+    if (midPoint - Real(intC.inf()) > maxDev){
+        maxDev = midPoint - Real(intC.inf());
+    }
+
+    Real remainder = getArcTanDerBound(maxDev.getValue_RNDD(), 2);
+
+    //rem = getArcDerRemBound(intC, intC.midpoint(), 5);
+    
+    Interval apprInt = Interval(apprPoint);
+    
+    Interval deg1Int = Interval(coef1);
+    Interval deg2Int = Interval(coef2);
+    Interval deg3Int = Interval(coef3);
+    //Interval deg4Int = Interval(coef4);
+
+    std::vector<int> deg1(numVars, 0);
+    deg1[varInputInd + 1] = 1;
+    std::vector<int> deg2(numVars, 0);
+    deg2[varInputInd + 1] = 2;
+    std::vector<int> deg3(numVars, 0);
+    deg3[varInputInd + 1] = 3;
+    // std::vector<int> deg4(numVars, 0);
+    // deg4[varInputInd + 1] = 4;
+
+    Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
+
+    Polynomial deg1Poly = Polynomial(Monomial(Interval(Real(-1) * coef1 * midPoint), numVars)) +
+      Polynomial(Monomial(deg1Int, deg1));
+
+    Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
+      Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
+      Polynomial(Monomial(deg2Int, deg2));
+
+    Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
+      Polynomial(Monomial(deg3Int, deg3));
+
+    // Polynomial deg4Poly =
+    //   Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
+    //   Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
+    //   Polynomial(Monomial(deg4Int, deg4));    
+					
+    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly;
     remainder.to_sym_int(rem);
-
-    //if uncertainty too large, use a 3rd order approximation
-    if (rem.width() > 0.00001){					       
-
-        remainder = getArcTanDerBound(maxDev.getValue_RNDD(), 4);
-	remainder.to_sym_int(rem);
-
-	Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
-	  Polynomial(Monomial(deg3Int, deg3));
-						
-	exp += deg3Poly;
-    }	
 
     tmReset.expansion = exp;
     tmReset.remainder = rem;
