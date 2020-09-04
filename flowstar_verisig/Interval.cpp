@@ -273,6 +273,11 @@ void Real::sqrt_assign()
 {
 	mpfr_sqrt(value, value, MPFR_RNDN);
 }
+
+void Real::atan_assign()
+{
+	mpfr_atan(value, value, MPFR_RNDN);
+}
 /*
 Real & Real::operator *= (const Interval & I)
 {

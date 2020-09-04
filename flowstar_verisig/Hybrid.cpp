@@ -8022,6 +8022,7 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 
 		//Code added by Rado
 		int numBranches = 0;
+		std::string prev_branch;
 		
 		// overapproximate the intersection for each jump
 		for(int i=0; i<transitions[initMode].size(); ++i)
@@ -8984,6 +8985,15 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 					        branchIdQueue.push_back(dnn::curBranchId);
 					}
 					else{//new branch
+
+					        printf("branch when going from %s to %s\n",
+						       modeNames[initMode].c_str(),
+						       modeNames[transitions[initMode][i].targetID].c_str());
+
+						printf("prev branch when going from %s to %s\n",
+						       modeNames[initMode].c_str(),
+						       prev_branch.c_str());
+					  
 					        dnn::totalNumBranches++;
 						branchIdQueue.push_back(dnn::totalNumBranches);
 
@@ -8998,6 +9008,7 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 					        //dnn::load_reset[dnn::totalNumBranches] = dnn::load_reset[branchId];
 					}
 					numBranches++;
+					prev_branch = modeNames[transitions[initMode][i].targetID].c_str();
 					//end of code added by Rado
 				}
 			}

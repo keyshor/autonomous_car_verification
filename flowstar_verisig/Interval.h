@@ -85,6 +85,7 @@ public:
 	void exp_assign();
 	void log_assign();
 	void sqrt_assign();
+	void atan_assign();
 
 //	Real & operator *= (const Interval & I);
 	Interval operator * (const Interval & I) const;

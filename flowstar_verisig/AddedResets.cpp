@@ -20,6 +20,14 @@ Real arctan(double input){
         return Real(atan(input));
 }
 
+Real arctan(const Real input){
+
+        Real result = input;
+	result.atan_assign();
+
+        return result;
+}
+
 Real tan(Real input){
         Real denom = Real(input);
 	Real num = Real(input);
@@ -209,7 +217,23 @@ Real arctanDer(const int order, const Real input){
 
 		return num / denom;
 	}
-  
+
+	if(order == 6){
+
+	        Real num = input;
+		Real num2 = input;
+		num2.pow_assign(2);
+		Real num4 = input;
+		num4.pow_assign(4);
+		num = Real(-240) * num * (Real(3) * num4 + Real(-10) * num2 + Real(3));
+
+		Real denom = input;
+		denom.pow_assign(2);
+		denom = Real(1) + denom;
+		denom.pow_assign(6);
+
+		return num / denom;
+	}	
 }
 
 Real tan1stDer(Real input){
@@ -871,11 +895,52 @@ bool getArctanDerExtrema(std::vector<Real> &extrema_locations, std::vector<Real>
 		extrema_locations.push_back(root3);
 		extrema_locations.push_back(root1);
 
-		extrema_magnitudes.push_back(arctanDer(4, root1));
 		extrema_magnitudes.push_back(arctanDer(4, root2));
-		extrema_magnitudes.push_back(arctanDer(4, root3));
 		extrema_magnitudes.push_back(arctanDer(4, root4));
+		extrema_magnitudes.push_back(arctanDer(4, root3));
+		extrema_magnitudes.push_back(arctanDer(4, root1));
 	}
+
+	if(order == 5){
+	  
+	        // 6th derivative numerator can be factored as: -240 * x * (3 * x^4 - 10 * x^2 + 3)
+	        // Roots are x = 0, x^2 = (10 +- sqrt(64)) / 6
+
+	        Real sqrt64 = Real(64);
+		sqrt64.sqrt_assign();
+
+		Real sol1 = (Real(10) + sqrt64) / Real(6);
+		Real sol2 = (Real(10) - sqrt64) / Real(6);
+
+		Real root1 = Real(sol1);
+		root1.sqrt_assign();
+	
+		Real root2 = Real(sol1);
+		root2.sqrt_assign();
+		root2 = Real(-1) * root2;
+
+		Real root3 = Real(sol2);
+		root3.sqrt_assign();
+	
+		Real root4 = Real(sol2);
+		root4.sqrt_assign();
+		root4 = Real(-1) * root4;
+
+		Real root5 = Real(0);
+
+		//NB: these are ordered in increasing order
+		extrema_locations.push_back(root2);
+		extrema_locations.push_back(root4);
+		extrema_locations.push_back(root5);
+		extrema_locations.push_back(root3);
+		extrema_locations.push_back(root1);
+
+		extrema_magnitudes.push_back(arctanDer(4, root2));
+		extrema_magnitudes.push_back(arctanDer(4, root4));
+		extrema_magnitudes.push_back(arctanDer(4, root5));
+		extrema_magnitudes.push_back(arctanDer(4, root3));
+		extrema_magnitudes.push_back(arctanDer(4, root1));
+	}	
 
         return true;
 }
@@ -1407,12 +1472,13 @@ void arc_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     Polynomial exp;
     Interval rem;
 
-    //NB: This performs a 3rd order TS approximation
-    int order = 3;
+    //NB: This performs a 4th order TS approximation
+    int order = 4;
+    int reset_type = ARC;
 
     Real midPoint = Real(intC.midpoint());
     
-    Real apprPoint = arctan(intC.midpoint());
+    Real apprPoint = arctan(midPoint);
 
     std::vector<Real> extrema_locations;
     std::vector<Real> extrema_magnitudes;
@@ -1420,26 +1486,19 @@ void arc_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     bool left_segment_increasing = getArctanDerExtrema(extrema_locations, extrema_magnitudes, order+1);
 
     getGenericDerRemBound(rem, left_segment_increasing, extrema_locations,
-			  extrema_magnitudes, intC, intC.midpoint(), ARC, order+1);
+			  extrema_magnitudes, intC, intC.midpoint(), reset_type, order+1);
 
     Real coef1 = arctanDer(1, midPoint);
     Real coef2 = arctanDer(2, midPoint);
     Real coef3 = arctanDer(3, midPoint);
-    //Real coef4 = arctanCoef(4, midPoint);
-
-    Real maxDev = Real(intC.sup()) - midPoint;
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-
-    //rem = getArcDerRemBound(intC, intC.midpoint(), 5);
+    Real coef4 = arctanDer(4, midPoint);
     
     Interval apprInt = Interval(apprPoint);
     
     Interval deg1Int = Interval(coef1);
     Interval deg2Int = Interval(coef2);
     Interval deg3Int = Interval(coef3);
-    //Interval deg4Int = Interval(coef4);
+    Interval deg4Int = Interval(coef4);
 
     std::vector<int> deg1(numVars, 0);
     deg1[varInputInd + 1] = 1;
@@ -1447,8 +1506,8 @@ void arc_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     deg2[varInputInd + 1] = 2;
     std::vector<int> deg3(numVars, 0);
     deg3[varInputInd + 1] = 3;
-    //std::vector<int> deg4(numVars, 0);
-    //deg4[varInputInd + 1] = 4;
+    std::vector<int> deg4(numVars, 0);
+    deg4[varInputInd + 1] = 4;
 
     Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
 
@@ -1464,15 +1523,14 @@ void arc_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
       Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
       Polynomial(Monomial(deg3Int, deg3));
 
-    // Polynomial deg4Poly =
-    //   Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
-    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
-    //   Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
-    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
-    //   Polynomial(Monomial(deg4Int, deg4));    
+    Polynomial deg4Poly =
+      Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
+      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
+      Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
+      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
+      Polynomial(Monomial(deg4Int, deg4));    
 					
-    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly;
-    //remainder.to_sym_int(rem);
+    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly + deg4Poly;
 
     tmReset.expansion = exp;
     tmReset.remainder = rem;
