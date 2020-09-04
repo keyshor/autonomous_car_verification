@@ -36,10 +36,11 @@ def main(argv):
     hallWidths = [1.5, 1.5, 1.5, 1.5]
     hallLengths = [20, 20, 20, 20]
     turns = ['right', 'right', 'right', 'right']
-    car_dist_s = hallWidths[0]/2.0 - 0.1
-    car_dist_f = 9.9
+    car_dist_s = hallWidths[0]/2.0
+    car_dist_f = 10
+    car_V = 2.4
     car_heading = 0
-    episode_length = 130
+    episode_length = 80
     time_step = 0.1
     time = 0
 
@@ -50,7 +51,7 @@ def main(argv):
     missing_lidar_rays = 0
     
     w = World(hallWidths, hallLengths, turns,\
-              car_dist_s, car_dist_f, car_heading,\
+              car_dist_s, car_dist_f, car_heading, car_V,\
               episode_length, time_step, lidar_field_of_view,\
               lidar_num_rays, lidar_noise, missing_lidar_rays)
 

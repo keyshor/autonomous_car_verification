@@ -40,8 +40,9 @@ def main():
     hallLengths = [20, 20, 20, 20]
     turns = ['right', 'right', 'right', 'right']
     car_dist_s = hallWidths[0]/2.0
-    car_dist_f = 9.9
+    car_dist_f = 10
     car_heading = 0
+    car_V = 0
     episode_length = 100
     time_step = 0.1
 
@@ -58,7 +59,7 @@ def main():
     prev_err = 0
 
     w = World(hallWidths, hallLengths, turns,
-              car_dist_s, car_dist_f, car_heading,
+              car_dist_s, car_dist_f, car_heading, car_V,
               episode_length, time_step, lidar_field_of_view,
               lidar_num_rays, lidar_noise, missing_lidar_rays, True)
 
@@ -68,7 +69,7 @@ def main():
     allY = []
     allR = []
 
-    np.random.seed(50)
+    np.random.seed(500)
 
     # dynamics noise parameters
     x_dynamics_noise = 0
@@ -78,7 +79,7 @@ def main():
 
     # initial uncertainty
     init_pos_noise = 0.2
-    init_heading_noise = 0.1
+    init_heading_noise = 0.02
 
     for step in range(numTrajectories):
 
@@ -103,9 +104,6 @@ def main():
             if done:
 
                 if e < episode_length - 1:
-                    print(init_cond_s)
-                    print(init_cond_h)
-                    exit()
                     num_unsafe += 1
 
                 break

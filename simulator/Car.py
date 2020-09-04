@@ -17,7 +17,7 @@ MAX_TURNING_INPUT = 15 # in degrees
 LIDAR_RANGE = 5 # in m
 
 # safety parameter
-SAFE_DISTANCE = 0.1 # in m
+SAFE_DISTANCE = 0.15 # in m
 
 # default throttle if left unspecified
 CONST_THROTTLE = 16
@@ -36,7 +36,7 @@ LEFT = 3
 class World:
 
     def __init__(self, hallWidths, hallLengths, turns,\
-                 car_dist_s, car_dist_f, car_heading,\
+                 car_dist_s, car_dist_f, car_heading, car_V,\
                  episode_length, time_step, lidar_field_of_view,\
                  lidar_num_rays, lidar_noise = 0, lidar_missing_rays = 0, lidar_missing_in_turn_only = False):
 
@@ -50,7 +50,7 @@ class World:
         # car relative states
         self.car_dist_s = car_dist_s
         self.car_dist_f = car_dist_f
-        self.car_V = 0
+        self.car_V = car_V
         self.car_heading = car_heading
 
         # car global states
@@ -63,6 +63,7 @@ class World:
         self.init_car_dist_s = self.car_dist_s
         self.init_car_dist_f = self.car_dist_f
         self.init_car_heading = self.car_heading
+        self.init_car_V = self.car_V
 
         # step parameters
         self.time_step = time_step
@@ -162,7 +163,7 @@ class World:
             self.car_dist_s = side_pos
         
         self.car_dist_f = self.init_car_dist_f
-        self.car_V = 0
+        self.car_V = self.init_car_V
         self.car_heading = self.init_car_heading + np.random.uniform(-heading_noise, heading_noise)
         
         self.car_global_x = -self.hallWidths[0] / 2.0 + self.car_dist_s
