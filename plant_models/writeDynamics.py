@@ -214,8 +214,8 @@ plant[2]['invariants'] = ['clock <= 0']
 plant[2]['transitions'] = {}
 plant[2]['transitions'][(2, 3)] = {}
 plant[2]['transitions'][(2, 3)]['guards1'] = ['clock = 0']
-plant[2]['transitions'][(2, 3)]['reset1'] = ['clock\' := 0', 'temp1\' := 10 * y2',
-                                             'temp2\' := 10 * (y2 - ' +
+plant[2]['transitions'][(2, 3)]['reset1'] = ['clock\' := 0', 'temp1\' := y2',
+                                             'temp2\' := (y2 - ' +
                                              str(HALLWAY_WIDTH) + ')', 'theta_l\' := 0',
                                              'theta_r\' := 0']
 
@@ -271,7 +271,7 @@ plant[4]['invariants'] = ['clock <= 0']
 plant[4]['transitions'] = {}
 plant[4]['transitions'][(4, 5)] = {}
 plant[4]['transitions'][(4, 5)]['guards1'] = ['clock = 0']
-plant[4]['transitions'][(4, 5)]['reset1'] = ['clock\' := 0', 'theta_l\' := theta_l * y1 * 10']
+plant[4]['transitions'][(4, 5)]['reset1'] = ['clock\' := 0', 'theta_l\' := theta_l * y1']
 
 plant[5] = {}
 plant[5]['name'] = 'div_2_4_'
@@ -296,19 +296,19 @@ plant[5]['transitions'][(5, reg1)] = {}
 plant[5]['transitions'][(5, reg1)]['guards1'] =\
     ['clock = 0', 'y1 <= ' + str(HALLWAY_WIDTH), 'y2 >= ' + str(HALLWAY_WIDTH)]
 plant[5]['transitions'][(5, reg1)]['reset1'] = ['clock\' := 0',
-                                                'theta_r\' := 10 * theta_r * ('
+                                                'theta_r\' := theta_r * ('
                                                 + str(HALLWAY_WIDTH) + ' - y1)']
 plant[5]['transitions'][(5, reg2)] = {}
 plant[5]['transitions'][(5, reg2)]['guards1'] =\
     ['clock = 0', 'y1 <= ' + str(HALLWAY_WIDTH), 'y2 <= ' + str(HALLWAY_WIDTH)]
 plant[5]['transitions'][(5, reg2)]['reset1'] = ['clock\' := 0',
-                                                'theta_r\' := 10 * theta_r * ('
+                                                'theta_r\' := theta_r * ('
                                                 + str(HALLWAY_WIDTH) + ' - y1)']
 plant[5]['transitions'][(5, reg3)] = {}
 plant[5]['transitions'][(5, reg3)]['guards1'] =\
     ['clock = 0', 'y1 >= ' + str(HALLWAY_WIDTH), 'y2 <= ' + str(HALLWAY_WIDTH)]
 plant[5]['transitions'][(5, reg3)]['reset1'] = ['clock\' := 0',
-                                                'theta_r\' := 10 * theta_r * ('
+                                                'theta_r\' := theta_r * ('
                                                 + str(HALLWAY_WIDTH) + ' - y1)']
 
 mode1_reg1 = reg3 + 16  # 24 currently

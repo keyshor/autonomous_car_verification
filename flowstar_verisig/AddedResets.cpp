@@ -1665,41 +1665,33 @@ void sec_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
 
     Real apprPoint = sec(midPoint);
 					
-    //NB: This performs a 4th order TS approximation
+    //NB: This performs a 2nd order TS approximation since higher
+    //order polynomials have very large coefficients that don't work
+    //well with interval analysis
     Real coef1 = sec1stDer(midPoint);
     Real coef2 = sec2ndDer(midPoint)/2;
-    Real coef3 = sec3rdDer(midPoint)/6;
-    Real coef4 = sec4thDer(midPoint)/24;
+    //Real coef3 = sec3rdDer(midPoint)/6;
+    //Real coef4 = sec4thDer(midPoint)/24;
 
     //Real derBound = getSecDerBound(intC, 5);
 
-    rem = getSecDerRemBound(intC, intC.midpoint(), 5);
-    
-    Real maxDev = Real(intC.sup()) - midPoint;
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-    
-    Real fact = Real(120);
-    maxDev.pow_assign(5);
-					
-    //Real remainder = (derBound * maxDev) / fact;
-    
+    rem = getSecDerRemBound(intC, intC.midpoint(), 3);
+        
     Interval apprInt = Interval(apprPoint);
     
     Interval deg1Int = Interval(coef1);
     Interval deg2Int = Interval(coef2);
-    Interval deg3Int = Interval(coef3);
-    Interval deg4Int = Interval(coef4);
+    //Interval deg3Int = Interval(coef3);
+    //Interval deg4Int = Interval(coef4);
     
     std::vector<int> deg1(numVars, 0);
     deg1[varInputInd + 1] = 1;
     std::vector<int> deg2(numVars, 0);
     deg2[varInputInd + 1] = 2;
-    std::vector<int> deg3(numVars, 0);
-    deg3[varInputInd + 1] = 3;
-    std::vector<int> deg4(numVars, 0);
-    deg4[varInputInd + 1] = 4;
+    // std::vector<int> deg3(numVars, 0);
+    // deg3[varInputInd + 1] = 3;
+    // std::vector<int> deg4(numVars, 0);
+    // deg4[varInputInd + 1] = 4;
 
     /*
       Poly approx. = apprPoint + coef1 * (x - midPoint) 
@@ -1717,21 +1709,20 @@ void sec_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
       Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
       Polynomial(Monomial(deg2Int, deg2));
 
-    Polynomial deg3Poly =
-      Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
-      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
-      Polynomial(Monomial(deg3Int, deg3));
+    // Polynomial deg3Poly =
+    //   Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
+    //   Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
+    //   Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
+    //   Polynomial(Monomial(deg3Int, deg3));
 
-    Polynomial deg4Poly =
-      Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
-      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
-      Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
-      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
-      Polynomial(Monomial(deg4Int, deg4));    
+    // Polynomial deg4Poly =
+    //   Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
+    //   Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
+    //   Polynomial(Monomial(deg4Int, deg4));    
 					
-    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly + deg4Poly;
-    //remainder.to_sym_int(rem);
+    exp = deg0Poly + deg1Poly + deg2Poly;// + deg3Poly + deg4Poly;
     
     tmReset.expansion = exp;
     tmReset.remainder = rem;
