@@ -180,3 +180,10 @@ flowstar/flowstar
 outputs/
 *.DS_Store
 *.eps
+
+# flowstar_verisig
+flowstar_verisig/flowstar
+*.yy.c
+*.output
+*.tab.c
+*.tab.h

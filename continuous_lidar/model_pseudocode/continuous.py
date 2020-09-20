@@ -85,7 +85,6 @@ def err(x: float, y: float, theta: float) -> Tuple[float, int]:
     d_F = WALL_RADIUS - y
     d_B = WALL_RADIUS + y
     eta = atan2(-d_B, d_R)
-    eta_big = eta + 2 * math.pi
     if d_L ** 2 + d_F ** 2 <= r ** 2:
         # find rays blocked by left or front wall
         alpha_L = acos(d_L / r)
@@ -109,7 +108,6 @@ def err(x: float, y: float, theta: float) -> Tuple[float, int]:
             gamma_LB = math.pi + alpha_L
             gamma_LF = math.pi - alpha_L
             gamma_LB_small = -math.pi + alpha_L
-            gamma_LF_small = -math.pi - alpha_L
             leftL_lb = max2(gamma_LF, theta_L)
             leftL_ub = min2(gamma_LB, zeta_L)
             left_L = rays_in_interval(leftL_lb, leftL_ub)
@@ -122,7 +120,6 @@ def err(x: float, y: float, theta: float) -> Tuple[float, int]:
             gamma_FL = 0.5 * math.pi + alpha_F
             gamma_FR = 0.5 * math.pi - alpha_F
             gamma_FL_small = -1.5 * math.pi + alpha_F
-            gamma_FR_small = -1.5 * math.pi - alpha_F
             frontL_lb = max3(gamma_FR, eta, theta_L)
             frontL_ub = min2(gamma_FL, zeta_L)
             front_L = rays_in_interval(frontL_lb, frontL_ub)
@@ -159,6 +156,7 @@ def err(x: float, y: float, theta: float) -> Tuple[float, int]:
         assert(zeta_L <= gamma_RB_big)
     elif 0 <= d_B < r and d_R <= 0:
         # after the corner
+        eta_big = eta + 2 * math.pi
         alpha_B = acos(d_B / r)
         gamma_BL = -0.5 * math.pi - alpha_B
         gamma_BR = -0.5 * math.pi + alpha_B
