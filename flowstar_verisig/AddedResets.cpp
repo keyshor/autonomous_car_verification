@@ -289,6 +289,31 @@ Real cos4thDer(Real input){
         return out;
 }
 
+Real cosDer(Real input, int order){
+
+        Real out = Real(input);
+
+        if(order % 4 == 1){
+		out.sin_assign();
+		out = Real(-1.0) * out;
+	}
+
+        if(order % 4 == 2){
+		out.cos_assign();
+		out = Real(-1.0) * out;
+	}
+
+        if(order % 4 == 3){
+		out.sin_assign();
+	}
+
+	if(order % 4 == 0){
+		out.cos_assign();
+	}
+
+	return out;
+}
+
 Real sin1stDer(Real input){
 
         Real out = Real(input);
@@ -1077,6 +1102,135 @@ Real getCosDerBound(int order, Interval intC){
 
 }
 
+Real getCosRemUpperBound(Interval intC, int order){
+
+        Real bound = Real(1);
+
+	if(intC.sup() - intC.inf() < 2 * M_PI){
+	  
+	        int next_peak_index = 0;
+		double dist_to_peak = 0;
+
+		if(order % 4 == 0){ //derivative is cos(x)
+		        next_peak_index = ceil(intC.inf() / (2 * M_PI));
+			dist_to_peak = next_peak_index * 2 * M_PI - intC.inf();
+		}
+
+		else if(order % 4 == 1){ //derivative is -sin(x)
+		        next_peak_index = floor((intC.inf() + (M_PI) / 2) / (2 * M_PI));
+			dist_to_peak = (3 * M_PI) / 2 + next_peak_index * 2 * M_PI - intC.inf();
+		}
+
+		if(order % 4 == 2){ //derivative is cos(x)
+		        next_peak_index = floor(intC.inf() + M_PI / (2 * M_PI));
+			dist_to_peak = M_PI + next_peak_index * 2 * M_PI - intC.inf();
+		}		
+
+		else if(order % 4 == 3){ //derivative is sin(x)
+		        next_peak_index = floor((intC.inf() + (3 * M_PI) / 2) / (2 * M_PI));
+			dist_to_peak = (M_PI) / 2 + next_peak_index * 2 * M_PI - intC.inf();
+		}
+
+		if (intC.sup() - intC.inf() < dist_to_peak){
+
+			Real maxVal = cosDer(Real(intC.inf()), order);
+
+			if (cosDer(Real(intC.sup()), order) > maxVal){
+
+				maxVal = cosDer(Real(intC.sup()), order);
+
+			}
+
+			bound = maxVal;
+		}
+	}
+
+	return bound;
+
+}
+
+Real getCosRemLowerBound(Interval intC, int order){
+
+        Real bound = Real(-1);
+
+	if(intC.sup() - intC.inf() < 2 * M_PI){
+	  
+	        int next_valley_index = 0;
+		double dist_to_valley = 0;
+
+		if(order % 4 == 0){ //derivative is cos(x)
+		        next_valley_index = floor(intC.inf() + M_PI / (2 * M_PI));
+			dist_to_valley = M_PI + next_valley_index * 2 * M_PI - intC.inf();
+		}
+
+		else if(order % 4 == 1){ //derivative is -sin(x)
+		        next_valley_index = floor((intC.inf() + (3 * M_PI) / 2) / (2 * M_PI));
+			dist_to_valley = (M_PI) / 2 + next_valley_index * 2 * M_PI - intC.inf();
+		}
+
+		else if(order % 4 == 2){ //derivative is -cos(x)
+		        next_valley_index = ceil((intC.inf()) / (2 * M_PI));
+			dist_to_valley = next_valley_index * 2 * M_PI - intC.inf();
+		}		
+
+		else if(order % 4 == 3){ //derivative is sin(x)
+		        next_valley_index = floor((intC.inf() + (M_PI) / 2) / (2 * M_PI));
+			dist_to_valley = (3 * M_PI) / 2 + next_valley_index * 2 * M_PI - intC.inf();
+		}
+
+		if (intC.sup() - intC.inf() < dist_to_valley){
+
+			Real minVal = cosDer(Real(intC.inf()), order);
+
+			if (minVal > cosDer(Real(intC.sup()), order)){
+
+				minVal = cosDer(Real(intC.sup()), order);
+
+			}
+
+			bound = minVal;
+		}
+	}
+
+	return bound;
+
+}
+
+Interval getCosDerRemBound(const Interval inputBounds, const double apprPoint, const int order){
+  
+        Interval upper = Interval(apprPoint, inputBounds.sup());
+	Interval lower = Interval(inputBounds.inf(), apprPoint);
+  
+        Real Q_u = getCosRemUpperBound(upper, order);
+	Real Q_l = getCosRemUpperBound(lower, order);
+	Real q_u = getCosRemLowerBound(upper, order);
+	Real q_l = getCosRemLowerBound(lower, order);
+
+        Real fact = Real(24);
+	if(order == 5)
+	  fact = Real(120);
+	if(order == 3)
+	  fact = Real(6);
+	
+	Real maxPosDev = Real(inputBounds.sup() - apprPoint);
+	Real maxNegDev = Real(inputBounds.inf()- apprPoint);
+	maxPosDev.pow_assign(order);
+	maxNegDev.pow_assign(order);
+
+	Real u = (maxPosDev * Q_u) / fact;
+	Real l = (maxPosDev * q_u) / fact;
+
+	if((maxNegDev * Q_l) / fact > u) u = (maxNegDev * Q_l) / fact;
+	if(l > (maxNegDev * q_l) / fact) l = (maxNegDev * q_l) / fact;
+
+	//these checks are necessary because the remainder is always 0 at apprPoint
+	if(Real(0) > u) u = Real(0);
+	if(l > Real(0)) l = Real(0);
+	
+        return Interval(l.getValue_RNDD(), u.getValue_RNDU());
+    
+}
+
 Real getSinDerBound(int order, Interval intC){
 
         Real bound = Real(1);
@@ -1319,22 +1473,12 @@ void cos_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
 
     Real apprPoint = cosine(intC.midpoint());
 
-    //NB: This assumes a 2nd order TS approximation
-    Real coef1 = cos1stDer(midPoint);
-    Real coef2 = cos2ndDer(midPoint)/2;
-    Real coef3 = cos3rdDer(midPoint)/6;
+    //NB: This assumes a 3rd order TS approximation
+    Real coef1 = cosDer(midPoint, 1);
+    Real coef2 = cosDer(midPoint, 2)/2;
+    Real coef3 = cosDer(midPoint, 3)/6;
     
-    Real derBound = getCosDerBound(3, intC);
-					
-    Real maxDev = Real(intC.sup()) - midPoint;
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-
-    Real fact = 6;
-    maxDev.pow_assign(3);
-					
-    Real remainder = (derBound * maxDev) / fact;
+    rem = getCosDerRemBound(intC, intC.midpoint(), 4);
     
     Interval apprInt = Interval(apprPoint);
     
@@ -1357,32 +1501,13 @@ void cos_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
       Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
       Polynomial(Monomial(deg2Int, deg2));
-					
-    exp = deg0Poly + deg1Poly + deg2Poly;
-    remainder.to_sym_int(rem);
 
-    //if uncertainty too large, use a 3rd order approximation
-    if (rem.width() > 0.00001){
-        fact = 24;
-	maxDev = Real(intC.sup()) - midPoint;
-	maxDev.pow_assign(4);
-	derBound = getCosDerBound(4, intC);
-						
-	remainder = (derBound * maxDev) / fact;
-	remainder.to_sym_int(rem);
-	
-	Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
-	  Polynomial(Monomial(deg3Int, deg3));
-						
-	exp += deg3Poly;
-    }
-    
-    if(rem.width() > 0.001){
-        printf("Uncertainty too large. Please increase Taylor Model order.\n");
-	exit(-1);
-    }
+    Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
+      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
+      Polynomial(Monomial(deg3Int, deg3));    
+					
+    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly;
 
     tmReset.expansion = exp;
     tmReset.remainder = rem;    
@@ -1738,31 +1863,20 @@ void div_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
 
     Real apprPoint = divide(midPoint);
 					
-    //NB: This performs a 4th order TS approximation
+    //NB: This performs a 3rd order TS approximation
     Real coef1 = div1stDer(midPoint);
     Real coef2 = div2ndDer(midPoint)/2;
     Real coef3 = div3rdDer(midPoint)/6;
-    Real coef4 = div4thDer(midPoint)/24;
-
-    Real maxDev = Real(intC.sup()) - midPoint;
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-
-    Real fact = 120;
-    maxDev.pow_assign(5);
-    Real derBound = getDivDerBound(5, intC);
-
-    //Real remainder = (derBound * maxDev) / fact;
-
-    rem = getDivDerRemBound(intC, intC.midpoint(), 5);
+    //Real coef4 = div4thDer(midPoint)/24;
+    
+    rem = getDivDerRemBound(intC, intC.midpoint(), 4);
     
     Interval apprInt = Interval(apprPoint);
     
     Interval deg1Int = Interval(coef1);
     Interval deg2Int = Interval(coef2);
     Interval deg3Int = Interval(coef3);
-    Interval deg4Int = Interval(coef4);
+    //Interval deg4Int = Interval(coef4);
     
     std::vector<int> deg1(numVars, 0);
     deg1[varDenInd + 1] = 1;
@@ -1770,8 +1884,8 @@ void div_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
     deg2[varDenInd + 1] = 2;
     std::vector<int> deg3(numVars, 0);
     deg3[varDenInd + 1] = 3;
-    std::vector<int> deg4(numVars, 0);
-    deg4[varDenInd + 1] = 4;
+    //std::vector<int> deg4(numVars, 0);
+    //deg4[varDenInd + 1] = 4;
 					
     /*
       Poly approx. = apprPoint + coef1 * (x - midPoint) 
@@ -1795,15 +1909,15 @@ void div_reset(TaylorModel &tmReset, const Interval intC, const int varStoreInd,
       Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
       Polynomial(Monomial(deg3Int, deg3));
 
-    Polynomial deg4Poly =
-      Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
-      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
-      Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
-      Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
-      Polynomial(Monomial(deg4Int, deg4));    
+    // Polynomial deg4Poly =
+    //   Polynomial(Monomial(Interval(coef4 * midPoint * midPoint * midPoint * midPoint), numVars)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint * midPoint * midPoint), deg1)) +
+    //   Polynomial(Monomial(Interval(Real(6) * coef4 * midPoint * midPoint), deg2)) +
+    //   Polynomial(Monomial(Interval(Real(-4) * coef4 * midPoint), deg3)) +
+    //   Polynomial(Monomial(deg4Int, deg4));
+    
 					
-    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly + deg4Poly;
-    //    remainder.to_sym_int(rem);
+    exp = deg0Poly + deg1Poly + deg2Poly + deg3Poly;// + deg4Poly;
 
     tmReset.expansion = exp;
     tmReset.remainder = rem;

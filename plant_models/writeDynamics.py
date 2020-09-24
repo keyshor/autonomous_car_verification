@@ -311,9 +311,13 @@ plant[5]['transitions'][(5, reg3)]['reset1'] = ['clock\' := 0',
                                                 'theta_r\' := theta_r * ('
                                                 + str(HALLWAY_WIDTH) + ' - y1)']
 
+NUM_MODES_REG1 = 11
+NUM_MODES_REG2 = 14
+NUM_MODES_REG3 = 14
+
 mode1_reg1 = reg3 + 16  # 24 currently
-mode1_reg2 = mode1_reg1 + NUM_RAYS * 8  # 8 modes per ray in region 1 currently
-mode1_reg3 = mode1_reg2 + NUM_RAYS * 10  # 10 modes per ray in region 2 currenlty
+mode1_reg2 = mode1_reg1 + NUM_RAYS * NUM_MODES_REG1  # NUM_MODES_REG1 modes per ray in region 1
+mode1_reg3 = mode1_reg2 + NUM_RAYS * NUM_MODES_REG2  # NUM_MODES_REG2 modes per ray in region 2
 
 # temp1 is angle - theta_l (after all the reg1 modes)
 # temp2 is angle - theta_r (after all the reg1 modes)
@@ -955,7 +959,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 1)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp2 <= 0']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 1)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + '\' := 0',
          'angle\' := (' + str(np.pi/2) + ' + angle)']
 
     # (theta_r, theta_l]
@@ -964,14 +968,14 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi),
          'temp2 >= 0', 'temp1 <= 0']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 2)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0', 'angle\' := angle']
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + '\' := 0', 'angle\' := angle']
 
     # (theta_l, LIDAR_RANGE]
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)] = {}
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi), 'temp1 >= 0']
     plant[mode1_reg1 + index]['transitions'][(mode1_reg1 + index, mode1_reg1 + index + 3)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 8)//8) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + '\' := 0',
          'angle\' := (' + str(np.pi/2) + ' - angle)']
 
     # compute cos(angle) [-LIDAR_RANGE, theta_r]
@@ -1004,7 +1008,7 @@ while curRay <= NUM_RAYS:
 
     # compute sec(angle)
     plant[mode1_reg1 + index + 4] = {}
-    plant[mode1_reg1 + index + 4]['name'] = 'sec_0_0_'
+    plant[mode1_reg1 + index + 4]['name'] = 'cos_0_0_'
     plant[mode1_reg1 + index + 4]['odetype'] = 'lti ode'
     plant[mode1_reg1 + index + 4]['dynamics'] = {}
     plant[mode1_reg1 + index + 4]['dynamics']['y1'] = 'y1\' = 0\n'
@@ -1023,12 +1027,35 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg1 + index + 4]['invariants'] = ['clock <= 0']
     plant[mode1_reg1 + index + 4]['transitions'] = {}
-    plant[mode1_reg1 + index +
-          4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 7)] = {}
-    plant[mode1_reg1 + index +
-          4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 7)]['guards1'] = ['clock = 0']
-    plant[mode1_reg1 + index + 4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 7)]['reset1'] = [
-        'clock\' := 0', 'f' + str((index + 8)//8) + '\' := angle * (' + str(HALLWAY_WIDTH) + ' - y1)']
+    plant[mode1_reg1 + index + 4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 5)] = {}
+    plant[mode1_reg1 + index + 4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 5)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 4]['transitions'][(mode1_reg1 + index + 4, mode1_reg1 + index + 5)]['reset1'] = []
+
+    # compute sec(angle)
+    plant[mode1_reg1 + index + 5] = {}
+    plant[mode1_reg1 + index + 5]['name'] = 'div_0_0_'
+    plant[mode1_reg1 + index + 5]['odetype'] = 'lti ode'
+    plant[mode1_reg1 + index + 5]['dynamics'] = {}
+    plant[mode1_reg1 + index + 5]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg1 + index + 5]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg1 + index + 5]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg1 + index + 5]['invariants'] = ['clock <= 0']
+    plant[mode1_reg1 + index + 5]['transitions'] = {}
+    plant[mode1_reg1 + index + 5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 10)] = {}
+    plant[mode1_reg1 + index + 5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 10)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 10)]['reset1'] = [
+        'clock\' := 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + '\' := angle * (' + str(HALLWAY_WIDTH) + ' - y1)']    
 
     # compute cos(angle) (theta_r, theta_l]
     plant[mode1_reg1 + index + 2] = {}
@@ -1052,40 +1079,59 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg1 + index + 2]['invariants'] = ['clock <= 0']
     plant[mode1_reg1 + index + 2]['transitions'] = {}
-    plant[mode1_reg1 + index +
-          2]['transitions'][(mode1_reg1 + index + 2, mode1_reg1 + index + 5)] = {}
-    plant[mode1_reg1 + index +
-          2]['transitions'][(mode1_reg1 + index + 2, mode1_reg1 + index + 5)]['guards1'] = ['clock = 0']
-    plant[mode1_reg1 + index +
-          2]['transitions'][(mode1_reg1 + index + 2, mode1_reg1 + index + 5)]['reset1'] = ['clock\' := 0']
+    plant[mode1_reg1 + index + 2]['transitions'][(mode1_reg1 + index + 2, mode1_reg1 + index + 6)] = {}
+    plant[mode1_reg1 + index + 2]['transitions'][(mode1_reg1 + index + 2, mode1_reg1 + index + 6)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 2]['transitions'][(mode1_reg1 + index + 2, mode1_reg1 + index + 6)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg1 + index + 5] = {}
-    plant[mode1_reg1 + index + 5]['name'] = 'sec_0_0_'
-    plant[mode1_reg1 + index + 5]['odetype'] = 'lti ode'
-    plant[mode1_reg1 + index + 5]['dynamics'] = {}
-    plant[mode1_reg1 + index + 5]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg1 + index + 5]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg1 + index + 6] = {}
+    plant[mode1_reg1 + index + 6]['name'] = 'cos_0_0_'
+    plant[mode1_reg1 + index + 6]['odetype'] = 'lti ode'
+    plant[mode1_reg1 + index + 6]['dynamics'] = {}
+    plant[mode1_reg1 + index + 6]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg1 + index + 6]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg1 + index + 5]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg1 + index + 6]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg1 + index + 5]['invariants'] = ['clock <= 0']
-    plant[mode1_reg1 + index + 5]['transitions'] = {}
-    plant[mode1_reg1 + index +
-          5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 7)] = {}
-    plant[mode1_reg1 + index +
-          5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 7)]['guards1'] = ['clock = 0']
-    plant[mode1_reg1 + index + 5]['transitions'][(mode1_reg1 + index + 5, mode1_reg1 + index + 7)]['reset1'] = [
-        'clock\' := 0', 'f' + str((index + 8)//8) + '\' := angle * y2']
+    plant[mode1_reg1 + index + 6]['invariants'] = ['clock <= 0']
+    plant[mode1_reg1 + index + 6]['transitions'] = {}
+    plant[mode1_reg1 + index + 6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)] = {}
+    plant[mode1_reg1 + index + 6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)]['reset1'] = []
+
+    plant[mode1_reg1 + index + 7] = {}
+    plant[mode1_reg1 + index + 7]['name'] = 'div_0_0_'
+    plant[mode1_reg1 + index + 7]['odetype'] = 'lti ode'
+    plant[mode1_reg1 + index + 7]['dynamics'] = {}
+    plant[mode1_reg1 + index + 7]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg1 + index + 7]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg1 + index + 7]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg1 + index + 7]['invariants'] = ['clock <= 0']
+    plant[mode1_reg1 + index + 7]['transitions'] = {}
+    plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 10)] = {}
+    plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 10)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 10)]['reset1'] = [
+        'clock\' := 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + '\' := angle * y2']    
 
     # compute cos(angle) (theta_l, LIDAR_RANGE]
     plant[mode1_reg1 + index + 3] = {}
@@ -1108,88 +1154,106 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg1 + index + 3]['invariants'] = ['clock <= 0']
     plant[mode1_reg1 + index + 3]['transitions'] = {}
-    plant[mode1_reg1 + index +
-          3]['transitions'][(mode1_reg1 + index + 3, mode1_reg1 + index + 6)] = {}
-    plant[mode1_reg1 + index +
-          3]['transitions'][(mode1_reg1 + index + 3, mode1_reg1 + index + 6)]['guards1'] = ['clock = 0']
-    plant[mode1_reg1 + index +
-          3]['transitions'][(mode1_reg1 + index + 3, mode1_reg1 + index + 6)]['reset1'] = ['clock\' := 0']
+    plant[mode1_reg1 + index + 3]['transitions'][(mode1_reg1 + index + 3, mode1_reg1 + index + 8)] = {}
+    plant[mode1_reg1 + index + 3]['transitions'][(mode1_reg1 + index + 3, mode1_reg1 + index + 8)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 3]['transitions'][(mode1_reg1 + index + 3, mode1_reg1 + index + 8)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg1 + index + 6] = {}
-    plant[mode1_reg1 + index + 6]['name'] = 'sec_0_0_'
-    plant[mode1_reg1 + index + 6]['odetype'] = 'lti ode'
-    plant[mode1_reg1 + index + 6]['dynamics'] = {}
-    plant[mode1_reg1 + index + 6]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg1 + index + 6]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg1 + index + 8] = {}
+    plant[mode1_reg1 + index + 8]['name'] = 'cos_0_0_'
+    plant[mode1_reg1 + index + 8]['odetype'] = 'lti ode'
+    plant[mode1_reg1 + index + 8]['dynamics'] = {}
+    plant[mode1_reg1 + index + 8]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg1 + index + 8]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg1 + index + 6]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg1 + index + 8]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg1 + index + 6]['invariants'] = ['clock <= 0']
-    plant[mode1_reg1 + index + 6]['transitions'] = {}
-    plant[mode1_reg1 + index +
-          6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)] = {}
-    plant[mode1_reg1 + index +
-          6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)]['guards1'] = ['clock = 0']
-    plant[mode1_reg1 + index + 6]['transitions'][(mode1_reg1 + index + 6, mode1_reg1 + index + 7)]['reset1'] = [
-        'clock\' := 0', 'f' + str((index + 8)//8) + '\' := angle * y1']
+    plant[mode1_reg1 + index + 8]['invariants'] = ['clock <= 0']
+    plant[mode1_reg1 + index + 8]['transitions'] = {}
+    plant[mode1_reg1 + index + 8]['transitions'][(mode1_reg1 + index + 8, mode1_reg1 + index + 9)] = {}
+    plant[mode1_reg1 + index + 8]['transitions'][(mode1_reg1 + index + 8, mode1_reg1 + index + 9)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 8]['transitions'][(mode1_reg1 + index + 8, mode1_reg1 + index + 9)]['reset1'] = []
+
+    plant[mode1_reg1 + index + 9] = {}
+    plant[mode1_reg1 + index + 9]['name'] = 'div_0_0_'
+    plant[mode1_reg1 + index + 9]['odetype'] = 'lti ode'
+    plant[mode1_reg1 + index + 9]['dynamics'] = {}
+    plant[mode1_reg1 + index + 9]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg1 + index + 9]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg1 + index + 9]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg1 + index + 9]['invariants'] = ['clock <= 0']
+    plant[mode1_reg1 + index + 9]['transitions'] = {}
+    plant[mode1_reg1 + index + 9]['transitions'][(mode1_reg1 + index + 9, mode1_reg1 + index + 10)] = {}
+    plant[mode1_reg1 + index + 9]['transitions'][(mode1_reg1 + index + 9, mode1_reg1 + index + 10)]['guards1'] = ['clock = 0']
+    plant[mode1_reg1 + index + 9]['transitions'][(mode1_reg1 + index + 9, mode1_reg1 + index + 10)]['reset1'] = [
+        'clock\' := 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + '\' := angle * y1']    
 
     # last mode
-    plant[mode1_reg1 + index + 7] = {}
-    plant[mode1_reg1 + index + 7]['name'] = ''
-    plant[mode1_reg1 + index + 7]['odetype'] = 'lti ode'
-    plant[mode1_reg1 + index + 7]['dynamics'] = {}
-    plant[mode1_reg1 + index + 7]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['angle'] = 'angle\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg1 + index + 7]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg1 + index + 10] = {}
+    plant[mode1_reg1 + index + 10]['name'] = ''
+    plant[mode1_reg1 + index + 10]['odetype'] = 'lti ode'
+    plant[mode1_reg1 + index + 10]['dynamics'] = {}
+    plant[mode1_reg1 + index + 10]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg1 + index + 10]['dynamics']['temp2'] = 'temp2\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg1 + index + 7]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg1 + index + 10]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg1 + index + 7]['invariants'] = ['clock <= 0']
-    plant[mode1_reg1 + index + 7]['transitions'] = {}
+    plant[mode1_reg1 + index + 10]['invariants'] = ['clock <= 0']
+    plant[mode1_reg1 + index + 10]['transitions'] = {}
 
     # if last ray, need to transition to m0 (in composed transitions)
     # if nextAngle == LIDAR_RANGE + LIDAR_OFFSET:
     if curRay == NUM_RAYS:
         break
 
-    plant[mode1_reg1 + index +
-          7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)] = {}
+    plant[mode1_reg1 + index + 10]['transitions'][(mode1_reg1 + index + 10, mode1_reg1 + index + 11)] = {}
 
-    plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['guards1'] =\
-        ['clock = 0', 'f' + str((index + 8)//8) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
-    plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['reset1'] =\
-        ['f' + str((index + 8)//8) + '\' := ' + str(LIDAR_MAX_DISTANCE),
+    plant[mode1_reg1 + index + 10]['transitions'][(mode1_reg1 + index + 10, mode1_reg1 + index + 11)]['guards1'] =\
+        ['clock = 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
+    plant[mode1_reg1 + index + 10]['transitions'][(mode1_reg1 + index + 10, mode1_reg1 + index + 11)]['reset1'] =\
+        ['f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + '\' := ' + str(LIDAR_MAX_DISTANCE),
          'angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
-    plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['guards2'] =\
-        ['clock = 0', 'f' + str((index + 8)//8) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
-    plant[mode1_reg1 + index + 7]['transitions'][(mode1_reg1 + index + 7, mode1_reg1 + index + 8)]['reset2'] =\
+    plant[mode1_reg1 + index + 10]['transitions'][(mode1_reg1 + index + 10, mode1_reg1 + index + 11)]['guards2'] =\
+        ['clock = 0', 'f' + str((index + NUM_MODES_REG1)//NUM_MODES_REG1) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
+    plant[mode1_reg1 + index + 10]['transitions'][(mode1_reg1 + index + 10, mode1_reg1 + index + 11)]['reset2'] =\
         ['angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
     nextAngle += LIDAR_OFFSET
-    index += 8
+    index += NUM_MODES_REG1
     curRay += 1
 
 # Region 2
@@ -1246,7 +1310,7 @@ while curRay <= NUM_RAYS:
          'angle <= ' + str(np.pi),
          'temp2 <= 0']
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 1)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := 0',
          'angle\' := ' + str(np.pi / 2) + ' + angle']
 
     # (theta_r, -90)
@@ -1257,7 +1321,7 @@ while curRay <= NUM_RAYS:
          'temp2 >= 0',
          'angle <= ' + str(-np.pi/2)]
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 2)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := 0',
          'angle\' := ' + str(np.pi) + ' + angle']
 
     # (-90, theta_l]
@@ -1268,7 +1332,7 @@ while curRay <= NUM_RAYS:
          'temp1 <= 0',
          'angle >= ' + str(-np.pi/2)]
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 3)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := 0',
          'angle\' := angle']
 
     # (theta_l, LIDAR_RANGE]
@@ -1278,7 +1342,7 @@ while curRay <= NUM_RAYS:
          'angle <= ' + str(np.pi),
          'temp1 >= 0']
     plant[mode1_reg2 + index]['transitions'][(mode1_reg2 + index, mode1_reg2 + index + 4)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := 0',
          'angle\' := ' + str(np.pi/2) + ' - angle']
 
     # compute cos(angle) [-LIDAR_RANGE, theta_r]
@@ -1311,7 +1375,7 @@ while curRay <= NUM_RAYS:
 
     #
     plant[mode1_reg2 + index + 5] = {}
-    plant[mode1_reg2 + index + 5]['name'] = 'sec_0_0_'
+    plant[mode1_reg2 + index + 5]['name'] = 'cos_0_0_'
     plant[mode1_reg2 + index + 5]['odetype'] = 'lti ode'
     plant[mode1_reg2 + index + 5]['dynamics'] = {}
     plant[mode1_reg2 + index + 5]['dynamics']['y1'] = 'y1\' = 0\n'
@@ -1330,13 +1394,35 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg2 + index + 5]['invariants'] = ['clock <= 0']
     plant[mode1_reg2 + index + 5]['transitions'] = {}
-    plant[mode1_reg2 + index +
-          5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 9)] = {}
-    plant[mode1_reg2 + index +
-          5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
-         str(HALLWAY_WIDTH) + ' - y1) * angle']
+    plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 6)] = {}
+    plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 6)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 6)]['reset1'] = []
+
+    plant[mode1_reg2 + index + 6] = {}
+    plant[mode1_reg2 + index + 6]['name'] = 'div_0_0_'
+    plant[mode1_reg2 + index + 6]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 6]['dynamics'] = {}
+    plant[mode1_reg2 + index + 6]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 6]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg2 + index + 6]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg2 + index + 6]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 6]['transitions'] = {}
+    plant[mode1_reg2 + index + 6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 13)] = {}
+    plant[mode1_reg2 + index + 6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 13)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := (' +
+         str(HALLWAY_WIDTH) + ' - y1) * angle']    
 
     # compute cos(angle) (theta_r, -90)
     plant[mode1_reg2 + index + 2] = {}
@@ -1360,40 +1446,62 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index + 2]['invariants'] = ['clock <= 0', 'angle <= ' + str(np.pi / 2)]
     plant[mode1_reg2 + index + 2]['transitions'] = {}
     plant[mode1_reg2 + index +
-          2]['transitions'][(mode1_reg2 + index + 2, mode1_reg2 + index + 6)] = {}
+          2]['transitions'][(mode1_reg2 + index + 2, mode1_reg2 + index + 7)] = {}
     plant[mode1_reg2 + index +
-          2]['transitions'][(mode1_reg2 + index + 2, mode1_reg2 + index + 6)]['guards1'] = ['clock = 0']
+          2]['transitions'][(mode1_reg2 + index + 2, mode1_reg2 + index + 7)]['guards1'] = ['clock = 0']
     plant[mode1_reg2 + index +
-          2]['transitions'][(mode1_reg2 + index + 2, mode1_reg2 + index + 6)]['reset1'] = ['clock\' := 0']
+          2]['transitions'][(mode1_reg2 + index + 2, mode1_reg2 + index + 7)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg2 + index + 6] = {}
-    plant[mode1_reg2 + index + 6]['name'] = 'sec_0_0_'
-    plant[mode1_reg2 + index + 6]['odetype'] = 'lti ode'
-    plant[mode1_reg2 + index + 6]['dynamics'] = {}
-    plant[mode1_reg2 + index + 6]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg2 + index + 6]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg2 + index + 7] = {}
+    plant[mode1_reg2 + index + 7]['name'] = 'cos_0_0_'
+    plant[mode1_reg2 + index + 7]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 7]['dynamics'] = {}
+    plant[mode1_reg2 + index + 7]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 7]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg2 + index + 6]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg2 + index + 7]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg2 + index + 6]['invariants'] = ['clock <= 0']
-    plant[mode1_reg2 + index + 6]['transitions'] = {}
-    plant[mode1_reg2 + index +
-          6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 9)] = {}
-    plant[mode1_reg2 + index +
-          6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index + 6]['transitions'][(mode1_reg2 + index + 6, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
-         str(HALLWAY_WIDTH) + ' - y2) * angle']
+    plant[mode1_reg2 + index + 7]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 7]['transitions'] = {}
+    plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 8)] = {}
+    plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 8)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 8)]['reset1'] = []
+
+    plant[mode1_reg2 + index + 8] = {}
+    plant[mode1_reg2 + index + 8]['name'] = 'div_0_0_'
+    plant[mode1_reg2 + index + 8]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 8]['dynamics'] = {}
+    plant[mode1_reg2 + index + 8]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 8]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg2 + index + 8]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg2 + index + 8]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 8]['transitions'] = {}
+    plant[mode1_reg2 + index + 8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 13)] = {}
+    plant[mode1_reg2 + index + 8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 13)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := (' +
+         str(HALLWAY_WIDTH) + ' - y2) * angle']    
 
     # compute cos(angle) (-90, theta_l]
     plant[mode1_reg2 + index + 3] = {}
@@ -1416,40 +1524,59 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg2 + index + 3]['invariants'] = ['clock <= 0', '-angle <= ' + str(np.pi / 2)]
     plant[mode1_reg2 + index + 3]['transitions'] = {}
-    plant[mode1_reg2 + index +
-          3]['transitions'][(mode1_reg2 + index + 3, mode1_reg2 + index + 7)] = {}
-    plant[mode1_reg2 + index +
-          3]['transitions'][(mode1_reg2 + index + 3, mode1_reg2 + index + 7)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index +
-          3]['transitions'][(mode1_reg2 + index + 3, mode1_reg2 + index + 7)]['reset1'] = ['clock\' := 0']
+    plant[mode1_reg2 + index + 3]['transitions'][(mode1_reg2 + index + 3, mode1_reg2 + index + 9)] = {}
+    plant[mode1_reg2 + index + 3]['transitions'][(mode1_reg2 + index + 3, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 3]['transitions'][(mode1_reg2 + index + 3, mode1_reg2 + index + 9)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg2 + index + 7] = {}
-    plant[mode1_reg2 + index + 7]['name'] = 'sec_0_0_'
-    plant[mode1_reg2 + index + 7]['odetype'] = 'lti ode'
-    plant[mode1_reg2 + index + 7]['dynamics'] = {}
-    plant[mode1_reg2 + index + 7]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg2 + index + 7]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg2 + index + 9] = {}
+    plant[mode1_reg2 + index + 9]['name'] = 'cos_0_0_'
+    plant[mode1_reg2 + index + 9]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 9]['dynamics'] = {}
+    plant[mode1_reg2 + index + 9]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 9]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg2 + index + 7]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg2 + index + 9]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg2 + index + 7]['invariants'] = ['clock <= 0']
-    plant[mode1_reg2 + index + 7]['transitions'] = {}
-    plant[mode1_reg2 + index +
-          7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 9)] = {}
-    plant[mode1_reg2 + index +
-          7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := y2 * angle']
+    plant[mode1_reg2 + index + 9]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 9]['transitions'] = {}
+    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)] = {}
+    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['reset1'] = []
+
+    plant[mode1_reg2 + index + 10] = {}
+    plant[mode1_reg2 + index + 10]['name'] = 'div_0_0_'
+    plant[mode1_reg2 + index + 10]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 10]['dynamics'] = {}
+    plant[mode1_reg2 + index + 10]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 10]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg2 + index + 10]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg2 + index + 10]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 10]['transitions'] = {}
+    plant[mode1_reg2 + index + 10]['transitions'][(mode1_reg2 + index + 10, mode1_reg2 + index + 13)] = {}
+    plant[mode1_reg2 + index + 10]['transitions'][(mode1_reg2 + index + 10, mode1_reg2 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 10]['transitions'][(mode1_reg2 + index + 10, mode1_reg2 + index + 13)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := y2 * angle']    
 
     # compute cos(angle) (theta_l, 180]
     plant[mode1_reg2 + index + 4] = {}
@@ -1472,87 +1599,106 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg2 + index + 4]['invariants'] = ['clock <= 0']
     plant[mode1_reg2 + index + 4]['transitions'] = {}
-    plant[mode1_reg2 + index +
-          4]['transitions'][(mode1_reg2 + index + 4, mode1_reg2 + index + 8)] = {}
-    plant[mode1_reg2 + index +
-          4]['transitions'][(mode1_reg2 + index + 4, mode1_reg2 + index + 8)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index +
-          4]['transitions'][(mode1_reg2 + index + 4, mode1_reg2 + index + 8)]['reset1'] = ['clock\' := 0']
+    plant[mode1_reg2 + index + 4]['transitions'][(mode1_reg2 + index + 4, mode1_reg2 + index + 11)] = {}
+    plant[mode1_reg2 + index + 4]['transitions'][(mode1_reg2 + index + 4, mode1_reg2 + index + 11)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 4]['transitions'][(mode1_reg2 + index + 4, mode1_reg2 + index + 11)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg2 + index + 8] = {}
-    plant[mode1_reg2 + index + 8]['name'] = 'sec_0_0_'
-    plant[mode1_reg2 + index + 8]['odetype'] = 'lti ode'
-    plant[mode1_reg2 + index + 8]['dynamics'] = {}
-    plant[mode1_reg2 + index + 8]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg2 + index + 8]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg2 + index + 11] = {}
+    plant[mode1_reg2 + index + 11]['name'] = 'cos_0_0_'
+    plant[mode1_reg2 + index + 11]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 11]['dynamics'] = {}
+    plant[mode1_reg2 + index + 11]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 11]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg2 + index + 8]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg2 + index + 11]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg2 + index + 8]['invariants'] = ['clock <= 0']
-    plant[mode1_reg2 + index + 8]['transitions'] = {}
-    plant[mode1_reg2 + index +
-          8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 9)] = {}
-    plant[mode1_reg2 + index +
-          8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index + 8]['transitions'][(mode1_reg2 + index + 8, mode1_reg2 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := y1 * angle']
+    plant[mode1_reg2 + index + 11]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 11]['transitions'] = {}
+    plant[mode1_reg2 + index + 11]['transitions'][(mode1_reg2 + index + 11, mode1_reg2 + index + 12)] = {}
+    plant[mode1_reg2 + index + 11]['transitions'][(mode1_reg2 + index + 11, mode1_reg2 + index + 12)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 11]['transitions'][(mode1_reg2 + index + 11, mode1_reg2 + index + 12)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := y1 * angle']
+
+    plant[mode1_reg2 + index + 12] = {}
+    plant[mode1_reg2 + index + 12]['name'] = 'div_0_0_'
+    plant[mode1_reg2 + index + 12]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 12]['dynamics'] = {}
+    plant[mode1_reg2 + index + 12]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 12]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg2 + index + 12]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg2 + index + 12]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 12]['transitions'] = {}
+    plant[mode1_reg2 + index + 12]['transitions'][(mode1_reg2 + index + 12, mode1_reg2 + index + 13)] = {}
+    plant[mode1_reg2 + index + 12]['transitions'][(mode1_reg2 + index + 12, mode1_reg2 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg2 + index + 12]['transitions'][(mode1_reg2 + index + 12, mode1_reg2 + index + 13)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := y1 * angle']    
 
     # last mode
-    plant[mode1_reg2 + index + 9] = {}
-    plant[mode1_reg2 + index + 9]['name'] = ''
-    plant[mode1_reg2 + index + 9]['odetype'] = 'lti ode'
-    plant[mode1_reg2 + index + 9]['dynamics'] = {}
-    plant[mode1_reg2 + index + 9]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['angle'] = 'angle\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg2 + index + 9]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg2 + index + 13] = {}
+    plant[mode1_reg2 + index + 13]['name'] = ''
+    plant[mode1_reg2 + index + 13]['odetype'] = 'lti ode'
+    plant[mode1_reg2 + index + 13]['dynamics'] = {}
+    plant[mode1_reg2 + index + 13]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg2 + index + 13]['dynamics']['temp2'] = 'temp2\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg2 + index + 9]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg2 + index + 13]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg2 + index + 9]['invariants'] = ['clock <= 0']
-    plant[mode1_reg2 + index + 9]['transitions'] = {}
+    plant[mode1_reg2 + index + 13]['invariants'] = ['clock <= 0']
+    plant[mode1_reg2 + index + 13]['transitions'] = {}
 
     # if last ray, need to transition to m0 (in composed transitions)
     # if nextAngle == LIDAR_RANGE + LIDAR_OFFSET:
     if curRay == NUM_RAYS:
         break
 
-    plant[mode1_reg2 + index +
-          9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)] = {}
-    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['guards1'] =\
-        ['clock = 0', 'f' + str((index + 10)//10) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
-    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['reset1'] =\
-        ['f' + str((index + 10)//10) + '\' := ' + str(LIDAR_MAX_DISTANCE),
+    plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)] = {}
+    plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['guards1'] =\
+        ['clock = 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
+    plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['reset1'] =\
+        ['f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := ' + str(LIDAR_MAX_DISTANCE),
          'angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
-    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['guards2'] =\
-        ['clock = 0', 'f' + str((index + 10)//10) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
-    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['reset2'] =\
+    plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['guards2'] =\
+        ['clock = 0', 'f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
+    plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['reset2'] =\
         ['angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
     nextAngle += LIDAR_OFFSET
-    index += 10
+    index += NUM_MODES_REG2
     curRay += 1
 
 # Region 3
@@ -1614,17 +1760,17 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi), 'angle <= ' + str(-90.6 * np.pi / 180)]
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 1)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := 0',
          'angle\' := ' + str(np.pi) + ' + angle']
 
     # [-90.6, -89.4]
-    plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 9)] = {}
-    plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 9)]['guards1'] =\
+    plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 13)] = {}
+    plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 13)]['guards1'] =\
         ['clock = 0', 'angle >= ' + str(-90.6 * np.pi / 180),
          'angle <= ' + str(-89.4 * np.pi / 180)]
-    plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 9)]['reset1'] =\
+    plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 13)]['reset1'] =\
         ['clock\' := 0',
-         'f' + str((index + 10)//10) + '\' := ' + str(LIDAR_MAX_DISTANCE + 1),
+         'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := ' + str(LIDAR_MAX_DISTANCE + 1),
          'angle\' := angle']
 
     # (-89.4, theta_l]
@@ -1633,7 +1779,7 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi), 'angle <= ' + str(np.pi),
          'temp1 <= 0', 'angle >= ' + str(-89.4 * np.pi / 180)]
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 2)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := 0',
          'angle\' := angle']
 
     # (theta_l, theta_r]
@@ -1642,7 +1788,7 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi), 'temp1 >= 0', 'temp2 <= 0']
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 3)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := 0',
          'angle\' := ' + str(np.pi/2) + ' - angle']
 
     # (theta_r, LIDAR_RANGE]
@@ -1651,7 +1797,7 @@ while curRay <= NUM_RAYS:
         ['clock = 0', 'angle >= ' + str(-np.pi),
          'angle <= ' + str(np.pi), 'temp2 >= 0']
     plant[mode1_reg3 + index]['transitions'][(mode1_reg3 + index, mode1_reg3 + index + 4)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := 0',
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := 0',
          'angle\' := ' + str(np.pi) + ' - angle']
 
     # compute cos(angle) [-LIDAR_RANGE, -90)
@@ -1684,7 +1830,7 @@ while curRay <= NUM_RAYS:
 
     #
     plant[mode1_reg3 + index + 5] = {}
-    plant[mode1_reg3 + index + 5]['name'] = 'sec_0_0_'
+    plant[mode1_reg3 + index + 5]['name'] = 'cos_0_0_'
     plant[mode1_reg3 + index + 5]['odetype'] = 'lti ode'
     plant[mode1_reg3 + index + 5]['dynamics'] = {}
     plant[mode1_reg3 + index + 5]['dynamics']['y1'] = 'y1\' = 0\n'
@@ -1703,13 +1849,35 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg3 + index + 5]['invariants'] = ['clock <= 0']
     plant[mode1_reg3 + index + 5]['transitions'] = {}
-    plant[mode1_reg3 + index +
-          5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 9)] = {}
-    plant[mode1_reg3 + index +
-          5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg3 + index + 5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
-         str(HALLWAY_WIDTH) + ' - y2) * angle']
+    plant[mode1_reg3 + index + 5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 6)] = {}
+    plant[mode1_reg3 + index + 5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 6)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 5]['transitions'][(mode1_reg3 + index + 5, mode1_reg3 + index + 6)]['reset1'] = []
+
+    plant[mode1_reg3 + index + 6] = {}
+    plant[mode1_reg3 + index + 6]['name'] = 'div_0_0_'
+    plant[mode1_reg3 + index + 6]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 6]['dynamics'] = {}
+    plant[mode1_reg3 + index + 6]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 6]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg3 + index + 6]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg3 + index + 6]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 6]['transitions'] = {}
+    plant[mode1_reg3 + index + 6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 13)] = {}
+    plant[mode1_reg3 + index + 6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 13)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := (' +
+         str(HALLWAY_WIDTH) + ' - y2) * angle']    
 
     # compute cos(angle) (-90, theta_l]
     plant[mode1_reg3 + index + 2] = {}
@@ -1732,40 +1900,59 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg3 + index + 2]['invariants'] = ['clock <= 0']
     plant[mode1_reg3 + index + 2]['transitions'] = {}
-    plant[mode1_reg3 + index +
-          2]['transitions'][(mode1_reg3 + index + 2, mode1_reg3 + index + 6)] = {}
-    plant[mode1_reg3 + index +
-          2]['transitions'][(mode1_reg3 + index + 2, mode1_reg3 + index + 6)]['guards1'] = ['clock = 0']
-    plant[mode1_reg3 + index +
-          2]['transitions'][(mode1_reg3 + index + 2, mode1_reg3 + index + 6)]['reset1'] = ['clock\' := 0']
+    plant[mode1_reg3 + index + 2]['transitions'][(mode1_reg3 + index + 2, mode1_reg3 + index + 7)] = {}
+    plant[mode1_reg3 + index + 2]['transitions'][(mode1_reg3 + index + 2, mode1_reg3 + index + 7)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 2]['transitions'][(mode1_reg3 + index + 2, mode1_reg3 + index + 7)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg3 + index + 6] = {}
-    plant[mode1_reg3 + index + 6]['name'] = 'sec_0_0_'
-    plant[mode1_reg3 + index + 6]['odetype'] = 'lti ode'
-    plant[mode1_reg3 + index + 6]['dynamics'] = {}
-    plant[mode1_reg3 + index + 6]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg3 + index + 6]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg3 + index + 7] = {}
+    plant[mode1_reg3 + index + 7]['name'] = 'cos_0_0_'
+    plant[mode1_reg3 + index + 7]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 7]['dynamics'] = {}
+    plant[mode1_reg3 + index + 7]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 7]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg3 + index + 6]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg3 + index + 7]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg3 + index + 6]['invariants'] = ['clock <= 0']
-    plant[mode1_reg3 + index + 6]['transitions'] = {}
-    plant[mode1_reg3 + index +
-          6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 9)] = {}
-    plant[mode1_reg3 + index +
-          6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg3 + index + 6]['transitions'][(mode1_reg3 + index + 6, mode1_reg3 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := y2 * angle']
+    plant[mode1_reg3 + index + 7]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 7]['transitions'] = {}
+    plant[mode1_reg3 + index + 7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 8)] = {}
+    plant[mode1_reg3 + index + 7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 8)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 8)]['reset1'] = []
+
+    plant[mode1_reg3 + index + 8] = {}
+    plant[mode1_reg3 + index + 8]['name'] = 'div_0_0_'
+    plant[mode1_reg3 + index + 8]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 8]['dynamics'] = {}
+    plant[mode1_reg3 + index + 8]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 8]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg3 + index + 8]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg3 + index + 8]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 8]['transitions'] = {}
+    plant[mode1_reg3 + index + 8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 13)] = {}
+    plant[mode1_reg3 + index + 8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 13)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := y2 * angle']    
 
     # compute cos(angle) (theta_l, theta_r]
     plant[mode1_reg3 + index + 3] = {}
@@ -1788,41 +1975,60 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg3 + index + 3]['invariants'] = ['clock <= 0']
     plant[mode1_reg3 + index + 3]['transitions'] = {}
-    plant[mode1_reg3 + index +
-          3]['transitions'][(mode1_reg3 + index + 3, mode1_reg3 + index + 7)] = {}
-    plant[mode1_reg3 + index +
-          3]['transitions'][(mode1_reg3 + index + 3, mode1_reg3 + index + 7)]['guards1'] = ['clock = 0']
-    plant[mode1_reg3 + index +
-          3]['transitions'][(mode1_reg3 + index + 3, mode1_reg3 + index + 7)]['reset1'] = ['clock\' := 0']
+    plant[mode1_reg3 + index + 3]['transitions'][(mode1_reg3 + index + 3, mode1_reg3 + index + 9)] = {}
+    plant[mode1_reg3 + index + 3]['transitions'][(mode1_reg3 + index + 3, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 3]['transitions'][(mode1_reg3 + index + 3, mode1_reg3 + index + 9)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg3 + index + 7] = {}
-    plant[mode1_reg3 + index + 7]['name'] = 'sec_0_0_'
-    plant[mode1_reg3 + index + 7]['odetype'] = 'lti ode'
-    plant[mode1_reg3 + index + 7]['dynamics'] = {}
-    plant[mode1_reg3 + index + 7]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg3 + index + 7]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg3 + index + 9] = {}
+    plant[mode1_reg3 + index + 9]['name'] = 'cos_0_0_'
+    plant[mode1_reg3 + index + 9]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 9]['dynamics'] = {}
+    plant[mode1_reg3 + index + 9]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 9]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg3 + index + 7]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg3 + index + 9]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg3 + index + 7]['invariants'] = ['clock <= 0']
-    plant[mode1_reg3 + index + 7]['transitions'] = {}
-    plant[mode1_reg3 + index +
-          7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 9)] = {}
-    plant[mode1_reg3 + index +
-          7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg3 + index + 7]['transitions'][(mode1_reg3 + index + 7, mode1_reg3 + index + 9)]['reset1'] =\
+    plant[mode1_reg3 + index + 9]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 9]['transitions'] = {}
+    plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)] = {}
+    plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['reset1'] = []
+
+    plant[mode1_reg3 + index + 10] = {}
+    plant[mode1_reg3 + index + 10]['name'] = 'div_0_0_'
+    plant[mode1_reg3 + index + 10]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 10]['dynamics'] = {}
+    plant[mode1_reg3 + index + 10]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 10]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg3 + index + 10]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg3 + index + 10]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 10]['transitions'] = {}
+    plant[mode1_reg3 + index + 10]['transitions'][(mode1_reg3 + index + 10, mode1_reg3 + index + 13)] = {}
+    plant[mode1_reg3 + index + 10]['transitions'][(mode1_reg3 + index + 10, mode1_reg3 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 10]['transitions'][(mode1_reg3 + index + 10, mode1_reg3 + index + 13)]['reset1'] =\
                                                 ['clock\' := 0', 'f' +
-                                                    str((index + 10)//10) + '\' := y1 * angle']
+                                                    str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := y1 * angle']    
 
     # compute cos(angle) (theta_r, LIDAR_RANGE)
     plant[mode1_reg3 + index + 4] = {}
@@ -1845,89 +2051,107 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg3 + index + 4]['invariants'] = ['clock <= 0']
     plant[mode1_reg3 + index + 4]['transitions'] = {}
-    plant[mode1_reg3 + index +
-          4]['transitions'][(mode1_reg3 + index + 4, mode1_reg3 + index + 8)] = {}
-    plant[mode1_reg3 + index +
-          4]['transitions'][(mode1_reg3 + index + 4, mode1_reg3 + index + 8)]['guards1'] = ['clock = 0']
-    plant[mode1_reg3 + index +
-          4]['transitions'][(mode1_reg3 + index + 4, mode1_reg3 + index + 8)]['reset1'] = ['clock\' := 0']
+    plant[mode1_reg3 + index + 4]['transitions'][(mode1_reg3 + index + 4, mode1_reg3 + index + 11)] = {}
+    plant[mode1_reg3 + index + 4]['transitions'][(mode1_reg3 + index + 4, mode1_reg3 + index + 11)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 4]['transitions'][(mode1_reg3 + index + 4, mode1_reg3 + index + 11)]['reset1'] = ['clock\' := 0']
 
     #
-    plant[mode1_reg3 + index + 8] = {}
-    plant[mode1_reg3 + index + 8]['name'] = 'sec_0_0_'
-    plant[mode1_reg3 + index + 8]['odetype'] = 'lti ode'
-    plant[mode1_reg3 + index + 8]['dynamics'] = {}
-    plant[mode1_reg3 + index + 8]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['temp2'] = 'temp2\' = 0\n'
-    plant[mode1_reg3 + index + 8]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg3 + index + 11] = {}
+    plant[mode1_reg3 + index + 11]['name'] = 'cos_0_0_'
+    plant[mode1_reg3 + index + 11]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 11]['dynamics'] = {}
+    plant[mode1_reg3 + index + 11]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 11]['dynamics']['angle'] = 'angle\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg3 + index + 8]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg3 + index + 11]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg3 + index + 8]['invariants'] = ['clock <= 0']
-    plant[mode1_reg3 + index + 8]['transitions'] = {}
-    plant[mode1_reg3 + index +
-          8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 9)] = {}
-    plant[mode1_reg3 + index +
-          8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 9)]['guards1'] = ['clock = 0']
-    plant[mode1_reg3 + index + 8]['transitions'][(mode1_reg3 + index + 8, mode1_reg3 + index + 9)]['reset1'] =\
-        ['clock\' := 0', 'f' + str((index + 10)//10) + '\' := (' +
-         str(HALLWAY_WIDTH) + ' - y2) * angle']
+    plant[mode1_reg3 + index + 11]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 11]['transitions'] = {}
+    plant[mode1_reg3 + index + 11]['transitions'][(mode1_reg3 + index + 11, mode1_reg3 + index + 12)] = {}
+    plant[mode1_reg3 + index + 11]['transitions'][(mode1_reg3 + index + 11, mode1_reg3 + index + 12)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 11]['transitions'][(mode1_reg3 + index + 11, mode1_reg3 + index + 12)]['reset1'] = []
+
+    plant[mode1_reg3 + index + 12] = {}
+    plant[mode1_reg3 + index + 12]['name'] = 'div_0_0_'
+    plant[mode1_reg3 + index + 12]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 12]['dynamics'] = {}
+    plant[mode1_reg3 + index + 12]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 12]['dynamics']['angle'] = 'angle\' = 0\n'
+    for i in range(NUM_RAYS):
+        plant[mode1_reg3 + index + 12]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+
+    plant[mode1_reg3 + index + 12]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 12]['transitions'] = {}
+    plant[mode1_reg3 + index + 12]['transitions'][(mode1_reg3 + index + 12, mode1_reg3 + index + 13)] = {}
+    plant[mode1_reg3 + index + 12]['transitions'][(mode1_reg3 + index + 12, mode1_reg3 + index + 13)]['guards1'] = ['clock = 0']
+    plant[mode1_reg3 + index + 12]['transitions'][(mode1_reg3 + index + 12, mode1_reg3 + index + 13)]['reset1'] =\
+        ['clock\' := 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := (' +
+         str(HALLWAY_WIDTH) + ' - y2) * angle']    
 
     # last mode
-    plant[mode1_reg3 + index + 9] = {}
-    plant[mode1_reg3 + index + 9]['name'] = ''
-    plant[mode1_reg3 + index + 9]['odetype'] = 'lti ode'
-    plant[mode1_reg3 + index + 9]['dynamics'] = {}
-    plant[mode1_reg3 + index + 9]['dynamics']['y1'] = 'y1\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['y2'] = 'y2\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['y3'] = 'y3\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['y4'] = 'y4\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['k'] = 'k\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['u'] = 'u\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['angle'] = 'angle\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['temp1'] = 'temp1\' = 0\n'
-    plant[mode1_reg3 + index + 9]['dynamics']['temp2'] = 'temp2\' = 0\n'
+    plant[mode1_reg3 + index + 13] = {}
+    plant[mode1_reg3 + index + 13]['name'] = ''
+    plant[mode1_reg3 + index + 13]['odetype'] = 'lti ode'
+    plant[mode1_reg3 + index + 13]['dynamics'] = {}
+    plant[mode1_reg3 + index + 13]['dynamics']['y1'] = 'y1\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['y2'] = 'y2\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['y3'] = 'y3\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['y4'] = 'y4\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['k'] = 'k\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['u'] = 'u\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['angle'] = 'angle\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['theta_l'] = 'theta_l\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['theta_r'] = 'theta_r\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['temp1'] = 'temp1\' = 0\n'
+    plant[mode1_reg3 + index + 13]['dynamics']['temp2'] = 'temp2\' = 0\n'
     for i in range(NUM_RAYS):
-        plant[mode1_reg3 + index + 9]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
+        plant[mode1_reg3 + index + 13]['dynamics']['f' + str(i + 1)] = 'f' + str(i + 1) + '\' = 0\n'
 
-    plant[mode1_reg3 + index + 9]['invariants'] = ['clock <= 0']
-    plant[mode1_reg3 + index + 9]['transitions'] = {}
+    plant[mode1_reg3 + index + 13]['invariants'] = ['clock <= 0']
+    plant[mode1_reg3 + index + 13]['transitions'] = {}
 
     # if last ray, need to transition to m0 (in composed transitions)
     # if nextAngle == LIDAR_RANGE + LIDAR_OFFSET:
     if curRay == NUM_RAYS:
         break
 
-    plant[mode1_reg3 + index +
-          9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)] = {}
+    plant[mode1_reg3 + index + 13]['transitions'][(mode1_reg3 + index + 13, mode1_reg3 + index + NUM_MODES_REG3)] = {}
 
-    plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['guards1'] =\
-        ['clock = 0', 'f' + str((index + 10)//10) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
-    plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['reset1'] =\
-        ['f' + str((index + 10)//10) + '\' := ' + str(LIDAR_MAX_DISTANCE),
+    plant[mode1_reg3 + index + 13]['transitions'][(mode1_reg3 + index + 13, mode1_reg3 + index + NUM_MODES_REG3)]['guards1'] =\
+        ['clock = 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
+    plant[mode1_reg3 + index + 13]['transitions'][(mode1_reg3 + index + 13, mode1_reg3 + index + NUM_MODES_REG3)]['reset1'] =\
+        ['f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + '\' := ' + str(LIDAR_MAX_DISTANCE),
          'angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
-    plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['guards2'] =\
-        ['clock = 0', 'f' + str((index + 10)//10) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
-    plant[mode1_reg3 + index + 9]['transitions'][(mode1_reg3 + index + 9, mode1_reg3 + index + 10)]['reset2'] =\
+    plant[mode1_reg3 + index + 13]['transitions'][(mode1_reg3 + index + 13, mode1_reg3 + index + NUM_MODES_REG3)]['guards2'] =\
+        ['clock = 0', 'f' + str((index + NUM_MODES_REG3)//NUM_MODES_REG3) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
+    plant[mode1_reg3 + index + 13]['transitions'][(mode1_reg3 + index + 13, mode1_reg3 + index + NUM_MODES_REG3)]['reset2'] =\
         ['angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
 
     nextAngle += LIDAR_OFFSET
-    index += 10
+    index += NUM_MODES_REG3
     curRay += 1
 
 filename = 'dynamics_' + str(NUM_RAYS) + '.pickle'

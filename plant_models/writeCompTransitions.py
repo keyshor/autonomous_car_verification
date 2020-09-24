@@ -11,18 +11,18 @@ MAX_TURNING_INPUT = 15
 
 print(NUM_RAYS)
 
+NUM_MODES_REG1 = 11
+NUM_MODES_REG2 = 14
+NUM_MODES_REG3 = 14
+
 mode1_reg1 = 24
-# 8 modes per ray in region 1 currently
-modeL_reg1 = mode1_reg1 + NUM_RAYS * 8 - 1
+modeL_reg1 = mode1_reg1 + NUM_RAYS * NUM_MODES_REG1 - 1 # NUM_MODES_REG1 modes per ray in region 1
 
-mode1_reg2 = mode1_reg1 + NUM_RAYS * 8  # 8 modes per ray in region 1 currently
-# 10 modes per ray in region 2 currently
-modeL_reg2 = mode1_reg2 + NUM_RAYS * 10 - 1
+mode1_reg2 = mode1_reg1 + NUM_RAYS * NUM_MODES_REG1     # NUM_MODES_REG1 modes per ray in region 1
+modeL_reg2 = mode1_reg2 + NUM_RAYS * NUM_MODES_REG2 - 1 # NUM_MODES_REG2 modes per ray in region 2
 
-# 10 modes per ray in region 2 currently
-mode1_reg3 = mode1_reg2 + NUM_RAYS * 10
-# 10 modes per ray in region 3 currenlty
-modeL_reg3 = mode1_reg3 + NUM_RAYS * 10 - 1
+mode1_reg3 = mode1_reg2 + NUM_RAYS * NUM_MODES_REG2     # NUM_MODES_REG2 modes per ray in region 2
+modeL_reg3 = mode1_reg3 + NUM_RAYS * NUM_MODES_REG3 - 1 # NUM_MODES_REG3 modes per ray in region 3
 
 trans = {}
 trans['dnn2plant'] = {}
