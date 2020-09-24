@@ -1,1295 +1,759 @@
+#include "DNNResets.h"
 #include "DNN.h"
-#include <sstream>
-#include <map>
-#include <yaml-cpp/yaml.h>
+#include <sys/time.h>
+#include <gsl/gsl_blas.h>
 
-using namespace YAML;
 using namespace flowstar;
 using namespace std;
 
-Real sigmoid(Real input){
-        Real sig = Real(-1) * Real(input);
-	sig.exp_assign();
-	
-        return Real(1) / (Real(1) + sig);
+// this boolean is true after all DNNs have been loaded
+bool dnn::dnn_initialized;
+
+// DNN reachbility variables -- one per DNN
+std::map<int, Continuous_Reachability_Setting> dnn::dnn_crs;
+std::map<int, std::vector<iMatrix>> dnn::dnn_reset_weights;
+std::map<int, std::vector<iMatrix>> dnn::dnn_reset_biases;
+std::map<int, std::vector<dnn::activation>> dnn::dnn_activations;
+std::map<int, std::vector<std::string>> dnn::augmentedVarNames;
+std::vector<std::string> dnn::curAugmentedVarNames;
+std::map<int, Variables> dnn::augmentedStateVars;
+std::map<int, NNTaylorModelVec> dnn::activation_reset_map;
+
+// DNN filenames
+std::vector<std::string> dnn::DNN_Filenames;
+
+// note that this reset only modifies the left Taylor model to make use of preconditioning
+void linear_reset(NNTaylorModelVec & result, const iMatrix &reset_weights, const iMatrix &reset_biases,
+		  const NNTaylorModelVec & tmv_left, const Continuous_Reachability_Setting & crs)
+{
+
+        //result = tmv_left;
+
+	//std::vector<Interval> tmvPolyRange;
+        //tmv_left.polyRange(tmvPolyRange, crs.step_end_exp_table);
+
+	// don't need to truncate orders here since it's linear multiplication
+	//bool ctrunc = false;
+	//tmvReset.insert(result, tmv_left, tmvPolyRange, domain, crs.step_end_exp_table, crs.cutoff_threshold, ctrunc);
+
+        tmv_left.linearTrans(result, reset_weights);
+	result.addConstant(reset_biases);
+	result.cutoff(crs.step_end_exp_table, crs.cutoff_threshold);
 }
 
-Real tanh(Real input){
-        Real posExp = Real(input);
-	posExp.exp_assign();
+// note that this reset only modifies the left Taylor model to make use of preconditioning
+void activation_reset(NNTaylorModelVec & result, const NNTaylorModelVec &tmvReset,
+		      const NNTaylorModelVec & tmv_left, const Continuous_Reachability_Setting & crs)
+{
 
-	Real negExp = Real(Real(-1) * input);
-	negExp.exp_assign();
-	
-        return (posExp - negExp)/(posExp + negExp);
+        result = tmv_left;
+
+	std::vector<Interval> tmvPolyRange;
+        tmv_left.polyRange(tmvPolyRange, crs.step_end_exp_table);
+
+	// need to truncate orders here since we're performing a polynomial reset
+	bool ctrunc = true;
+	bool cutoff = true;
+
+	tmvReset.insert(result, tmv_left, tmvPolyRange, crs.step_end_exp_table,
+			ctrunc, cutoff, crs.cutoff_threshold, crs.order);
+
 }
 
-Real swish(Real input){
-        return input * sigmoid(input);
-}
+void initialize_dnn(const Variables realStateVars){
 
-Real swishTen(Real input){
-        return input * sigmoid(Real(10) * input);
-}
+	for (int dnnIndex = 0; dnnIndex < dnn::DNN_Filenames.size(); dnnIndex++){
 
-Real swishHundred(Real input){
-        return input * sigmoid(Real(100) * input);
-}
+	        std::string dnn_filename = dnn::DNN_Filenames[dnnIndex];
 
-Real lambda(int lorder, int rorder, int order, Real input){
-        if (lorder + rorder == order + 1){
+		std::vector<iMatrix> cur_dnn_reset_weights;
+		std::vector<iMatrix> cur_dnn_reset_biases;
+		std::vector<dnn::activation> cur_dnn_activations;
+		std::vector<std::string> curAugmentedVarNames;
+		std::vector<std::string> emptyVarNames; //used for legacy purposes in the load_dnn function
+		Variables curAugmentedStateVars;
+		
+		dnn::load_dnn(cur_dnn_reset_weights, cur_dnn_reset_biases,
+			      cur_dnn_activations, curAugmentedStateVars,
+			      curAugmentedVarNames, realStateVars,
+			      emptyVarNames, dnn_filename);
 
-	        Real sig = sigmoid(input);
-		sig.pow_assign(lorder);
 
-		Real oneMsig = Real(1) - sigmoid(input);
-		oneMsig.pow_assign(rorder);
+		Continuous_Reachability_Setting cur_dnn_crs;
+		
+		//Create a reachability setting for the DNN computations.
+		cur_dnn_crs.setFixedStepsize(0.01);
+		//NB: Verisig only perform a 3rd and 4th order reset atm (but using any order here is OK)
+		cur_dnn_crs.setFixedOrder(4);
+		cur_dnn_crs.setPrecision(100);
+		Interval cutoff(-1e-14,1e-14);
+		cur_dnn_crs.setCutoff(cutoff);
+		
+		Interval E(-0.1,0.1);
+		std::vector<Interval> estimation;
+		for(int i = 0; i < curAugmentedStateVars.size() - 1; ++i){
+		        estimation.push_back(E);	// estimation for the i-th variable
+		}
+		cur_dnn_crs.setRemainderEstimation(estimation);
+		
+		cur_dnn_crs.prepareForReachability();
+		//end of reachability setting initialization
+		
+		/*
+		  Initialize the activation function reset TMV
+		  This is originally the identity as it will be changing dynamically.
+		*/
+		NNTaylorModelVec tmv_activation_reset;
+		for(int varInd = 0; varInd < curAugmentedVarNames.size() - 1; varInd++){
+		  
+		        NNTaylorModel tm_reset;
+			if(!strncmp(curAugmentedVarNames[varInd+1].c_str(), "_f", strlen("_f"))){
+		                tm_reset = NNTaylorModel("0", curAugmentedStateVars);
+			}
+			else{
+		                tm_reset = NNTaylorModel(curAugmentedVarNames[varInd+1],
+						       curAugmentedStateVars);
+			}
+			
+			tmv_activation_reset.tms.push_back(tm_reset);
+		}
 
-		return sig * oneMsig;
-	    
-	  
-	        //return pow(sigmoid(input), lorder) * pow(1 - sigmoid(input), rorder);
+		NNTaylorModelVec cur_activation_reset;
+		cur_activation_reset = tmv_activation_reset;
+		//end of activation reset initialization
+		
+		dnn::dnn_crs[dnnIndex + 1] = cur_dnn_crs;
+		dnn::dnn_reset_weights[dnnIndex + 1] = cur_dnn_reset_weights;
+		dnn::dnn_reset_biases[dnnIndex + 1] = cur_dnn_reset_biases;
+		dnn::dnn_activations[dnnIndex + 1] = cur_dnn_activations;
+		dnn::augmentedVarNames[dnnIndex + 1] = curAugmentedVarNames;
+		dnn::augmentedStateVars[dnnIndex + 1] = curAugmentedStateVars;
+		
+		dnn::activation_reset_map[dnnIndex + 1] = cur_activation_reset;
+		
 	}
 
-	return Real(lorder) * lambda(lorder, rorder + 1, order, input) -
-	  Real(rorder) * lambda(lorder + 1, rorder, order, input);
+	//toggle the initialized bool
+	dnn::dnn_initialized = true;
+  
 }
 
-Real tanhlambda(int lorder, int rorder, int rec, int order, Real input){
+void print_tms(const TaylorModelVec &tmv, const std::vector<std::string> &curAugmentedVarNames)
+{
 
-        Real output;
-
-        if (rec == order - 1){
-
-	  output = Real(1) - tanh(input) * tanh(input);
-		output.pow_assign(rorder);
+        for(int varInd = 0; varInd < curAugmentedVarNames.size() - 1; varInd++){
 	  
-	        //output = pow(1 - tanh(input) * tanh(input), rorder);
+	        Polynomial poly = tmv.tms[varInd].expansion;
+	        string printing;
+		poly.toString(printing, curAugmentedVarNames);
+						    
+		printf("TM for %s: %s\n", curAugmentedVarNames[varInd+1].c_str(), printing.c_str());
+		printf("remainder for %s: [%13.10f, %13.10f]\n", curAugmentedVarNames[varInd+1].c_str(),
+		       tmv.tms[varInd].remainder.inf(),
+		       tmv.tms[varInd].remainder.sup());
+	}
+}
+
+void print_tms(const NNTaylorModelVec &tmv, const std::vector<std::string> &curAugmentedVarNames)
+{
+
+        for(int varInd = 0; varInd < curAugmentedVarNames.size() - 1; varInd++){
+	        NNPolynomial poly = tmv.tms[varInd].expansion;
+	        string printing;
+		poly.toString(printing, curAugmentedVarNames);
+						    
+		printf("TM for %s: %s\n", curAugmentedVarNames[varInd+1].c_str(), printing.c_str());
+		printf("remainder for %s: [%13.10f, %13.10f]\n", curAugmentedVarNames[varInd+1].c_str(),
+		       tmv.tms[varInd].remainder.inf(),
+		       tmv.tms[varInd].remainder.sup());
+	}
+}
+
+void print_matrix(gsl_matrix * A){
+        for(int i = 0; i < A->size1; i++){
+	        printf("row %d: ", i+1);
+		for(int j = 0; j < A->size2; j++){
+		        printf("%f, ", gsl_matrix_get(A, i, j));
+		}
+		printf("\n");
+	}
+}
+
+void identity_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right, const NNTaylorModelVec &tmvImage,
+			      const bool normalize, const Continuous_Reachability_Setting & crs)
+{
+
+	//NB: this assumes tmvImage is normalized within [-1,1], which
+	//should be the case if this function is only used during DNN
+	//resets
+
+	// Compute the scaling matrix S.
+	std::vector<Interval> S, invS;
+	Interval intZero, intOne(1);
+
+	std::vector<Interval> tmvPolyRange;
+	tmvImage.polyRange(tmvPolyRange, crs.step_exp_table);
+
+	for(int i=0; i<tmvPolyRange.size(); ++i)
+	{
+		Interval intSup;
+		tmvPolyRange[i].mag(intSup);
+
+		if(!normalize){
+		        S.push_back(intOne);
+			invS.push_back(intOne);
+		}
+
+		else if(intSup.subseteq(intZero))
+		{
+			S.push_back(intZero);
+			invS.push_back(intOne);
+
+		}
+		else
+		{
+			S.push_back(intSup);
+			Interval intRecSup;
+			intSup.rec(intRecSup);
+			invS.push_back(intRecSup);
+		}
+	}
+	
+	NNTaylorModelVec tmv_left_temp(S);
+
+	NNTaylorModelVec tmv_right_temp = tmvImage;
+        tmv_right_temp.scale_assign(invS);
+
+	tmv_right = tmv_right_temp;
+	tmv_left = tmv_left_temp;
+}
+
+//NB: the matrix R is not used anywhere, so we are keeping it in the function
+void call_QR(gsl_matrix * A, gsl_matrix * Q)
+{
+
+	int m = A->size1;
+	int n = A->size2;
+
+	int k = std::min(m, n);
+
+	// initialize some matrices used in the computation
+	gsl_vector *tau = gsl_vector_calloc(k);
+	gsl_matrix * Q_cur = gsl_matrix_calloc(m, m);
+	gsl_matrix * Q_temp = gsl_matrix_calloc(m, m);
+	gsl_matrix * eye = gsl_matrix_calloc(m, m);
+	gsl_vector *v = gsl_vector_calloc(m);
+
+	// call the QR function
+  	gsl_linalg_QR_decomp(A, tau);
+
+	// initialize Q at identity
+	gsl_matrix_set_identity(Q);
+
+	for(int j = 0; j < k; j++){
+
+	        // create v
+	        // elements above the diagonal are set to 0
+	        for(int i = 0; i < j; i++){
+		        gsl_vector_set(v, i, 0);
+		}
+		//diagonal is set to 1
+		gsl_vector_set(v, j, 1);
+		//elements below the diagonal are current values of A 
+		for(int i = j+1; i < m; i++){
+		        gsl_vector_set(v, i, gsl_matrix_get(A, i, j));
+		}
+
+		//Q_cur = tau_j * v_j * v_j'
+		for(int ii = 0; ii < m; ii++){
+		        for(int jj = 0; jj < m; jj++){
+			        gsl_matrix_set(Q_cur, ii, jj, gsl_vector_get(tau, j) * gsl_vector_get(v, ii) * gsl_vector_get(v, jj));
+			}
+		}
+
+		// eye = I
+		gsl_matrix_set_identity(eye);
+
+		// eye = I - Q_cur
+		gsl_matrix_sub(eye, Q_cur);
+
+		// Q_temp = eye * Q
+		gsl_blas_dgemm(CblasNoTrans, CblasNoTrans, 1.0, eye, Q, 0.0, Q_temp);
+
+		// Q = Q_temp
+		gsl_matrix_memcpy(Q, Q_temp);
+		
+	}
+
+	// free variables
+	gsl_vector_free(tau);
+	gsl_matrix_free(Q_cur);
+	gsl_matrix_free(Q_temp);
+	gsl_matrix_free(eye);
+	gsl_vector_free(v);
+}
+
+//NB: num_plant_states is the number of states in the non-augmented hybrid system (not just plant states per se)
+void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right, NNTaylorModelVec &tmv_composed,
+			const NNTaylorModelVec &tmvImage, const int num_init_conditions,
+			const vector<string> curAugmentedVarNames, const vector<Interval> domain,
+			const Continuous_Reachability_Setting & crs)
+{
+
+        struct timeval begin;
+	struct timeval end;
+
+	gettimeofday(&begin, NULL);  
+
+	// prepare new taylor models
+	int num_total_states = tmvImage.tms.size();
+
+        iMatrix constant_parts;
+	tmvImage.constant(constant_parts);
+	
+	// construct the A matrix and the TMV of constants
+	// NB: the matrix A only contains the first num_init_conditions variables because they are sufficient to construct Q
+	// NB: the matrix A does not contain local_t -- it is added back later on as a column of 0s
+
+	gsl_matrix * A = gsl_matrix_calloc(num_init_conditions, num_init_conditions);
+	gsl_matrix_set_zero(A);
+
+	// this loop collects constant parts AND populates A
+	for (int i = 0; i < num_init_conditions; i++){
+
+		for(auto iter=tmvImage.tms[i].expansion.monomials_map.begin(); iter != tmvImage.tms[i].expansion.monomials_map.end(); iter++){
+			int index = 0;
+
+			if ((iter->second)->isLinear(index)){
+			        gsl_matrix_set(A, i, index-1, (iter->second)->getCoefficient().midpoint()); //the -1 removes time
+			}
+		}
+	        
+	}
+
+	//NNTaylorModelVec constants(constant_parts, num_total_states + 1);
+
+	// this is used when creating TMV from matrices that don't have the local_t column
+	bool noTime = true;
+
+	gsl_matrix * Q = gsl_matrix_calloc(num_init_conditions, num_init_conditions);
+	call_QR(A, Q);
+
+	gettimeofday(&end, NULL);
+	double elapsedSecsQR = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR setup and QR call time: %f\n", elapsedSecsQR);			
+
+	gettimeofday(&begin, NULL);
+	// the Q_full matrix is a block-diagonal matrix [Q, 0;, 0, I]
+	gsl_matrix * Q_full = gsl_matrix_calloc(num_total_states, num_total_states);
+	gsl_matrix_set_identity(Q_full);
+
+	for(int i = 0; i < num_init_conditions; i++){
+	  
+	        for(int j = 0; j < num_init_conditions; j++){
+		        gsl_matrix_set(Q_full, i, j, gsl_matrix_get(Q, i, j));
+		}
+	}
+
+	iMatrix MQ(Q_full);
+
+	iMatrix iMQt;
+	MQ.transpose(iMQt);
+
+	iMatrix t;
+	
+	MQ.mul(t, iMQt);
+	gettimeofday(&end, NULL);
+	double elapsedSecsQRMat = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR matrix creation time: %f\n", elapsedSecsQRMat);
+
+	gettimeofday(&begin, NULL);
+
+	Real maxGap, maxGap2, minRowSum, bloatEps, zeroR;
+
+	// first, get current gap
+	t.getMaxGapIdentity(maxGap, t);
+	gettimeofday(&end, NULL);
+	double elapsedSecsQRGap = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR gap finding time: %f\n", elapsedSecsQRGap);
+
+	gettimeofday(&begin, NULL);
+	
+	// prepare the right TMV first by subtracting the constant terms
+	NNTaylorModelVec tmvInit = NNTaylorModelVec(tmvImage);
+	tmvInit.rmConstant();
+	//tmvImage.sub(tmvInit, constants);
+
+	gettimeofday(&end, NULL);
+	double elapsedSecsQRSub = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR tmv sub time: %f\n", elapsedSecsQRSub);
+
+	gettimeofday(&begin, NULL);	
+	// insert Q' matrix in right TMV
+	std::vector<Interval> tmvPolyRange;
+	tmvInit.polyRange(tmvPolyRange, crs.step_end_exp_table);
+	gettimeofday(&end, NULL);
+	double elapsedSecsQRPoly = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR poly range time: %f\n", elapsedSecsQRPoly);	
+
+
+	gettimeofday(&begin, NULL);
+
+	NNTaylorModelVec tmv;
+     
+	tmvInit.linearTrans(tmv, iMQt);
+	tmv.cutoff(crs.step_end_exp_table, crs.cutoff_threshold);
+
+	gettimeofday(&end, NULL);
+	double elapsedSecsQRIns = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR insert Q time: %f\n", elapsedSecsQRIns);				
+
+	gettimeofday(&begin, NULL);
+	// Compute the scaling matrix S.
+	std::vector<Interval> S, invS;
+	Interval intZero, intOne(1);
+	
+	tmv.polyRange(tmvPolyRange, crs.step_end_exp_table);
+
+	for(int i=0; i<tmvPolyRange.size(); ++i)
+	{
+		Interval intSup;
+		tmvPolyRange[i].mag(intSup);
+
+		if(intSup.subseteq(intZero))
+		{
+			S.push_back(intZero);
+			invS.push_back(intOne);
+		}
+		else
+		{
+			S.push_back(intSup);
+			Interval intRecSup;
+			intSup.rec(intRecSup);
+			invS.push_back(intRecSup);
+
+		}
+	}
+
+	tmv.scale_assign(invS);
+	
+	// prepare the left TMV -- scale first
+
+
+	gettimeofday(&begin, NULL);  
+	//NNTaylorModelVec tmvPre(MQ, noTime);
+	NNTaylorModelVec tmvPreTemp(S);
+	NNTaylorModelVec tmvPre;
+	tmvPreTemp.linearTrans(tmvPre, MQ);
+	tmvPre.cutoff(crs.step_end_exp_table, crs.cutoff_threshold);
+	
+	gettimeofday(&end, NULL);
+	double elapsedSecsJustIn = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR final insert (just TMV init) time: %f\n", elapsedSecsJustIn);		
+
+	// add remainders to tmvPre
+	Interval tempI;
+	maxGap.to_sym_int(tempI);
+
+	for(int i = 0; i < num_init_conditions; i++){
+	        tmvPre.tms[i].remainder = Interval(tempI);
+	}
+	
+	// add constant part
+	//tmvPre.add_assign(constants);
+	tmvPre.addConstant(constant_parts);
+
+	gettimeofday(&end, NULL);
+	double elapsedSecsQRFin = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR final insert time: %f\n", elapsedSecsQRFin);					
+
+        tmv_right = tmv;
+        tmv_left = tmvPre;
+
+	gettimeofday(&begin, NULL);  
+	// finally, compose again
+	MQ.right_scale_assign(S);
+	tmv_right.linearTrans(tmv_composed, MQ);
+	//tmv_composed.add_assign(constant);
+	tmv_composed.addConstant(constant_parts);
+	for(int i = 0; i < num_init_conditions; i++){
+	        tmv_composed.tms[i].remainder = Interval(tempI);
+	}
+	gettimeofday(&end, NULL);
+	double elapsedSecsQRComp2 = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+	printf("elapsed QR second composition time: %f\n", elapsedSecsQRComp2);						
+	
+	//free gsl matrices
+	gsl_matrix_free(A);
+	gsl_matrix_free(Q);
+	gsl_matrix_free(Q_full);
+	
+}
+
+
+
+void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorModelVec tmvImage,
+						const Flowpipe fpAggregation, const std::string modeName,
+						const std::vector<std::string> stateVarNames,
+						const Variables realStateVars, const bool bPrint){
+
+        if(!dnn::dnn_initialized){
+	        if(bPrint) printf("Loading neural networks...\n");
+
+		initialize_dnn(realStateVars);
+	}
+
+	result = fpAggregation;
+
+	// first, figure out which network we're at
+	int dnnIndex = 1;
+					
+	if (strlen(modeName.c_str()) > 3){
+
+	        int startDnnIndex = 3;
+
+		if(!strncmp(modeName.c_str(), "DNNm", strlen("DNNm"))){
+		        startDnnIndex = 4;
+		}
+		
+		dnnIndex = std::stoi(modeName.substr(startDnnIndex));
+	}
+					
+	std::vector<dnn::activation> cur_dnn_activations = dnn::dnn_activations[dnnIndex];
+	std::vector<iMatrix> cur_dnn_reset_weights = dnn::dnn_reset_weights[dnnIndex];
+	std::vector<iMatrix> cur_dnn_reset_biases = dnn::dnn_reset_biases[dnnIndex];
+	dnn::curAugmentedVarNames = dnn::augmentedVarNames[dnnIndex];
+	Variables curAugmentedStateVars = dnn::augmentedStateVars[dnnIndex];
+	Continuous_Reachability_Setting cur_dnn_crs = dnn::dnn_crs[dnnIndex];
+	NNTaylorModelVec cur_activation_reset = dnn::activation_reset_map[dnnIndex];
+
+	//all_ranges is used to store interval approximations of all states
+	std::vector<Interval> all_ranges;
+
+	int numDnnVars = dnn::curAugmentedVarNames.size();
+
+	/*
+	  I alternate between after_activation_reset and after_linear_reset
+	  for consistency with the initial autogenerated C++ code
+	*/
+        NNTaylorModelVec tmv_left_after_activation_reset;
+        NNTaylorModelVec tmv_left_after_linear_reset;
+	NNTaylorModelVec tmv_right;
+
+	std::vector<Interval> domain;
+
+	// Create flowpipes for all new states
+	//after_activation_reset.domain.push_back(fpAggregation.domain[0]);
+	domain.push_back(fpAggregation.domain[0]);
+
+	// add _f states from the plant reachability problem first
+	std::map<int, NNTaylorModel> tmvMap;
+	std::map<int, NNTaylorModel> tmvPreMap;
+	std::map<int, Interval> domainMap;
+
+	int numFstates = 0;
+
+	for(int varInd = 0; varInd < stateVarNames.size(); varInd++){
+
+	        if(!strncmp(stateVarNames[varInd].c_str(), "_f", strlen("_f"))){
+
+		        int fIndex = std::stoi(stateVarNames[varInd].substr(2));
+
+			tmvMap[fIndex] = NNTaylorModel(fpAggregation.tmv.tms[varInd]);
+			tmvPreMap[fIndex] = NNTaylorModel(fpAggregation.tmvPre.tms[varInd]);
+			domainMap[fIndex] = fpAggregation.domain[varInd+1];
+
+			numFstates++;
+		}
+	}
+
+	std::map<int, int> stateToF, fToState;
+	dnn::get_state_to_f_map(stateToF, fToState, stateVarNames, tmvImage);
+					
+	for(int varInd = 0; varInd < numFstates; varInd++){
+
+	        NNTaylorModel tmPre, tm;
+	  
+		dnn::convert_TM_dimension(tmPre, tmvPreMap[varInd+1], numDnnVars, varInd, stateToF);
+		dnn::convert_TM_dimension(tm, tmvMap[varInd+1], numDnnVars, varInd);  // should be identity
+
+		tmv_left_after_activation_reset.tms.push_back(NNTaylorModel(tmPre));
+		tmv_right.tms.push_back(NNTaylorModel(tm));
+		domain.push_back(domainMap[varInd+1]);
+					  
+	}
+	
+	Interval intZero(0.0, 0.0);
+	for(int varInd = numFstates; varInd < dnn::curAugmentedVarNames.size() - 1; varInd++){
+
+	        tmv_left_after_activation_reset.tms.push_back(NNTaylorModel(intZero, dnn::curAugmentedVarNames.size()));
+	        tmv_right.tms.push_back(NNTaylorModel(intZero, dnn::curAugmentedVarNames.size()));
+		domain.push_back(Interval(-1.0, 1.0));
+	}
+
+	// precondition all TMs just in case
+	NNTaylorModelVec tmv_composed;
+	std::vector<Interval> tmvPolyRange;
+	tmv_right.polyRange(tmvPolyRange, cur_dnn_crs.step_end_exp_table);	
+	tmv_left_after_activation_reset.insert(tmv_composed, tmv_right, tmvPolyRange,
+					       cur_dnn_crs.step_end_exp_table,
+					       true, true, cur_dnn_crs.cutoff_threshold, cur_dnn_crs.order);
+
+	bool normalize = true;
+	identity_preconditioning(tmv_left_after_activation_reset, tmv_right, tmv_composed, normalize, cur_dnn_crs);
+
+
+	//go through the DNN resets
+	for(int layer = 0; layer < cur_dnn_reset_weights.size(); layer++){
+
+
+	        if(bPrint){
+	                printf("Jumping to layer %d\n", layer + 1);
+			printf("Performing linear reset...\n");
+		}
+
+		struct timeval begin;
+		struct timeval end;
+
+		gettimeofday(&begin, NULL);
+		
+		//NB: this assumes there is always a linear reset first
+		linear_reset(tmv_left_after_linear_reset, cur_dnn_reset_weights[layer], cur_dnn_reset_biases[layer],
+			     tmv_left_after_activation_reset, cur_dnn_crs);
+
+		gettimeofday(&end, NULL);
+		double elapsedSecsLIN = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+		printf("elapsed linear reset time: %f\n", elapsedSecsLIN);
+
+		//if no activation function, just set after_activation_reset equal to after_linear_reset
+		if(cur_dnn_activations[layer] != dnn::SIGMOID &&
+		   cur_dnn_activations[layer] != dnn::TANH &&
+		   cur_dnn_activations[layer] != dnn::SWISH &&
+		   cur_dnn_activations[layer] != dnn::RELU){
+		  
+	                tmv_left_after_activation_reset = tmv_left_after_linear_reset;
+			continue;
+		}
+
+
+	        if(bPrint){
+			printf("Performing preconditioning...\n");
+		}
+
+		gettimeofday(&begin, NULL);	
+		
+		// first compose
+		NNTaylorModelVec tmv_composed;
+		std::vector<Interval> tmvPolyRange;
+		tmv_right.polyRange(tmvPolyRange, cur_dnn_crs.step_end_exp_table);
+		
+		tmv_left_after_linear_reset.insert(tmv_composed, tmv_right, tmvPolyRange,
+						   cur_dnn_crs.step_end_exp_table,
+						   true, true, cur_dnn_crs.cutoff_threshold, cur_dnn_crs.order);
+
+		// print_tms(tmv_composed, curAugmentedVarNames);
+		// if(layer == 1)
+		//  exit(1);		
+
+		gettimeofday(&end, NULL);
+		double elapsedSecsQR = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+		printf("elapsed QR composition time: %f\n", elapsedSecsQR);		
+
+		// this also composes the new left and right again since preconditioning might add numeric error
+		qr_preconditioning(tmv_left_after_linear_reset, tmv_right, tmv_composed, tmv_composed,
+				   numFstates, dnn::curAugmentedVarNames, domain, cur_dnn_crs);
+				
+		tmv_composed.intEvalNormal(all_ranges, cur_dnn_crs.step_end_exp_table);
+				
+		bool tanh_act;					
+		if(cur_dnn_activations[layer] == dnn::SIGMOID){
+	                tanh_act = false;
+		}						
+		else if(cur_dnn_activations[layer] == dnn::TANH){
+	                tanh_act = true;
+		}						
+		else{
+	                printf("Verisig only supports tanh and sigmoid currently.\n");
+			exit(1);
+		}
+
+		//modify the reset depending on the activation function TM
+		for(int varInd = 0; varInd < dnn::curAugmentedVarNames.size() - 1; varInd++){
+
+		        if(strncmp(dnn::curAugmentedVarNames[varInd+1].c_str(), "_f", strlen("_f"))) continue;
+
+			Interval intC = all_ranges[varInd];
+
+			NNTaylorModel new_tm_reset;
+ 
+			dnn::act_reset(new_tm_reset, intC, varInd, numDnnVars, tanh_act, 4);
+			
+			cur_activation_reset.tms[varInd] = new_tm_reset;
+
+		}
+						
+		if(bPrint){
+	               printf("Performing activation reset...\n");
+		}
+
+		gettimeofday(&begin, NULL);		
+		//perform the activation reset
+		activation_reset(tmv_left_after_activation_reset, cur_activation_reset,
+				 tmv_left_after_linear_reset, cur_dnn_crs);
+
+		// print_tms(tmv_left_after_activation_reset, dnn::curAugmentedVarNames);
+		// printf("right\n");
+		// print_tms(tmv_right, dnn::curAugmentedVarNames);
+		// if(layer == 1)
+		//  exit(1);
+
+		gettimeofday(&end, NULL);
+		double elapsedSecsACT = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
+		printf("elapsed activation reset time: %f\n", elapsedSecsACT);
+	}
+
+
+	// precondition again just in case
+	tmv_right.polyRange(tmvPolyRange, cur_dnn_crs.step_end_exp_table);
+	tmv_left_after_activation_reset.insert(tmv_composed, tmv_right, tmvPolyRange,
+					       cur_dnn_crs.step_end_exp_table,
+					       true, true, cur_dnn_crs.cutoff_threshold, cur_dnn_crs.order);
+        normalize = false;
+	identity_preconditioning(tmv_left_after_activation_reset, tmv_right, tmv_composed, normalize, cur_dnn_crs);
+					
+	// Store DNN flowpipes back in the plant flowpipe
+	for(int varInd = 0; varInd < stateVarNames.size(); varInd++){
+	  
+	        if(!strncmp(stateVarNames[varInd].c_str(), "_f", strlen("_f"))){
+
+		        NNTaylorModel tmPre, tm;
+
+			int fIndex = std::stoi(stateVarNames[varInd].substr(2));
+
+			//NB: left and right are switched since the Flow* representation is flipped for some reason
+			dnn::convert_TM_dimension(tm, tmv_left_after_activation_reset.tms[fIndex - 1],
+						  stateVarNames.size() + 1, varInd); //should be identity
+			dnn::convert_TM_dimension(tmPre, tmv_right.tms[fIndex - 1],
+						  stateVarNames.size() + 1, varInd, fToState);
+			
+			result.tmvPre.tms[varInd] = TaylorModel(tmPre);
+			result.tmv.tms[varInd] = TaylorModel(tm);
+			result.domain[varInd+1] = domain[varInd+1];
+		}
+	}
+
+	// printing
+	//add time
+	// std::vector<std::string> realVarNames;
+	// realVarNames.push_back("local_t");
+
+	// for(int i = 0; i < stateVarNames.size(); i++){
+	//   realVarNames.push_back(stateVarNames[i]);
+	// }
+
+	// print_tms(result.tmvPre, realVarNames);
+	// printf("right\n");
+	// print_tms(result.tmv, realVarNames);
+	//exit(1);
         
-		if (lorder > 0){
-		        Real recReal = tanh(input);
-			recReal.pow_assign(lorder);
-
-			output = output * recReal;
-			
-		        //output = output * pow(tanh(input), lorder);
-		}
-
-	}
-        
-	else{                
-	        output =  Real(-1) * Real(2) * Real(rorder) * tanhlambda(lorder + 1, rorder, rec + 1, order, input);
-        
-		if (lorder > 0)
-		        output = output + Real(lorder) * tanhlambda(lorder - 1, rorder + 1, rec + 1, order, input);            
-	}
-
-	return output;
-
-}
-
-Real tanhDer(int order, Real input){
-        return tanhlambda(0, 1, 0, order, input);
-}
-
-Real sigDer(int order, Real input){
-        return lambda(1, 1, order, input);
-}
-
-Real swish1stDer(Real input){
-        int derOrder = 1;
-	return sigmoid(input) + input * lambda(1, 1, derOrder, input);
-}
-
-Real swish2ndDer(Real input){
-        int derOrder = 1;
-	return Real(2) * lambda(1, 1, derOrder, input) + input * lambda(1, 1, derOrder + 1, input);
-}
-
-Real swish3rdDer(Real input){
-        int derOrder = 2;
-	return Real(3) * lambda(1, 1, derOrder, input) + input * lambda(1, 1, derOrder + 1, input);
-}
-
-Real swishTen1stDer(Real input){
-        int derOrder = 1;
-	return sigmoid(Real(10) * input) + Real(10) * input * lambda(1, 1, derOrder, Real(10) * input);
-}
-
-Real swishTen2ndDer(Real input){
-        int derOrder = 1;
-	return Real(20) * lambda(1, 1, derOrder, Real(10) * input) + Real(100) * input * lambda(1, 1, derOrder + 1, Real(10) * input);
-}
-
-Real swishTen3rdDer(Real input){
-        int derOrder = 2;
-	return Real(300) * lambda(1, 1, derOrder, Real(10) * input) + Real(1000) * input * lambda(1, 1, derOrder + 1, Real(10) * input);
-}
-
-Real swishHundred1stDer(Real input){
-        int derOrder = 1;
-	return sigmoid(Real(100) * input) + Real(100) * input * lambda(1, 1, derOrder, Real(100) * input);
-}
-
-Real swishHundred2ndDer(Real input){
-        int derOrder = 1;
-	return Real(200) * lambda(1, 1, derOrder, Real(100) * input) + Real(1000) * input * lambda(1, 1, derOrder + 1, Real(100) * input);
-}
-
-Real swishHundred3rdDer(Real input){
-        int derOrder = 2;
-	return Real(30000) * lambda(1, 1, derOrder, Real(100) * input) + Real(1000000) * input * lambda(1, 1, derOrder + 1, Real(100) * input);
-}
-
-//The hardcoded bounds used in this function are conservative numerical bounds
-Real getSig4thDerBound(Interval bounds){
-
-        //Region 5
-        if(bounds.inf() >= 3.15){
-	        return sigDer(4, Real(bounds.inf())).abs();
-	}
-
-	//Region 4.5
-	else if(bounds.inf() >= 3.13 && bounds.inf() <= 3.15){
-	        return Real(0.01908);
-	}
-
-	//Region 4
-        else if(bounds.inf() >= 0.85 && bounds.inf() <= 3.13){
-
-	        Real bound = sigDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 4
-	        if(bounds.sup() <= 3.13){
-		  
-		        Real rbound = sigDer(4, Real(bounds.sup())).abs();
-			
-			if (rbound > bound) bound = rbound;
-		}		
-		//sup is in Region 5
-		else{
-		        if (Real(0.01908) > bound) bound = Real(0.01908);
-		}
-		
-	        return bound;
-	}
-
-	//Region 3.5
-	else if(bounds.inf() >= 0.83 && bounds.inf() <= 0.85){
-	        return Real(0.1277);
-	}	
-
-	//Region 3
-        else if(bounds.inf() >= -0.83 && bounds.inf() <= 0.83){
-	  
-	        Real bound = sigDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 3
-	        if(bounds.sup() <= 0.83){
-		        Real rbound = sigDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-		//sup is beyond the global max
-		else{
-		        bound = Real(0.1277);
-		}
-		
-	        return bound;
-	}
-
-	//Region 2.5
-	else if(bounds.inf() >= -0.85 && bounds.inf() <= -0.83){
-	        return Real(0.1277);
-	}
-
-	//Region 2
-	else if(bounds.inf() >= -3.13 && bounds.inf() <= -0.85){
-
-	        Real bound = sigDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 2
-	        if(bounds.sup() <= -0.85){
-		        Real rbound = sigDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is beyond global max
-		else if(bounds.sup() >= -0.85){
-		        bound = Real(0.1277);
-		}
-		  
-	        return bound;
-	}
-
-	//Region 1.5
-	else if(bounds.inf() >= -3.15 && bounds.inf() <= -3.13){
-
-	        Real bound = Real(0.01908);
-
-		//sup is in Region 2
-	        if(bounds.sup() <= -0.85){
-		        Real rbound = sigDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is beyond global max
-		else if(bounds.sup() >= -0.85){
-		        bound = Real(0.1277);
-		}
-		  
-	        return bound;
-	}
-
-	//Region 1
-	else if(bounds.inf() <= -3.15){
-
-	        Real bound = sigDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 1
-	        if(bounds.sup() <= -3.15){
-		        Real rbound = sigDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is in Region 2
-	        if(bounds.sup() <= -0.85){
-
-		        bound = Real(0.01908);
-			  
-		        Real rbound = sigDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}		
-
-		//sup is beyond global max
-		else if(bounds.sup() >= -0.85){
-		        bound = Real(0.1277);
-		}
-		  
-	        return bound;
-	}	
-  
-        return Real(0.1277);
-}
-
-//The hardcoded bounds used in this function are conservative numerical bounds
-Real getSig3rdDerBound(Interval bounds){
-
-        //Region 4
-        if(bounds.inf() >= 2.3){
-	        return sigDer(3, Real(bounds.inf()));
-	}
-
-	//Region 3.5
-	else if(bounds.inf() >= 2.28 && bounds.inf() <= 2.3){
-	        return Real(0.0417);
-	}
-
-	//Region 3
-        else if(bounds.inf() >= 0 && bounds.inf() <= 2.28){
-
-	        Real bound = sigDer(3, Real(bounds.inf())).abs();
-
-		//sup is in Region 3
-	        if(bounds.sup() <= 2.28){
-		  
-		        Real rbound = sigDer(3, Real(bounds.sup())).abs();
-			
-			if (rbound > bound) bound = rbound;
-		}		
-		//sup is in Region 4
-		else{
-		        if (Real(0.0417) > bound) bound = Real(0.0417);
-		}
-		
-	        return bound;
-	}
-
-	//Region 2
-        else if(bounds.inf() >= -2.28 && bounds.inf() <= 0){
-	  
-	        Real bound = sigDer(3, Real(bounds.inf())).abs();
-
-		//sup is in Region 2
-	        if(bounds.sup() <= 0){
-		        Real rbound = sigDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		else{
-		        bound = Real(0.126);
-		}
-		
-	        return bound;
-	}
-
-	//Region 1.5
-        else if(bounds.inf() >= -2.3 && bounds.inf() <= -2.28){
-	  
-	        Real bound = Real(0.0417);
-
-		//sup is in Region 2
-	        if(bounds.sup() <= 0){
-		        Real rbound = sigDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		else{
-		        bound = Real(0.126);
-		}
-		
-	        return bound;
-	}				
-
-	//Region 1
-	else if(bounds.inf() <= -2.3){
-
-	        Real bound = sigDer(3, Real(bounds.inf())).abs();
-
-		//sup is in Region 1
-	        if(bounds.sup() <= -2.3){
-		        Real rbound = sigDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is in Region 2
-		else if(bounds.sup() >= -2.3 && bounds.sup() <= 0){
-		        bound = Real(0.0417);
-
-			Real rbound = sigDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is beyond global max
-		else if(bounds.sup() >= 0){
-		        bound = Real(0.126);
-		}
-		  
-	        return bound;
-	}		
-  
-        return Real(0.126);
-}
-
-//The hardcoded bounds used in this function are conservative numerical bounds
-Real getTanh4thDerBound(Interval bounds){
-
-        //Region 5
-        if(bounds.inf() >= 1.573){
-	        return tanhDer(4, Real(bounds.inf())).abs();
-	}
-
-	//Region 4.5
-	else if(bounds.inf() >= 1.571 && bounds.inf() <= 1.573){
-	        return Real(0.61009);
-	}
-
-	//Region 4
-        else if(bounds.inf() >= 0.422 && bounds.inf() <= 1.571){
-
-	        Real bound = tanhDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 4
-	        if(bounds.sup() <= 1.571){
-		  
-		        Real rbound = tanhDer(4, Real(bounds.sup())).abs();
-			
-			if (rbound > bound) bound = rbound;
-		}		
-		//sup is in Region 5
-		else{
-		        if (Real(0.61009) > bound) bound = Real(0.61009);
-		}
-		
-	        return bound;
-	}
-
-	//Region 3.5
-	else if(bounds.inf() >= 0.42 && bounds.inf() <= 0.422){
-	        return Real(4.0859);
-	}	
-
-	//Region 3
-        else if(bounds.inf() >= -0.42 && bounds.inf() <= 0.42){
-	  
-	        Real bound = tanhDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 3
-	        if(bounds.sup() <= 0.42){
-		        Real rbound = tanhDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-		//sup is beyond the global max
-		else{
-		        bound = Real(4.0859);
-		}
-		
-	        return bound;
-	}
-
-	//Region 2.5
-	else if(bounds.inf() >= -0.422 && bounds.inf() <= -0.42){
-	        return Real(4.0859);
-	}
-
-	//Region 2
-	else if(bounds.inf() >= -1.571 && bounds.inf() <= -0.422){
-
-	        Real bound = tanhDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 2
-	        if(bounds.sup() <= -0.422){
-		        Real rbound = tanhDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is beyond global max
-		else if(bounds.sup() >= -0.422){
-		        bound = Real(4.0859);
-		}
-		  
-	        return bound;
-	}
-
-	//Region 1.5
-	else if(bounds.inf() >= -1.573 && bounds.inf() <= -1.571){
-
-	        Real bound = Real(0.61009);
-
-		//sup is in Region 2
-	        if(bounds.sup() <= -0.422){
-		        Real rbound = tanhDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is beyond global max
-		else if(bounds.sup() >= -0.422){
-		        bound = Real(4.0859);
-		}
-		  
-	        return bound;
-	}
-
-	//Region 1
-	else if(bounds.inf() <= -1.573){
-
-	        Real bound = tanhDer(4, Real(bounds.inf())).abs();
-
-		//sup is in Region 1
-	        if(bounds.sup() <= -1.573){
-		        Real rbound = tanhDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is in Region 2
-	        if(bounds.sup() <= -0.422){
-
-		        bound = Real(0.61009);
-			  
-		        Real rbound = tanhDer(4, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}		
-
-		//sup is beyond global max
-		else if(bounds.sup() >= -0.422){
-		        bound = Real(4.0859);
-		}
-		  
-	        return bound;
-	}	
-  
-        return Real(4.0859);
-}
-
-//The hardcoded bounds used in this function are conservative numerical bounds
-Real getTanh3rdDerBound(Interval bounds){
-
-        //Region 4
-        if(bounds.inf() >= 1.147){
-	        return tanhDer(3, Real(bounds.inf()));
-	}
-
-	//Region 3.5
-	else if(bounds.inf() >= 1.145 && bounds.inf() <= 1.147){
-	        return Real(0.66667);
-	}
-
-	//Region 3
-        else if(bounds.inf() >= 0 && bounds.inf() <= 1.145){
-
-	        Real bound = tanhDer(3, Real(bounds.inf())).abs();
-
-		//sup is in Region 3
-	        if(bounds.sup() <= 1.145){
-		  
-		        Real rbound = tanhDer(3, Real(bounds.sup())).abs();
-			
-			if (rbound > bound) bound = rbound;
-		}		
-		//sup is in Region 4
-		else{
-		        if (Real(0.66667) > bound) bound = Real(0.66667);
-		}
-		
-	        return bound;
-	}
-
-	//Region 2
-        else if(bounds.inf() >= -1.145 && bounds.inf() <= 0){
-	  
-	        Real bound = tanhDer(3, Real(bounds.inf())).abs();
-
-		//sup is in Region 2
-	        if(bounds.sup() <= 0){
-		        Real rbound = tanhDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		else{
-		        bound = Real(2);
-		}
-		
-	        return bound;
-	}
-
-	//Region 1.5
-        else if(bounds.inf() >= -1.147 && bounds.inf() <= -1.145){
-	  
-	        Real bound = Real(0.66667);
-
-		//sup is in Region 2
-	        if(bounds.sup() <= 0){
-		        Real rbound = tanhDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		else{
-		        bound = Real(2);
-		}
-		
-	        return bound;
-	}
-
-	//Region 1
-	else if(bounds.inf() <= -1.147){
-
-	        Real bound = tanhDer(3, Real(bounds.inf())).abs();
-
-		//sup is in Region 1
-	        if(bounds.sup() <= -1.147){
-		        Real rbound = tanhDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is in Region 2
-		else if(bounds.sup() >= -1.147 && bounds.sup() <= 0){
-		        bound = Real(0.66667);
-
-			Real rbound = tanhDer(3, Real(bounds.sup())).abs();
-
-			if (rbound > bound) bound = rbound;
-		}
-
-		//sup is beyond global max
-		else if(bounds.sup() >= 0){
-		        bound = Real(2);
-		}
-		  
-	        return bound;
-	}		
-  
-        return Real(2);
-}
-
-Real getSwish4thDerBound(Interval bounds){
-
-        if(bounds.inf() <= 2.2 && bounds.sup() >= -2.2){
-	        return Real(0.13);
-	}
-
-        if(bounds.inf() > 2.2 && bounds.inf() <= 6){
-	        return Real(0.04);
-	}
-	
-        if(bounds.sup() >= -6 && bounds.sup() < -2.2){
-	        return Real(0.04);
-	}
-
-	if(bounds.inf() > 6){
-	        return Real(0.013);
-	}
-
-	if(bounds.sup() < -6){
-	        return Real(0.013);
-	}		
-  
-        return Real(0.13);
-}
-
-Real getSwish3rdDerBound(Interval bounds){
-
-        if(bounds.inf() <= 3 && bounds.sup() >= -3){
-	        return Real(0.31);
-	}
-
-        if(bounds.inf() > 3 && bounds.inf() <= 5){
-	        return Real(0.025);
-	}
-
-        if(bounds.sup() >= -5 && bounds.sup() < -3){
-	        return Real(0.025);
-	}			
-
-	if(bounds.inf() > 5){
-	        return Real(0.013);
-	}
-
-	if(bounds.sup() < -5){
-	        return Real(0.013);
-	}		
-  
-        return Real(0.31);
-}
-
-Real getSwishTen4thDerBound(Interval bounds){
-
-        if(bounds.inf() <= 0.071 && bounds.sup() >= -0.071){
-	        return Real(500);
-	}
-
-        if(bounds.inf() > 0.071 && bounds.inf() <= 0.4){
-	        return Real(204);
-	}
-
-	if(bounds.inf() > 0.4 && bounds.inf() <= 1.2){
-	        return Real(10);
-	}
-
-        if(bounds.sup() >= -0.4 && bounds.sup() < -0.071){
-	        return Real(204);
-	}
-
-	if(bounds.sup() >= -1.2 && bounds.sup() < -0.4){
-	        return Real(10);
-	}	
-
-	if(bounds.inf() > 1.2){
-	        return Real(0.05);
-	}
-
-	if(bounds.sup() < -1.2){
-	        return Real(0.05);
-	}		
-  
-        return Real(500);
-}
-
-Real getSwishTen3rdDerBound(Interval bounds){
-
-        if(bounds.inf() <= 0.3 && bounds.sup() >= -0.3){
-	        return Real(30.9);
-	}
-
-        if(bounds.inf() > 0.3 && bounds.inf() <= 0.91){
-	        return Real(2.6);
-	}
-
-        if(bounds.sup() >= -0.91 && bounds.sup() < -0.3){
-	        return Real(2.6);
-	}			
-
-	if(bounds.inf() > 0.91){
-	        return Real(0.07);
-	}
-
-	if(bounds.sup() < -0.91){
-	        return Real(0.07);
-	}		
-  
-        return Real(30.9);
-}
-
-Real getSwishHundred4thDerBound(Interval bounds){
-
-        if(bounds.inf() <= 0.007 && bounds.sup() >= -0.007){
-	        return Real(500000);
-	}
-
-        if(bounds.inf() > 0.007 && bounds.inf() <= 0.045){
-	        return Real(200000);
-	}
-
-        if(bounds.inf() >= -0.045 && bounds.inf() <= -0.007){
-	        return Real(200000);
-	}
-
-	if(bounds.inf() > 0.045 && bounds.inf() <= 0.12){
-	        return Real(4700);
-	}
-
-        if(bounds.sup() >= -0.12 && bounds.sup() < -0.045){
-	        return Real(4700);
-	}
-
-	if(bounds.sup() >= 0.12 && bounds.sup() < 0.17){
-	        return Real(50);
-	}
-
-	if(bounds.sup() >= -0.17 && bounds.sup() < -0.12){
-	        return Real(50);
-	}	
-
-	if(bounds.inf() > 0.17){
-	        return Real(0.55);
-	}
-
-	if(bounds.sup() < -0.17){
-	        return Real(0.55);
-	}		
-  
-        return Real(500000);
-}
-
-Real getSwishHundred3rdDerBound(Interval bounds){
-
-        if(bounds.inf() <= 0.2 && bounds.sup() >= -0.2){
-	        return Real(7400);
-	}
-
-        if(bounds.inf() > 0.2 && bounds.inf() <= 0.5){
-	        return Real(8800);
-	}
-
-        if(bounds.sup() >= -0.5 && bounds.sup() < -0.2){
-	        return Real(8800);
-	}
-
-        if(bounds.inf() > 0.5 && bounds.inf() <= 0.8){
-	        return Real(3000);
-	}
-
-        if(bounds.sup() >= -0.8 && bounds.sup() < -0.5){
-	        return Real(3000);
-	}
-
-        if(bounds.inf() > 0.8 && bounds.inf() <= 1.2){
-	        return Real(260);
-	}
-
-        if(bounds.sup() >= -1.2 && bounds.sup() < -0.8){
-	        return Real(260);
-	}	
-
-	if(bounds.inf() > 1.2){
-	        return Real(7.5);
-	}
-
-	if(bounds.sup() < -1.2){
-	        return Real(7.5);
-	}		
-  
-        return Real(8800);
-}
-
-void dnn::sig_reset(TaylorModel &tmReset, const Interval intC, const int varInd, const int numVars){
-
-    Real midPoint = Real(intC.midpoint());
-    Real apprPoint = sigmoid(midPoint);
-
-    //NB: This assumes a 2nd order TS approximation
-    Real coef1 = sigDer(1, midPoint);
-    Real coef2 = sigDer(2, midPoint)/2;
-    Real coef3 = sigDer(3, midPoint)/6;						
-
-    Real derBound = getSig3rdDerBound(intC);
-
-    Real maxDev = Real(intC.sup()) - midPoint;
-
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-    
-    Real fact = Real(6);					       
-    maxDev.pow_assign(3);
-    Real remainder = (derBound * maxDev) / fact;
-
-    Interval apprInt = Interval(apprPoint);
-
-    Interval deg1Int = Interval(coef1);
-    Interval deg2Int = Interval(coef2);
-    Interval deg3Int = Interval(coef3);
-
-    std::vector<int> deg1(numVars, 0);
-    deg1[varInd + 1] = 1;
-    std::vector<int> deg2(numVars, 0);
-    deg2[varInd + 1] = 2;
-    std::vector<int> deg3(numVars, 0);
-    deg3[varInd + 1] = 3;
-    
-    Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
-    
-    Polynomial deg1Poly = Polynomial(Monomial(Interval(Real(-1) * coef1 * midPoint), numVars)) +
-      Polynomial(Monomial(deg1Int, deg1));
-
-    Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
-      Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
-      Polynomial(Monomial(deg2Int, deg2));
-    
-    Polynomial exp = deg0Poly + deg1Poly + deg2Poly;
-    Interval rem;
-    remainder.to_sym_int(rem);
-    
-    //if uncertainty too large, use a 3rd order approximation
-    if (rem.width() > 0.00001){
-        fact = 24;
-	maxDev = Real(intC.sup()) - midPoint;
-	maxDev.pow_assign(4);
-	derBound = getSig4thDerBound(intC);
-      
-	remainder = (derBound * maxDev) / fact;
-	remainder.to_sym_int(rem);
-	
-	Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint),
-						  numVars)) +
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
-	  Polynomial(Monomial(deg3Int, deg3));
-						
-	exp += deg3Poly;
-    }
-
-    tmReset.expansion = exp;
-    tmReset.remainder = rem;
-}
-
-void dnn::swish_reset(TaylorModel &tmReset, const Interval intC, const int varInd, const int numVars){
-
-    Real midPoint = Real(intC.midpoint());  
-    Real apprPoint = swish(midPoint);
-						
-    //First try a 2nd order TS approximation
-    
-    Real coef1 = swish1stDer(midPoint);
-    Real coef2 = swish2ndDer(midPoint)/2;
-    Real coef3 = swish3rdDer(midPoint)/6;
-						
-
-    Real derBound = getSwish3rdDerBound(intC);
-						
-    Real maxDev = Real(intC.sup()) - midPoint;
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-						
-    Real fact = Real(6);					       
-    maxDev.pow_assign(3);
-    Real remainder = (derBound * maxDev) / fact;
-
-    Interval apprInt = Interval(apprPoint);
-
-    Interval deg1Int = Interval(coef1);
-    Interval deg2Int = Interval(coef2);
-    Interval deg3Int = Interval(coef3);
-
-    std::vector<int> deg1(numVars, 0);
-    deg1[varInd + 1] = 1;
-    std::vector<int> deg2(numVars, 0);
-    deg2[varInd + 1] = 2;
-    std::vector<int> deg3(numVars, 0);
-    deg3[varInd + 1] = 3;
-						
-    Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
-						
-    Polynomial deg1Poly = Polynomial(Monomial(Interval(Real(-1) * coef1 * midPoint), numVars)) +
-      Polynomial(Monomial(deg1Int, deg1));
-
-    Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
-      Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
-      Polynomial(Monomial(deg2Int, deg2));
-						
-    Polynomial exp = deg0Poly + deg1Poly + deg2Poly;
-    Interval rem;
-    remainder.to_sym_int(rem);
-
-    //if uncertainty too large, use a 3rd order approximation
-    if (rem.width() > 0.00001){
-        fact = 24;
-	maxDev = Real(intC.sup()) - midPoint;
-	maxDev.pow_assign(4);
-
-	derBound = getSwish4thDerBound(intC);
-	
-	remainder = (derBound * maxDev) / fact;
-	remainder.to_sym_int(rem);
-
-	Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) + Polynomial(Monomial(deg3Int, deg3));
-						
-	exp += deg3Poly;
-    }
-
-    tmReset.expansion = exp;
-    tmReset.remainder = rem;
-    
-}
-
-void dnn::swish10_reset(TaylorModel &tmReset, const Interval intC, const int varInd, const int numVars){
-
-    Real midPoint = Real(intC.midpoint());  
-    Real apprPoint = swishTen(midPoint);
-						
-    //First try a 2nd order TS approximation
-    
-    Real coef1 = swishTen1stDer(midPoint);
-    Real coef2 = swishTen2ndDer(midPoint)/2;
-    Real coef3 = swishTen3rdDer(midPoint)/6;
-						
-
-    Real derBound = getSwishTen3rdDerBound(intC);
-						
-    Real maxDev = Real(intC.sup()) - midPoint;
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-						
-    Real fact = Real(6);					       
-    maxDev.pow_assign(3);
-    Real remainder = (derBound * maxDev) / fact;
-
-    Interval apprInt = Interval(apprPoint);
-
-    Interval deg1Int = Interval(coef1);
-    Interval deg2Int = Interval(coef2);
-    Interval deg3Int = Interval(coef3);
-
-    std::vector<int> deg1(numVars, 0);
-    deg1[varInd + 1] = 1;
-    std::vector<int> deg2(numVars, 0);
-    deg2[varInd + 1] = 2;
-    std::vector<int> deg3(numVars, 0);
-    deg3[varInd + 1] = 3;
-						
-    Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
-						
-    Polynomial deg1Poly = Polynomial(Monomial(Interval(Real(-1) * coef1 * midPoint), numVars)) +
-      Polynomial(Monomial(deg1Int, deg1));
-
-    Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
-      Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
-      Polynomial(Monomial(deg2Int, deg2));
-						
-    Polynomial exp = deg0Poly + deg1Poly + deg2Poly;
-    Interval rem;
-    remainder.to_sym_int(rem);
-
-    //if uncertainty too large, use a 3rd order approximation
-    if (rem.width() > 0.00001){
-        fact = 24;
-	maxDev = Real(intC.sup()) - midPoint;
-	maxDev.pow_assign(4);
-
-	derBound = getSwishTen4thDerBound(intC);
-	
-	remainder = (derBound * maxDev) / fact;
-	remainder.to_sym_int(rem);
-
-	Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) + Polynomial(Monomial(deg3Int, deg3));
-						
-	exp += deg3Poly;
-    }
-
-    tmReset.expansion = exp;
-    tmReset.remainder = rem;
-    
-}
-
-void dnn::tanh_reset(TaylorModel &tmReset, const Interval intC, const int varInd, const int numVars){
-
-    Real midPoint = Real(intC.midpoint());
-    Real apprPoint = tanh(midPoint);
-
-    //NB: This assumes a 2nd order TS approximation
-    Real coef1 = tanhDer(1, midPoint);
-    Real coef2 = tanhDer(2, midPoint)/2;
-    Real coef3 = tanhDer(3, midPoint)/6;						
-
-    Real derBound = getTanh3rdDerBound(intC);
-
-    Real maxDev = Real(intC.sup()) - midPoint;
-
-    if (midPoint - Real(intC.inf()) > maxDev){
-        maxDev = midPoint - Real(intC.inf());
-    }
-    
-    Real fact = Real(6);					       
-    maxDev.pow_assign(3);
-    Real remainder = (derBound * maxDev) / fact;
-
-    Interval apprInt = Interval(apprPoint);
-
-    Interval deg1Int = Interval(coef1);
-    Interval deg2Int = Interval(coef2);
-    Interval deg3Int = Interval(coef3);
-
-    std::vector<int> deg1(numVars, 0);
-    deg1[varInd + 1] = 1;
-    std::vector<int> deg2(numVars, 0);
-    deg2[varInd + 1] = 2;
-    std::vector<int> deg3(numVars, 0);
-    deg3[varInd + 1] = 3;
-    
-    Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
-    
-    Polynomial deg1Poly = Polynomial(Monomial(Interval(Real(-1) * coef1 * midPoint), numVars)) +
-      Polynomial(Monomial(deg1Int, deg1));
-
-    Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
-      Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
-      Polynomial(Monomial(deg2Int, deg2));
-    
-    Polynomial exp = deg0Poly + deg1Poly + deg2Poly;
-    Interval rem;
-    remainder.to_sym_int(rem);
-    
-    //if uncertainty too large, use a 3rd order approximation
-    if (rem.width() > 0.00001){
-        fact = 24;
-	maxDev = Real(intC.sup()) - midPoint;
-	maxDev.pow_assign(4);
-	derBound = getTanh4thDerBound(intC);
-      
-	remainder = (derBound * maxDev) / fact;
-	remainder.to_sym_int(rem);
-	
-	Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint),
-						  numVars)) +
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	  Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
-	  Polynomial(Monomial(deg3Int, deg3));
-						
-	exp += deg3Poly;
-    }
-
-    tmReset.expansion = exp;
-    tmReset.remainder = rem;
-}
-
-void dnn::relu_reset(TaylorModel &tmReset, const Interval intC, const int varInd, const int numVars){
-
-
-    Polynomial exp;
-    Interval rem;
-
-    //ReLU all in 0 area
-    if(intC.sup() < 0){
-
-        Interval zeroInt = Interval(0.0, 0.0);
-						
-	exp = Polynomial(Monomial(zeroInt, numVars));
-	rem = zeroInt;
-    }
-    
-    //ReLU all in positive area
-    else if(intC.inf() > 0){
-
-        std::vector<int> deg1(numVars, 0);
-	deg1[varInd + 1] = 1;
-
-	Polynomial deg1Poly = Polynomial(Monomial(Interval(1.0, 1.0), deg1));
-
-	exp = deg1Poly;
-	rem = Interval(0.0, 0.0);
-
-    }					
-
-    //ReLU in both areas: approximate using the Swish function
-    else{
-        Real midPoint = Real(intC.midpoint());
-	
-        Interval apprPoint = swishHundred(midPoint);
-	
-	//NB: This assumes a 2nd order TS approximation
-
-	Real coef1 = swishHundred1stDer(midPoint);
-	Real coef2 = swishHundred2ndDer(midPoint)/2;
-	Real coef3 = swishHundred3rdDer(midPoint)/6;
-						
-	Real derBound = getSwishHundred3rdDerBound(intC);
-
-	Real maxDev = Real(intC.sup()) - midPoint;
-	if (midPoint - Real(intC.inf()) > maxDev){
-	    maxDev = midPoint - Real(intC.inf());
-	}
-						
-	Real fact = Real(6);					       
-	maxDev.pow_assign(3);
-	Real remainder = (derBound * maxDev) / fact;
-
-	Interval apprInt = Interval(apprPoint);
-
-	Interval deg1Int = Interval(coef1);
-	Interval deg2Int = Interval(coef2);
-	Interval deg3Int = Interval(coef3);
-	
-	std::vector<int> deg1(numVars, 0);
-	deg1[varInd + 1] = 1;
-	std::vector<int> deg2(numVars, 0);
-	deg2[varInd + 1] = 2;
-	std::vector<int> deg3(numVars, 0);
-	deg3[varInd + 1] = 3;
-						
-	Polynomial deg0Poly = Polynomial(Monomial(apprInt, numVars));
-	
-	Polynomial deg1Poly = Polynomial(Monomial(Interval(Real(-1) * coef1 * midPoint), numVars)) +
-	  Polynomial(Monomial(deg1Int, deg1));
-	
-	Polynomial deg2Poly = Polynomial(Monomial(Interval(coef2 * midPoint * midPoint), numVars)) -
-	  Polynomial(Monomial(Interval(Real(2) * coef2 * midPoint), deg1)) +
-	  Polynomial(Monomial(deg2Int, deg2));
-	
-	exp = deg0Poly + deg1Poly + deg2Poly;
-	remainder.to_sym_int(rem);
-
-	//if uncertainty too large, use a 3rd order approximation
-	if (rem.width() > 0.00001){
-	    fact = 24;
-	    maxDev = Real(intC.sup()) - midPoint;
-	    maxDev.pow_assign(4);
-	    
-	    derBound = getSwishHundred4thDerBound(intC);
-	    
-	    remainder = (derBound * maxDev) / fact;
-	    remainder.to_sym_int(rem);
-	    
-	    Polynomial deg3Poly = Polynomial(Monomial(Interval(Real(-1) * coef3 * midPoint * midPoint * midPoint), numVars)) +
-	      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint * midPoint), deg1)) -
-	      Polynomial(Monomial(Interval(Real(3) * coef3 * midPoint), deg2)) +
-	      Polynomial(Monomial(deg3Int, deg3));
-
-	    
-	    exp += deg3Poly;
-	}
-	
-	//Add approximation error between ReLU and Swish
-	// exp += Polynomial(Monomial(Interval(0.0014, 0.0014), numVars));
-	// rem += Interval(-0.0014, 0.0014);
-	
-	//Add approximation error between ReLU and Swish
-	
-	if (intC.inf() > -0.0127){
-	    double maxDer = -swishHundred(Real(intC.inf())).getValue_RNDD();
-	  
-	    if(intC.sup() - swishHundred(Real(intC.sup())).getValue_RNDD() > maxDer){
-	        maxDer = intC.sup() - swishHundred(Real(intC.sup())).getValue_RNDD();
-	    }
-	    
-	    rem += Interval(0.0, maxDer);
-	}
-	else{						  
-	    rem += Interval(0.0, 0.0028);
-	}
-	printf("input interval: [%f, %f]\n", intC.inf(), intC.sup());
-	printf("returned remainder: [%f, %f]\n", rem.inf(), rem.sup());
-    }
-
-    tmReset.expansion = exp;
-    tmReset.remainder = rem;    
-  
-}
-
-void dnn::load_dnn(std::vector<ResetMap> &resets, std::vector<dnn::activation> &activations, const Variables &vars, const std::string filename) {
-    Node dnn = LoadFile(filename);
-
-    Node weights = dnn["weights"];
-    Node offsets = dnn["offsets"];
-    Node acts = dnn["activations"];
-
-    for(int i=0; i<weights.size(); i++) {
-  
-	int layerId = i+1;
-	std::string activationFcn = acts[layerId].as<string>();
-	dnn::activation activationAsEnum = LINEAR;
-
-	if(!strncmp(activationFcn.c_str(), "Tanh", strlen("Tanh"))){
-	        activationAsEnum = dnn::TANH;
-	}
-	else if(!strncmp(activationFcn.c_str(), "Sigmoid", strlen("Sigmoid"))){
-	        activationAsEnum = dnn::SIGMOID;
-	}
-	else if(!strncmp(activationFcn.c_str(), "Swish", strlen("Swish"))){
-	        activationAsEnum = dnn::SWISH;
-	}	
-	else if(!strncmp(activationFcn.c_str(), "Relu", strlen("Relu"))){
-	        activationAsEnum = dnn::RELU;
-	}
-	
-
-        map<string,TaylorModel> taylorModels;
-        Node layer = weights[layerId];
-        int layerSize = layer[0].size();
-
-        int currentNeuron = 1;
-        for(const_iterator neuronIt=layer.begin(); neuronIt != layer.end(); ++neuronIt) {
-            int currentWeight = 1;
-            stringstream buffer;
-            for(int i = 0; i < layerSize; i++) {
-
-                buffer << (*neuronIt)[i];
-                buffer << " * " << "f" << currentWeight << + " + ";
-
-                currentWeight++;
-            }
-
-            buffer << offsets[layerId][currentNeuron-1];
-
-            taylorModels["f" + to_string(currentNeuron)] = TaylorModel(buffer.str(), vars);            
-
-            currentNeuron++;
-        }
-
-        TaylorModelVec tms;
-	std::vector<bool> isIdentity(vars.size() - 1);
-
-        for(int i=0; i < vars.size() - 1; i++ ){
-            string varName = vars.varNames[i+1];
-
-            if(taylorModels.find(varName) == taylorModels.end()) {
-
-	        if(varName[0] == 'f'){
-		    tms.tms.push_back(TaylorModel("0", vars));
-		    isIdentity[i] = false;
-		}
-		else{
-		    tms.tms.push_back(TaylorModel(varName, vars));
-		    isIdentity[i] = true;
-		}
-            } else {
-                tms.tms.push_back(taylorModels[varName]);
-                isIdentity[i] = false;
-            }
-        }
-
-        resets.push_back(ResetMap(tms, isIdentity));
-        activations.push_back(activationAsEnum);
-	
-    }
 }
