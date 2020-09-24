@@ -12,6 +12,7 @@ varIndex: Final[Dict[str, int]] = {v:idx for (idx, v) in enumerate([
     'err', 'prev_err',
     'theta_L', 'theta_R', 'zeta_L', 'zeta_R',
     'd_L', 'd_R', 'd_F', 'd_B',
+    'alpha_L', 'alpha_R', 'alpha_F', 'alpha_B',
     'gamma_LF', 'gamma_LB',
     'gamma_RF', 'gamma_RB',
     'gamma_FL', 'gamma_FR',
@@ -29,19 +30,19 @@ defaultDynamics: Final[Dict[str, str]] = {
 
 def bicycle_dynamics(use_beta: bool) -> Dict[str, str]:
     d = dict(defaultDynamics)
-    if use_beta:
-        beta = 'atan((CAR_CENTER_OF_MASS * sin(delta)) / (CAR_LENGTH * cos(delta)))'
-        d.update({
-            'x': f'V * cos(theta + {beta})',
-            'y': f'V * sin(theta + {beta})',
-            'theta': f'(V * cos({beta}) * sin(delta)) / (CAR_LENGTH * cos(delta))'
-            })
-    else:
-        d.update({
-            'x': 'V * cos(theta)',
-            'y': 'V * sin(theta)',
-            'theta': '(V * sin(delta)) / (CAR_LENGTH * cos(delta))',
-            })
+    #if use_beta:
+    #    beta = 'atan((CAR_CENTER_OF_MASS * sin(delta)) / (CAR_LENGTH * cos(delta)))'
+    #    d.update({
+    #        'x': f'V * cos(theta + {beta})',
+    #        'y': f'V * sin(theta + {beta})',
+    #        'theta': f'(V * cos({beta}) * sin(delta)) / (CAR_LENGTH * cos(delta))'
+    #        })
+    #else:
+    d.update({
+        'x': 'V * cos(theta)',
+        'y': 'V * sin(theta)',
+        'theta': '(V * sin(delta)) / (CAR_LENGTH * cos(delta))',
+        })
     d['V'] = 'CAR_ACCEL_CONST * (CAR_MOTOR_CONST * (u - HYSTERESIS_CONSTANT) - V)'
     return d
 
@@ -50,26 +51,29 @@ class Mode:
     int_scheme: str
     dynamics: Dict[str, str]
     invariants: List[str]
-    def __init__(self, name: str, int_scheme:str = 'linear', dynamics:Dict[str,str] = defaultDynamics, invariants:List[str] = ['clock <= 0']) -> None:
+    def __init__(self, name: str, int_scheme:str = 'nonpoly ode', dynamics:Dict[str,str] = defaultDynamics, invariants:List[str] = ['clock <= 0']) -> None:
         self.name = name
         self.int_scheme = int_scheme
         self.dynamics = dynamics
         self.invariants = invariants
     def output(self, f: TextIO) -> None:
-        f.write(f'\t\t{self.name}\n\t\t{{\n\t\t\t{self.int_scheme} ode\n\t\t\t{{\n')
+        f.write(f'\t\t{self.name}\n')
+        f.write('\t\t{\n')
+        f.write(f'\t\t\t{self.int_scheme}\n\t\t\t{{\n')
         for v,e in self.dynamics.items():
             f.write(f"\t\t\t\t{v}' = {e}\n")
         f.write('\t\t\t}\n\t\t\tinv\n\t\t\t{\n')
         for inv in self.invariants:
             f.write(f'\t\t\t\t{inv}\n')
         f.write('\t\t\t}\n')
+        f.write('\t\t}\n')
 
 class Transition:
     srcMode: Mode
     destMode: Mode
     guards: List[str]
     resets: Dict[str, str]
-    def __init__(self, srcMode: Mode, destMode: Mode, guards:List[str] = ['clock = 0'], resets:Dict[str,str] = {}) -> None:
+    def __init__(self, srcMode: Mode, destMode: Mode, guards:List[str] = ['clock = 0'], resets:Dict[str,str] = {'clock': '0'}) -> None:
         self.srcMode = srcMode
         self.destMode = destMode
         self.guards = guards
@@ -89,7 +93,7 @@ errorMode: Final[Mode] = Mode(name=f'error_m{next(freshModeId)}')
 
 bicycle_mode: Final[Mode] = Mode(
         name=f'bicycle_m{next(freshModeId)}',
-        int_scheme='nonpoly',
+        int_scheme='nonpoly ode',
         invariants=['clock <= TIME_STEP'],
         dynamics=bicycle_dynamics(use_beta=False)
         )
@@ -128,13 +132,19 @@ def atan1(srcVar: str, srcMode: Mode, destVar: str, destMode: Mode, f: TextIO) -
         srcMode=arcModeOut,
         destMode=destMode,
         guards=['clock = 0', f'{destVar} >= 0'],
-        resets={destVar: f'0.5 * PI - {destVar}'}
+        resets={
+            'clock': '0',
+            destVar: f'0.5 * PI - {destVar}'
+            }
         ))
     transitions.append(Transition(
         srcMode=arcModeOut,
         destMode=destMode,
         guards=['clock = 0', f'{destVar} <= 0'],
-        resets={destVar: f'-0.5 * PI - {destVar}'}
+        resets={
+            'clock': '0',
+            destVar: f'-0.5 * PI - {destVar}'
+            }
         ))
 
 # overwrites tmp1
@@ -147,24 +157,30 @@ def atan2(srcVarY: str, srcVarX: str, srcMode: Mode, destVar: str, destMode: Mod
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=['clock = 0', f'{srcVarX} = 0', f'{srcVarY} >= 0'],
-        resets={destVar: '0.5 * PI'}
+        guards=['clock = 0', f'{srcVarX} + epsilon >= 0', f'{srcVarX} - epsilon <= 0', f'{srcVarY} >= 0'],
+        resets={
+            'clock': '0',
+            destVar: '0.5 * PI'
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=['clock = 0', f'{srcVarX} = 0', f'{srcVarY} <= 0'],
-        resets={destVar: '-0.5 * PI'}
+        guards=['clock = 0', f'{srcVarX} + epsilon >= 0', f'{srcVarX} - epsilon <= 0', f'{srcVarY} <= 0'],
+        resets={
+            'clock': '0',
+            destVar: '-0.5 * PI'
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=divMode,
-        guards=['clock = 0', f'{srcVarX} > 0']
+        guards=['clock = 0', f'{srcVarX} - epsilon >= 0']
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=divMode,
-        guards=['clock = 0', f'{srcVarX} < 0']
+        guards=['clock = 0', f'{srcVarX} + epsilon <= 0']
         ))
 
     atan1(srcVar='tmp1', srcMode=divMode, destVar='tmp1', destMode=joinMode, f=f)
@@ -173,19 +189,28 @@ def atan2(srcVarY: str, srcVarX: str, srcMode: Mode, destVar: str, destMode: Mod
         srcMode=joinMode,
         destMode=destMode,
         guards=['clock = 0', f'{srcVarX} >= 0'],
-        resets={destVar: 'tmp1'}
+        resets={
+            'clock': '0',
+            destVar: 'tmp1'
+            }
         ))
     transitions.append(Transition(
         srcMode=joinMode,
         destMode=destMode,
         guards=['clock = 0', f'{srcVarX} <= 0', f'{srcVarY} >= 0'],
-        resets={destVar: f'PI + tmp1'}
+        resets={
+            'clock': '0',
+            destVar: f'PI + tmp1'
+            }
         ))
     transitions.append(Transition(
         srcMode=joinMode,
         destMode=destMode,
         guards=['clock = 0', f'{srcVarX} <= 0', f'{srcVarY} <= 0'],
-        resets={destVar: f'-PI + tmp1'}
+        resets={
+            'clock': '0',
+            destVar: f'-PI + tmp1'
+            }
         ))
 
 #computes acos(srcVar / r)
@@ -197,18 +222,21 @@ def div_r_acos(srcVar: str, srcMode: Mode, destVar: str, destMode: Mode, f: Text
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=errorMode,
-        guards=[f'{srcVar} < -r']
+        guards=[f'{srcVar} + r <= 0']
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=errorMode,
-        guards=[f'{srcVar} > r']
+        guards=[f'{srcVar} - r >= 0']
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=sqrtMode,
-        guards=[f'{srcVar} >= -r', f'{srcVar} <= r'],
-        resets={'tmp2': f'r^2 - {srcVar}^2'}
+        guards=[f'{srcVar} + r >= 0', f'{srcVar} - r <= 0'],
+        resets={
+            'clock': '0',
+            'tmp2': f'r^2 - {srcVar}^2'
+            }
         ))
 
     atan2(srcVarY='tmp2', srcVarX=srcVar, srcMode=sqrtMode, destVar=destVar, destMode=destMode, f=f)
@@ -217,82 +245,118 @@ def min2(srcVarA: str, srcVarB: str, srcMode: Mode, destVar: str, destMode: Mode
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarA} <= {srcVarB}'],
-        resets={destVar: srcVarA}
+        guards=[f'{srcVarA} - {srcVarB} <= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarA
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarB} <= {srcVarA}'],
-        resets={destVar: srcVarB}
+        guards=[f'{srcVarB} - {srcVarA} <= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarB
+            }
         ))
 
 def min3(srcVarA: str, srcVarB: str, srcVarC: str, srcMode: Mode, destVar: str, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarA} <= {srcVarB}', f'{srcVarA} <= {srcVarC}'],
-        resets={destVar: srcVarA}
+        guards=[f'{srcVarA} - {srcVarB} <= 0', f'{srcVarA} - {srcVarC} <= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarA
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarB} <= {srcVarA}', f'{srcVarB} <= {srcVarC}'],
-        resets={destVar: srcVarB}
+        guards=[f'{srcVarB} - {srcVarA} <= 0', f'{srcVarB} - {srcVarC} <= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarB
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarC} <= {srcVarA}', f'{srcVarC} <= {srcVarB}'],
-        resets={destVar: srcVarC}
+        guards=[f'{srcVarC} - {srcVarA} <= 0', f'{srcVarC} - {srcVarB} <= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarC
+            }
         ))
 
 def max2(srcVarA: str, srcVarB: str, srcMode: Mode, destVar: str, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarA} >= {srcVarB}'],
-        resets={destVar: srcVarA}
+        guards=[f'{srcVarA} - {srcVarB} >= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarA
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarB} >= {srcVarA}'],
-        resets={destVar: srcVarB}
+        guards=[f'{srcVarB} - {srcVarA} >= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarB
+            }
         ))
 
 def max3(srcVarA: str, srcVarB: str, srcVarC: str, srcMode: Mode, destVar: str, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarA} >= {srcVarB}', f'{srcVarA} >= {srcVarC}'],
-        resets={destVar: srcVarA}
+        guards=[f'{srcVarA} - {srcVarB} >= 0', f'{srcVarA} - {srcVarC} >= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarA
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarB} >= {srcVarA}', f'{srcVarB} >= {srcVarC}'],
-        resets={destVar: srcVarB}
+        guards=[f'{srcVarB} - {srcVarA} >= 0', f'{srcVarB} - {srcVarC} >= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarB
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarC} >= {srcVarA}', f'{srcVarC} >= {srcVarB}'],
-        resets={destVar: srcVarC}
+        guards=[f'{srcVarC} - {srcVarA} >= 0', f'{srcVarC} - {srcVarB} >= 0'],
+        resets={
+            'clock': '0',
+            destVar: srcVarC
+            }
         ))
 
 def rays_in_interval(srcVarLb: str, srcVarUb: str, srcMode: Mode, destVar: str, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarLb} >= {srcVarUb}'],
-        resets={destVar: '0'}
+        guards=[f'{srcVarLb} - {srcVarUb} >= 0'],
+        resets={
+            'clock': '0',
+            destVar: '0'
+            }
         ))
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        guards=[f'{srcVarLb} < {srcVarUb}'],
-        resets={destVar: f'RAY_DIST_INV * ({srcVarUb} - {srcVarLb}) + [-1, 1]'}
+        guards=[f'{srcVarLb} - {srcVarUb} <= 0'],
+        resets={
+            'clock': '0',
+            destVar: f'RAY_DIST_INV * ({srcVarUb} - {srcVarLb}) + [-1, 1]'
+            }
         ))
 
 #overwrites tmp1 and tmp2
@@ -306,6 +370,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
         destMode=pre_mode1,
         guards=start_guards,
         resets={
+            'clock': '0',
             'theta_L': 'theta + RAY_DIST',
             'theta_R': 'theta - RAY_DIST',
             'zeta_L': 'theta + LIDAR_FIELD_OF_VIEW',
@@ -342,7 +407,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=pre_mode2,
         destMode=front_left_mode1,
-        guards=['clock = 0', 'd_L^2 + d_F^2 <= r^2']
+        guards=['clock = 0', 'd_L^2 + d_F^2 - r^2 <= 0']
         ))
     div_r_acos(srcVar='d_L', srcMode=front_left_mode1, destVar='alpha_L', destMode=front_left_mode2, f=f)
     div_r_acos(srcVar='d_F', srcMode=front_left_mode2, destVar='alpha_F', destMode=front_left_mode3, f=f)
@@ -350,6 +415,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
         srcMode=front_left_mode3,
         destMode=front_left_mode4,
         resets={
+            'clock': '0',
             'gamma_LB': 'PI + alpha_L',
             'gamma_FR': '0.5 * PI - alpha_F'
             }
@@ -362,13 +428,16 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=front_left_mode9,
         destMode=corner_start_mode,
-        guards=['clock = 0', 'zeta_R >= gamma_LB - 2 * PI'],
-        resets={'left_L': '0'}
+        guards=['clock = 0', 'zeta_R - (gamma_LB - 2 * PI) >= 0'],
+        resets={
+            'clock': '0',
+            'left_L': '0'
+            }
         ))
     transitions.append(Transition(
         srcMode=front_left_mode9,
         destMode=errorMode,
-        guards=['clock = 0', 'zeta_R < gamma_LB - 2 * PI']
+        guards=['clock = 0', 'zeta_R - (gamma_LB - 2 * PI) <= 0']
         ))
 
     front_left_sep_mode1 = Mode(name=f'front_left_sep1_m{next(freshModeId)}')
@@ -378,7 +447,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=pre_mode2,
         destMode=front_left_sep_mode1,
-        guards=['clock = 0', 'd_L^2 + d_F^2 > r^2']
+        guards=['clock = 0', 'd_L^2 + d_F^2 - r^2 >= 0']
         ))
     left_mode1 = Mode(name=f'left1_m{next(freshModeId)}')
     left_mode2 = Mode(name=f'left2_m{next(freshModeId)}')
@@ -395,19 +464,23 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=front_left_sep_mode1,
         destMode=left_mode1,
-        guards=['clock = 0', 'd_L < r']
+        guards=['clock = 0', 'd_L <= r']
         ))
     transitions.append(Transition(
         srcMode=front_left_sep_mode1,
         destMode=front_left_sep_mode2,
         guards=['clock = 0', 'd_L >= r'],
-        resets={'left_L': '0'}
+        resets={
+            'clock': '0',
+            'left_L': '0'
+            }
         ))
     div_r_acos(srcVar='d_L', srcMode=left_mode1, destVar='alpha_L', destMode=left_mode2, f=f)
     transitions.append(Transition(
         srcMode=left_mode2,
         destMode=left_mode3,
         resets={
+            'clock': '0',
             'gamma_LB': 'PI + alpha_L',
             'gamma_LF': 'PI - alpha_L',
             }
@@ -418,17 +491,17 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=left_mode6,
         destMode=front_left_sep_mode2,
-        guards=['clock = 0', 'zeta_R >= gamma_LB - 2 * PI', 'theta_R <= gamma_LF']
+        guards=['clock = 0', 'zeta_R - (gamma_LB - 2 * PI) >= 0', 'theta_R - gamma_LF <= 0']
         ))
     transitions.append(Transition(
         srcMode=left_mode6,
         destMode=errorMode,
-        guards=['clock = 0', 'zeta_R < gamma_LB - 2 * PI']
+        guards=['clock = 0', 'zeta_R - (gamma_LB - 2 * PI) <= 0']
         ))
     transitions.append(Transition(
         srcMode=left_mode6,
         destMode=errorMode,
-        guards=['clock = 0', 'theta_R > gamma_LF']
+        guards=['clock = 0', 'theta_R - gamma_LF >= 0']
         ))
 
     front_mode1 = Mode(name=f'front1_m{next(freshModeId)}')
@@ -452,13 +525,14 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=front_left_sep_mode2,
         destMode=front_mode1,
-        guards=['clock = 0', 'd_F < r']
+        guards=['clock = 0', 'd_F - r <= 0']
         ))
     transitions.append(Transition(
         srcMode=front_left_sep_mode2,
         destMode=corner_start_mode,
-        guards=['clock = 0', 'd_F >= r'],
+        guards=['clock = 0', 'd_F  - r >= 0'],
         resets={
+            'clock': '0',
             'front_L': '0',
             'front_R': '0'
             }
@@ -468,6 +542,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
         srcMode=front_mode2,
         destMode=front_mode3,
         resets={
+            'clock': '0',
             'gamma_FL': '0.5 * PI + alpha_F',
             'gamma_FR': '0.5 * PI - alpha_F'
             }
@@ -481,12 +556,12 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=front_mode9,
         destMode=corner_start_mode,
-        guards=['clock = 0', 'zeta_R >= gamma_FL - 2 * PI']
+        guards=['clock = 0', 'zeta_R - (gamma_FL - 2 * PI) >= 0']
         ))
     transitions.append(Transition(
         srcMode=front_mode9,
         destMode=errorMode,
-        guards=['clock = 0', 'zeta_R < gamma_FL - 2 * PI']
+        guards=['clock = 0', 'zeta_R - (gamma_FL - 2 * PI) <= 0']
         ))
 
     corner_end_mode = Mode(name=f'corner_end_m{next(freshModeId)}')
@@ -494,20 +569,29 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'd_R >= r'],
-        resets={'corner_R': '0'}
+        guards=['clock = 0', 'd_R - r >= 0'],
+        resets={
+            'clock': '0',
+            'corner_R': '0'
+            }
         ))
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'd_B >= r'],
-        resets={'corner_R': '0'}
+        guards=['clock = 0', 'd_B - r >= 0'],
+        resets={
+            'clock': '0',
+            'corner_R': '0'
+            }
         ))
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'd_R >= 0', 'd_B >= 0', 'd_R^2 + d_B^2 >= r^2'],
-        resets={'corner_R': '0'}
+        guards=['clock = 0', 'd_R >= 0', 'd_B >= 0', 'd_R^2 + d_B^2 - r^2 >= 0'],
+        resets={
+            'clock': '0',
+            'corner_R': '0'
+            }
         ))
 
     # before reaching bend
@@ -517,16 +601,23 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     corner_pre_mode4 = Mode(name=f'corner_pre4_m{next(freshModeId)}')
     corner_pre_mode5 = Mode(name=f'corner_pre5_m{next(freshModeId)}')
     corner_pre_mode6 = Mode(name=f'corner_pre6_m{next(freshModeId)}')
+    corner_pre_mode1.output(f)
+    corner_pre_mode2.output(f)
+    corner_pre_mode3.output(f)
+    corner_pre_mode4.output(f)
+    corner_pre_mode5.output(f)
+    corner_pre_mode6.output(f)
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_pre_mode1,
-        guards=['clock = 0', 'd_R >= 0', 'd_B <= 0', 'd_R < r']
+        guards=['clock = 0', 'd_R >= 0', 'd_B <= 0', 'd_R <= r']
         ))
     div_r_acos(srcVar='d_R', srcMode=corner_pre_mode1, destVar='alpha_R', destMode=corner_pre_mode2, f=f)
     transitions.append(Transition(
         srcMode=corner_pre_mode2,
         destMode=corner_pre_mode3,
         resets={
+            'clock': '0',
             'gamma_RF': 'alpha_R',
             'gamma_RB': '-alpha_R'
             }
@@ -537,22 +628,22 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=corner_pre_mode6,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'theta_L >= eta', 'zeta_L <= gamma_RB + 2 * PI']
+        guards=['clock = 0', 'theta_L - eta >= 0', 'zeta_L - (gamma_RB + 2 * PI) <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_pre_mode6,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'theta_L >= gamma_RF', 'zeta_L <= gamma_RB + 2 * PI']
+        guards=['clock = 0', 'theta_L - gamma_RF >= 0', 'zeta_L - (gamma_RB + 2 * PI) <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_pre_mode6,
         destMode=errorMode,
-        guards=['clock = 0', 'theta_L < eta', 'theta_L < gamma_RF']
+        guards=['clock = 0', 'theta_L - eta <= 0', 'theta_L - gamma_RF <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_pre_mode6,
         destMode=errorMode,
-        guards=['clock = 0', 'zeta_L > gamma_RB + 2 * PI']
+        guards=['clock = 0', 'zeta_L - (gamma_RB + 2 * PI) >= 0']
         ))
 
     # during bend
@@ -573,7 +664,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_bend_mode1,
-        guards=['clock = 0', 'd_R >= 0', 'd_B >= 0', 'd_R^2 + d_B^2 < r^2']
+        guards=['clock = 0', 'd_R >= 0', 'd_B >= 0', 'd_R^2 + d_B^2 - r^2 <= 0']
         ))
     div_r_acos(srcVar='d_R', srcMode=corner_bend_mode1, destVar='alpha_R', destMode=corner_bend_mode2, f=f)
     div_r_acos(srcVar='d_B', srcMode=corner_bend_mode2, destVar='alpha_B', destMode=corner_bend_mode3, f=f)
@@ -581,6 +672,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
         srcMode=corner_bend_mode3,
         destMode=corner_bend_mode4,
         resets={
+            'clock': '0',
             'gamma_RB': '-alpha_R',
             'gamma_BR': '-0.5 * PI + alpha_B'
             }
@@ -591,17 +683,17 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=corner_bend_mode7,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'theta_L >= gamma_BR', 'zeta_L <= gamma_RB + 2 * PI']
+        guards=['clock = 0', 'theta_L - gamma_BR >= 0', 'zeta_L - (gamma_RB + 2 * PI) <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_bend_mode7,
         destMode=errorMode,
-        guards=['clock = 0', 'theta_L < gamma_BR']
+        guards=['clock = 0', 'theta_L - gamma_BR <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_bend_mode7,
         destMode=errorMode,
-        guards=['clock = 0', 'zeta_L > gamma_RB + 2 * PI']
+        guards=['clock = 0', 'zeta_L - (gamma_RB + 2 * PI) >= 0']
         ))
 
     # after bend
@@ -620,13 +712,14 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_post_mode1,
-        guards=['clock = 0', 'd_R <= 0', 'd_B >= 0', 'd_B < r']
+        guards=['clock = 0', 'd_R <= 0', 'd_B >= 0', 'd_B - r <= 0']
         ))
     div_r_acos(srcVar='d_B', srcMode=corner_post_mode1, destVar='alpha_B', destMode=corner_post_mode2, f=f)
     transitions.append(Transition(
         srcMode=corner_post_mode2,
         destMode=corner_post_mode3,
         resets={
+            'clock': '0',
             'gamma_BL': '-0.5 * PI - alpha_B',
             'gamma_BR': '-0.5 * PI + alpha_B'
             }
@@ -637,22 +730,22 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     transitions.append(Transition(
         srcMode=corner_post_mode6,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'theta_L >= gamma_BR', 'zeta_L <= eta + 2 * PI']
+        guards=['clock = 0', 'theta_L - gamma_BR >= 0', 'zeta_L - (eta + 2 * PI) <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_post_mode6,
         destMode=corner_end_mode,
-        guards=['clock = 0', 'theta_L >= gamma_BR', 'zeta_L <= gamma_BL + 2 * PI']
+        guards=['clock = 0', 'theta_L - gamma_BR >= 0', 'zeta_L - (gamma_BL + 2 * PI) <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_post_mode6,
         destMode=errorMode,
-        guards=['clock = 0', 'theta_L < gamma_BR']
+        guards=['clock = 0', 'theta_L - gamma_BR <= 0']
         ))
     transitions.append(Transition(
         srcMode=corner_post_mode6,
         destMode=errorMode,
-        guards=['clock = 0', 'zeta_L > eta + 2 * PI', 'zeta_L > gamma_BL + 2 * PI']
+        guards=['clock = 0', 'zeta_L - (eta + 2 * PI) >= 0', 'zeta_L - (gamma_BL + 2 * PI) >= 0']
         ))
 
     err_exp = 'front_R + corner_R - (front_L + left_L)'
@@ -661,13 +754,14 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
         destMode=destMode,
         guards=[
             'clock = 0',
-            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) > -MAX_TURNING_INPUT',
-            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) < MAX_TURNING_INPUT'
+            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) + MAX_TURNING_INPUT >= 0',
+            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) - MAX_TURNING_INPUT <= 0'
             ],
         resets={
+            'clock': '0',
             'err': 'front_R + corner_R - (front_L + left_L)',
             'prev_err': 'err',
-            f'delta': 'k_P * ({err_exp}) + k_D * ({err_exp} - err)'
+            'delta': f'k_P * ({err_exp}) + k_D * ({err_exp} - err)'
             }
         ))
     transitions.append(Transition(
@@ -675,9 +769,10 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
         destMode=destMode,
         guards=[
             'clock = 0',
-            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) <= -MAX_TURNING_INPUT'
+            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) + MAX_TURNING_INPUT <= 0'
             ],
         resets={
+            'clock': '0',
             'err': 'front_R + corner_R - (front_L + left_L)',
             'prev_err': 'err',
             'delta': '-MAX_TURNING_INPUT'
@@ -688,9 +783,10 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
         destMode=destMode,
         guards=[
             'clock = 0',
-            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) >= MAX_TURNING_INPUT'
+            f'k_P * ({err_exp}) + k_D * ({err_exp} - err) - MAX_TURNING_INPUT >= 0'
             ],
         resets={
+            'clock': '0',
             'err': 'front_R + corner_R - (front_L + left_L)',
             'prev_err': 'err',
             'delta': 'MAX_TURNING_INPUT'
@@ -701,11 +797,15 @@ def throttle(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=destMode,
-        resets={'u': '16'}
+        resets={
+            'clock': '0',
+            'u': '16'
+            }
         ))
 
 def write_modes(f: TextIO) -> None:
     steering_computed = Mode(name=f'steering_computed_m{next(freshModeId)}')
+    errorMode.output(f)
     bicycle_mode.output(f)
     steering_computed.output(f)
 
@@ -725,6 +825,8 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
             'r': 0.005 * 5 + 2.5,
             # distance in radians between adjacent lidar rays
             'RAY_DIST': lidar_field_of_view / half_num_lidar_rays,
+            'RAY_DIST_INV': half_num_lidar_rays / lidar_field_of_view,
+            'TIME_STEP': 0.1, # in seconds
 
             'PI': math.pi,
             'CAR_LENGTH': .45, # in m
@@ -734,14 +836,13 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
             'CAR_MOTOR_CONST': 0.2, # estimated from data
             'HYSTERESIS_CONSTANT': 4,
             'MAX_TURNING_INPUT': math.radians(15), # in radians
-            'SAFE_DISTANCE': 0.3
+            'SAFE_DISTANCE': 0.3,
+            'epsilon': 1e-5
             }
 
-    f.write('hybrid reachablity\n')
+    f.write('hybrid reachability\n')
     f.write('{\n')
-    f.write('\tstate var')
-    for v in varIndex:
-        f.write(f' {v}')
+    f.write(f'\tstate var {", ".join(varIndex)}\n')
 
     f.write('\tpar\n')
     f.write('\t{\n')
@@ -756,7 +857,7 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
             'time 10.0',
             'remainder estimation 1e-1',
             'identity precondition',
-            'gnuplot octagon y1, y2',
+            'gnuplot octagon x, y',
             'fixed orders 4',
             'cutoff 1e-12',
             'precision 100',
