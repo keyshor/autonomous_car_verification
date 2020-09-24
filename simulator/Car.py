@@ -17,7 +17,7 @@ MAX_TURNING_INPUT = 15 # in degrees
 LIDAR_RANGE = 5 # in m
 
 # safety parameter
-SAFE_DISTANCE = 0.15 # in m
+SAFE_DISTANCE = 0.1 # in m
 
 # default throttle if left unspecified
 CONST_THROTTLE = 16
@@ -26,6 +26,7 @@ CONST_THROTTLE = 16
 STEP_REWARD_GAIN = 10
 INPUT_REWARD_GAIN = -0.05
 CRASH_REWARD = -100
+MIDDLE_REWARD_GAIN = -5
 
 # direction parameters
 UP = 0
@@ -154,7 +155,7 @@ class World:
         if self.car_global_heading > np.pi:
             self.car_global_heading = self.car_global_heading - 2 * np.pi        
 
-    def reset(self, side_pos = None, pos_noise = 0.2, heading_noise = 0.3):
+    def reset(self, side_pos = None, pos_noise = 0.2, heading_noise = 0.1):
         self.curHall = 0
 
         self.car_dist_s = self.init_car_dist_s + np.random.uniform(-pos_noise, pos_noise)
@@ -349,6 +350,7 @@ class World:
            self.car_dist_f > self.hallWidths[self.curHall]:
 
             reward += INPUT_REWARD_GAIN * delta * delta
+            reward += MIDDLE_REWARD_GAIN * abs(self.car_dist_s - self.hallWidths[self.curHall] / 2.0)
             #pass
 
         # Region 2

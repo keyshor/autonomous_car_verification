@@ -77,8 +77,9 @@ if __name__ == "__main__":
     hallLengths = [20, 20, 20, 20]
     turns = ['right', 'right', 'right', 'right']
     car_dist_s = hallWidths[0]/2.0 - 0.1
-    car_dist_f = 9.9
+    car_dist_f = 6.5
     car_heading = 0
+    car_V = 2.4
     episode_length = 130
     time_step = 0.1
     time = 0
@@ -89,12 +90,12 @@ if __name__ == "__main__":
     missing_lidar_rays = 0
     
     env = World(hallWidths, hallLengths, turns,\
-                car_dist_s, car_dist_f, car_heading,\
+                car_dist_s, car_dist_f, car_heading, car_V,\
                 episode_length, time_step, lidar_field_of_view,\
                 lidar_num_rays, lidar_noise, missing_lidar_rays)
 
     test_env = World(hallWidths, hallLengths, turns,\
-                     car_dist_s, car_dist_f, car_heading,\
+                     car_dist_s, car_dist_f, car_heading, car_V,\
                      episode_length, time_step, lidar_field_of_view,\
                      lidar_num_rays, lidar_noise, missing_lidar_rays)    
         
