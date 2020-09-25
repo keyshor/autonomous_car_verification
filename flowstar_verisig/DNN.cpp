@@ -300,11 +300,6 @@ void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right,
 			const Continuous_Reachability_Setting & crs)
 {
 
-        struct timeval begin;
-	struct timeval end;
-
-	gettimeofday(&begin, NULL);  
-
 	// prepare new taylor models
 	int num_total_states = tmvImage.tms.size();
 
@@ -339,11 +334,6 @@ void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right,
 	gsl_matrix * Q = gsl_matrix_calloc(num_init_conditions, num_init_conditions);
 	call_QR(A, Q);
 
-	gettimeofday(&end, NULL);
-	double elapsedSecsQR = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR setup and QR call time: %f\n", elapsedSecsQR);			
-
-	gettimeofday(&begin, NULL);
 	// the Q_full matrix is a block-diagonal matrix [Q, 0;, 0, I]
 	gsl_matrix * Q_full = gsl_matrix_calloc(num_total_states, num_total_states);
 	gsl_matrix_set_identity(Q_full);
@@ -363,52 +353,26 @@ void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right,
 	iMatrix t;
 	
 	MQ.mul(t, iMQt);
-	gettimeofday(&end, NULL);
-	double elapsedSecsQRMat = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR matrix creation time: %f\n", elapsedSecsQRMat);
-
-	gettimeofday(&begin, NULL);
 
 	Real maxGap, maxGap2, minRowSum, bloatEps, zeroR;
 
 	// first, get current gap
 	t.getMaxGapIdentity(maxGap, t);
-	gettimeofday(&end, NULL);
-	double elapsedSecsQRGap = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR gap finding time: %f\n", elapsedSecsQRGap);
-
-	gettimeofday(&begin, NULL);
 	
 	// prepare the right TMV first by subtracting the constant terms
 	NNTaylorModelVec tmvInit = NNTaylorModelVec(tmvImage);
 	tmvInit.rmConstant();
 	//tmvImage.sub(tmvInit, constants);
 
-	gettimeofday(&end, NULL);
-	double elapsedSecsQRSub = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR tmv sub time: %f\n", elapsedSecsQRSub);
-
-	gettimeofday(&begin, NULL);	
 	// insert Q' matrix in right TMV
 	std::vector<Interval> tmvPolyRange;
 	tmvInit.polyRange(tmvPolyRange, crs.step_end_exp_table);
-	gettimeofday(&end, NULL);
-	double elapsedSecsQRPoly = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR poly range time: %f\n", elapsedSecsQRPoly);	
-
-
-	gettimeofday(&begin, NULL);
 
 	NNTaylorModelVec tmv;
      
 	tmvInit.linearTrans(tmv, iMQt);
 	tmv.cutoff(crs.step_end_exp_table, crs.cutoff_threshold);
 
-	gettimeofday(&end, NULL);
-	double elapsedSecsQRIns = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR insert Q time: %f\n", elapsedSecsQRIns);				
-
-	gettimeofday(&begin, NULL);
 	// Compute the scaling matrix S.
 	std::vector<Interval> S, invS;
 	Interval intZero, intOne(1);
@@ -439,18 +403,12 @@ void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right,
 	
 	// prepare the left TMV -- scale first
 
-
-	gettimeofday(&begin, NULL);  
 	//NNTaylorModelVec tmvPre(MQ, noTime);
 	NNTaylorModelVec tmvPreTemp(S);
 	NNTaylorModelVec tmvPre;
 	tmvPreTemp.linearTrans(tmvPre, MQ);
 	tmvPre.cutoff(crs.step_end_exp_table, crs.cutoff_threshold);
 	
-	gettimeofday(&end, NULL);
-	double elapsedSecsJustIn = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR final insert (just TMV init) time: %f\n", elapsedSecsJustIn);		
-
 	// add remainders to tmvPre
 	Interval tempI;
 	maxGap.to_sym_int(tempI);
@@ -463,14 +421,9 @@ void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right,
 	//tmvPre.add_assign(constants);
 	tmvPre.addConstant(constant_parts);
 
-	gettimeofday(&end, NULL);
-	double elapsedSecsQRFin = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR final insert time: %f\n", elapsedSecsQRFin);					
-
         tmv_right = tmv;
         tmv_left = tmvPre;
 
-	gettimeofday(&begin, NULL);  
 	// finally, compose again
 	MQ.right_scale_assign(S);
 	tmv_right.linearTrans(tmv_composed, MQ);
@@ -479,10 +432,7 @@ void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right,
 	for(int i = 0; i < num_init_conditions; i++){
 	        tmv_composed.tms[i].remainder = Interval(tempI);
 	}
-	gettimeofday(&end, NULL);
-	double elapsedSecsQRComp2 = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-	printf("elapsed QR second composition time: %f\n", elapsedSecsQRComp2);						
-	
+
 	//free gsl matrices
 	gsl_matrix_free(A);
 	gsl_matrix_free(Q);
@@ -611,19 +561,10 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 	                printf("Jumping to layer %d\n", layer + 1);
 			printf("Performing linear reset...\n");
 		}
-
-		struct timeval begin;
-		struct timeval end;
-
-		gettimeofday(&begin, NULL);
 		
 		//NB: this assumes there is always a linear reset first
 		linear_reset(tmv_left_after_linear_reset, cur_dnn_reset_weights[layer], cur_dnn_reset_biases[layer],
 			     tmv_left_after_activation_reset, cur_dnn_crs);
-
-		gettimeofday(&end, NULL);
-		double elapsedSecsLIN = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-		printf("elapsed linear reset time: %f\n", elapsedSecsLIN);
 
 		//if no activation function, just set after_activation_reset equal to after_linear_reset
 		if(cur_dnn_activations[layer] != dnn::SIGMOID &&
@@ -640,8 +581,6 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 			printf("Performing preconditioning...\n");
 		}
 
-		gettimeofday(&begin, NULL);	
-		
 		// first compose
 		NNTaylorModelVec tmv_composed;
 		std::vector<Interval> tmvPolyRange;
@@ -650,14 +589,6 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 		tmv_left_after_linear_reset.insert(tmv_composed, tmv_right, tmvPolyRange,
 						   cur_dnn_crs.step_end_exp_table,
 						   true, true, cur_dnn_crs.cutoff_threshold, cur_dnn_crs.order);
-
-		// print_tms(tmv_composed, curAugmentedVarNames);
-		// if(layer == 1)
-		//  exit(1);		
-
-		gettimeofday(&end, NULL);
-		double elapsedSecsQR = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-		printf("elapsed QR composition time: %f\n", elapsedSecsQR);		
 
 		// this also composes the new left and right again since preconditioning might add numeric error
 		qr_preconditioning(tmv_left_after_linear_reset, tmv_right, tmv_composed, tmv_composed,
@@ -696,20 +627,10 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 	               printf("Performing activation reset...\n");
 		}
 
-		gettimeofday(&begin, NULL);		
 		//perform the activation reset
 		activation_reset(tmv_left_after_activation_reset, cur_activation_reset,
 				 tmv_left_after_linear_reset, cur_dnn_crs);
 
-		// print_tms(tmv_left_after_activation_reset, dnn::curAugmentedVarNames);
-		// printf("right\n");
-		// print_tms(tmv_right, dnn::curAugmentedVarNames);
-		// if(layer == 1)
-		//  exit(1);
-
-		gettimeofday(&end, NULL);
-		double elapsedSecsACT = (end.tv_sec - begin.tv_sec) + (end.tv_usec - begin.tv_usec) / 1000000.0;
-		printf("elapsed activation reset time: %f\n", elapsedSecsACT);
 	}
 
 
@@ -741,19 +662,5 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 			result.domain[varInd+1] = domain[varInd+1];
 		}
 	}
-
-	// printing
-	//add time
-	// std::vector<std::string> realVarNames;
-	// realVarNames.push_back("local_t");
-
-	// for(int i = 0; i < stateVarNames.size(); i++){
-	//   realVarNames.push_back(stateVarNames[i]);
-	// }
-
-	// print_tms(result.tmvPre, realVarNames);
-	// printf("right\n");
-	// print_tms(result.tmv, realVarNames);
-	//exit(1);
         
 }

@@ -8653,8 +8653,6 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 						printf("%s remainder after reset: [%13.10f, %13.10f]\n",
 						       stateVarNames[varInd].c_str(), tmv_printing.tms[varInd].remainder.inf(),
 						       tmv_printing.tms[varInd].remainder.sup());
-
-						if(all_ranges[varInd].inf() < -100) exit(1);
 					}
 				}
 
