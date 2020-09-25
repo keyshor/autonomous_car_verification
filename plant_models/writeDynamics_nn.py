@@ -50,7 +50,7 @@ plant = {}
 plant[1] = {}
 plant[1]['name'] = '_cont_'
 plant[1]['states'] = ['angle', 'theta_l', 'theta_r',
-                      'temp1', 'temp2', 'y1', 'y2', 'y3', 'y4', 'u', 'k']
+                      'temp1', 'temp2', 'ax', 'y1', 'y2', 'y3', 'y4', 'u', 'k']
 plant[1]['odetype'] = 'nonpoly ode'
 plant[1]['dynamics'] = {}
 plant[1]['dynamics']['y1'] = 'y1\' = -y3 * sin(y4)\n'
@@ -2154,7 +2154,7 @@ while curRay <= NUM_RAYS:
     index += NUM_MODES_REG3
     curRay += 1
 
-filename = 'dynamics_' + str(NUM_RAYS) + '.pickle'
+filename = 'dynamics_nn_' + str(NUM_RAYS) + '.pickle'
 
 try:
     with open(filename, 'wb') as f:
