@@ -9,7 +9,8 @@
 
 
 	#include "modelParser.h"
-  	#include "DNN.h"
+	#include "DNN.h"
+  	#include "DNNResets.h"
 
 	extern int yyerror(const char *);
 	extern int yyerror(std::string);
@@ -173,18 +174,22 @@
 
 model: CONTINUOUS '{' continuous '}'
 {
-	int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for output files.\n");
-		exit(1);
-	}
-
-	mkres = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for images.\n");
-		exit(1);
+	if( continuousProblem.bPlot || continuousProblem.bDump) {
+		int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for output files.\n");
+			exit(1);
+		}
+	} 
+	
+	if (continuousProblem.bPlot) {
+		int mkres2 = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres2 < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for images.\n");
+			exit(1);
+		}
 	}
 
 	int result;
@@ -274,18 +279,22 @@ model: CONTINUOUS '{' continuous '}'
 |
 CONTINUOUS '{' continuous '}' unsafe_continuous_env
 {
-	int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for output files.\n");
-		exit(1);
+	if( continuousProblem.bPlot || continuousProblem.bDump ) {
+		int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for output files.\n");
+			exit(1);
+		}
 	}
 
-	mkres = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for images.\n");
-		exit(1);
+	if( continuousProblem.bPlot) {
+		int mkres2 = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres2 < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for images.\n");
+			exit(1);
+		}
 	}
 
 	continuousProblem.bSafetyChecking = true;
@@ -400,18 +409,22 @@ CONTINUOUS '{' continuous '}' unsafe_continuous_env
 |
 HYBRID '{' hybrid '}'
 {
-	int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for output files.\n");
-		exit(1);
+	if(hybridProblem.bPlot || hybridProblem.bDump) {
+		int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for output files.\n");
+			exit(1);
+		}
 	}
 
-	mkres = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for images.\n");
-		exit(1);
+	if( hybridProblem.bPlot ) {
+		int mkres2 = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres2 < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for images.\n");
+			exit(1);
+		}
 	}
 
 	int result;
@@ -501,18 +514,22 @@ HYBRID '{' hybrid '}'
 |
 HYBRID '{' hybrid '}' unsafe_hybrid_env
 {
-	int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for output files.\n");
-		exit(1);
+	if(hybridProblem.bPlot || hybridProblem.bDump) {
+		int mkres = mkdir(outputDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for output files.\n");
+			exit(1);
+		}
 	}
 
-	mkres = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
-	if(mkres < 0 && errno != EEXIST)
-	{
-		printf("Can not create the directory for images.\n");
-		exit(1);
+	if (hybridProblem.bPlot) {
+		int mkres2 = mkdir(imageDir, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH);
+		if(mkres2 < 0 && errno != EEXIST)
+		{
+			printf("Can not create the directory for images.\n");
+			exit(1);
+		}
 	}
 
 	hybridProblem.bSafetyChecking = true;
