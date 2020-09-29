@@ -33,9 +33,9 @@ import subprocess
 from subprocess import PIPE
 import sys
 
-CONTROLLER_THRESH = 0.005
-P_COEFF = 5
-D_COEFF = 0.6
+CONTROLLER_THRESH = -0.1424
+P_COEFF = 9.321
+D_COEFF = 3.546
 PD_COEFF = P_COEFF + D_COEFF
 WALL_LIMIT = 0.15
 
