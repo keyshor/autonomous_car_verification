@@ -3,49 +3,33 @@ import numpy as np
 import random
 from keras import models
 import sys
+from controller import Controller
 
 def normalize(s):
     mean = [2.5]
     spread = [5.0]
     return (s - mean) / spread
 
-def predict(observation, prevErr):
-    thresh = 0.005
-    pee = 5
-    dee = 0.6
-    err = errorFunc(observation, thresh)
-    result = pee*err + dee*(err - prevErr)
-    return result, err
-
-
-def errorFunc(observation, thresh):
-    mid = len(observation)//2
-    rightView = observation[0:mid]
-    leftView = observation[mid+1:]
-    numRight = sum([int(a > thresh) for a in rightView])
-    numLeft = sum([int(a > thresh) for a in leftView])
-    err = numLeft - numRight
-    return err
-
 def main(argv):
 
     # input_filename = argv[0]
     
     # model = models.load_model(input_filename)
-    
+    params = [9.321, 0.0, 3.546, -0.1424] # pee, eye, dee, thresh
+    model = Controller(params)
     hallWidths = [1.5, 1.5, 1.5, 1.5]
     hallLengths = [20, 20, 20, 20]
     turns = ['right', 'right', 'right', 'right']
     car_dist_s = hallWidths[0]/2.0
-    car_dist_f = 10
+    car_dist_f = 5
     car_V = 2.4
-    car_heading = 0
-    episode_length = 80
+    car_heading = 0.2
+    episode_length = 50
     time_step = 0.1
     time = 0
 
     lidar_field_of_view = 115
-    lidar_num_rays = 21
+    lidar_num_rays = 41
 
     lidar_noise = 0
     missing_lidar_rays = 0
@@ -67,10 +51,10 @@ def main(argv):
 
         observation = normalize(observation)
 
-        delta, prev_err = predict(observation, prev_err)
+        delta = model.predict(observation.reshape(1,len(observation)))
         # delta = 15 * model.predict(observation.reshape(1,len(observation)))
 
-        #delta = np.clip(delta, -15, 15)
+        delta = np.clip(delta, -15, 15)
         
         observation, reward, done, info = w.step(delta, throttle)
 
