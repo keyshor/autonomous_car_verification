@@ -591,7 +591,7 @@ def main(argv):
         + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end_pr\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
         + '\tm_end_hl\n\t{\n\t\ty4 >= 0.02\n\n\t}\n' \
-        + '\tm_end_hr\n\t{\n\t\ty4 <= -0.02\n\n\t}\n}' \
+        + '\tm_end_hr\n\t{\n\t\ty4 <= -0.02\n\n\t}\n' \
         + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
         + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
 
