@@ -17,11 +17,11 @@ class Controller():
 
     def errorFunc(self, observation):
         mid = len(observation[0])//2
-        rightView = observation[0][0:mid]
-        leftView = observation[0][mid+1:]
+        leftView = observation[0][0:mid]
+        rightView = observation[0][mid+1:]
         numRight = sum([int(a > self.thresh) for a in rightView])
         numLeft = sum([int(a > self.thresh) for a in leftView])
-        err = numLeft - numRight
+        err = numRight - numLeft
         return err
 
     def update_parameters(self, params):
