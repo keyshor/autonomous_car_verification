@@ -430,7 +430,7 @@ void qr_preconditioning(NNTaylorModelVec &tmv_left, NNTaylorModelVec &tmv_right,
 	//tmv_composed.add_assign(constant);
 	tmv_composed.addConstant(constant_parts);
 	for(int i = 0; i < num_init_conditions; i++){
-	        tmv_composed.tms[i].remainder = Interval(tempI);
+	        tmv_composed.tms[i].remainder += Interval(tempI);
 	}
 
 	//free gsl matrices
@@ -532,6 +532,9 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 		domain.push_back(domainMap[varInd+1]);
 					  
 	}
+
+	// used in qr_preconditioning
+	int num_init_conds = stateToF.size();
 	
 	Interval intZero(0.0, 0.0);
 	for(int varInd = numFstates; varInd < dnn::curAugmentedVarNames.size() - 1; varInd++){
@@ -592,7 +595,7 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 
 		// this also composes the new left and right again since preconditioning might add numeric error
 		qr_preconditioning(tmv_left_after_linear_reset, tmv_right, tmv_composed, tmv_composed,
-				   numFstates, dnn::curAugmentedVarNames, domain, cur_dnn_crs);
+				   num_init_conds, dnn::curAugmentedVarNames, domain, cur_dnn_crs);
 				
 		tmv_composed.intEvalNormal(all_ranges, cur_dnn_crs.step_end_exp_table);
 				

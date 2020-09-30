@@ -33,11 +33,12 @@ import subprocess
 from subprocess import PIPE
 import sys
 
-CONTROLLER_THRESH = 0.005
-P_COEFF = 5
-D_COEFF = 0.6
+CONTROLLER_THRESH = -0.1424
+P_COEFF = 9.321
+D_COEFF = 3.546
 PD_COEFF = P_COEFF + D_COEFF
 WALL_LIMIT = 0.15
+SPEED_EPSILON = 1e-8
 
 
 def writeControllerModes(stream, numRays, dynamics):
@@ -63,7 +64,7 @@ def writeOneMode(stream, modeIndex, numStates, dynamics, name=''):
 
     for lidarState in range(numStates):
 
-        fName = 'f' + str(lidarState + 1)
+        fName = '_f' + str(lidarState + 1)
         lidarStates.append(fName)
 
         stream.write('\t\t\t\t' + fName + '\' = 0\n')
@@ -109,7 +110,7 @@ def writePlantModes(stream, plant, numRays, numNeurLayers):
 
         for i in range(numRays):
 
-            fName = 'f' + str(i + 1)
+            fName = '_f' + str(i + 1)
 
             # these if-cases check if f/c variables are also used in the plant model
             # (sometimes the case in order to minimize number of states)
@@ -150,7 +151,7 @@ def writeEndMode(stream, numRays, dynamics, name):
 
     for lidarState in range(numRays):
 
-        fName = 'f' + str(lidarState + 1)
+        fName = '_f' + str(lidarState + 1)
         lidarStates.append(fName)
 
         stream.write('\t\t\t\t' + fName + '\' = 0\n')
@@ -188,20 +189,20 @@ def writeControllerJumps(stream, numRays, dynamics):
 
         # lidar ray did not detect wall
         stream.write('\t\t' + start_mode + ' -> ' + thresh_mode + '\n')
-        stream.write('\t\tguard { clock = 0 f' + str(i+1) + ' <= '
+        stream.write('\t\tguard { clock = 0 _f' + str(i+1) + ' <= '
                      + str(CONTROLLER_THRESH) + ' }\n')
         stream.write('\t\treset { ')
-        stream.write('f{}\' := 0 '.format(i+1))
+        stream.write('_f{}\' := 0 '.format(i+1))
         stream.write('clock\' := 0')
         stream.write('}\n')
         stream.write('\t\tinterval aggregation\n')
 
         # lidar ray detected wall
         stream.write('\t\t' + start_mode + ' -> ' + thresh_mode + '\n')
-        stream.write('\t\tguard { clock = 0 f' + str(i+1) + ' >= '
+        stream.write('\t\tguard { clock = 0 _f' + str(i+1) + ' >= '
                      + str(CONTROLLER_THRESH) + ' }\n')
         stream.write('\t\treset { ')
-        stream.write('f{}\' := 1 '.format(i+1))
+        stream.write('_f{}\' := 1 '.format(i+1))
         stream.write('clock\' := 0')
         stream.write('}\n')
         stream.write('\t\tinterval aggregation\n')
@@ -209,13 +210,13 @@ def writeControllerJumps(stream, numRays, dynamics):
     # Final controll updates
     # Compute control input and store in f1
     # Store error function value in prevErr
-    left_sum = '(f1'
+    left_sum = '(_f1'
     for i in range(1, numRays//2):
-        left_sum += ' + f{}'.format(i+1)
+        left_sum += ' + _f{}'.format(i+1)
     left_sum += ')'
-    right_sum = '(f{}'.format((numRays//2)+2)
+    right_sum = '(_f{}'.format((numRays//2)+2)
     for i in range((numRays//2)+2, numRays):
-        right_sum += ' + f{}'.format(i+1)
+        right_sum += ' + _f{}'.format(i+1)
     right_sum += ')'
     err_expr = '(' + right_sum + ' - ' + left_sum + ')'
     result_expr = str(PD_COEFF) + '*' + err_expr + ' - ' + str(D_COEFF) + '*prevErr'
@@ -223,7 +224,7 @@ def writeControllerJumps(stream, numRays, dynamics):
     stream.write('\t\tm_thresh{} -> m1\n'.format(numRays))
     stream.write('\t\tguard { clock = 0 }\n')
     stream.write('\t\treset { ')
-    stream.write('f1\' := ' + result_expr + ' ')
+    stream.write('_f1\' := ' + result_expr + ' ')
     stream.write('prevErr\' := ' + err_expr + ' ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -306,7 +307,7 @@ def writeController2PlantJumps(stream, trans, numRays, numNeurLayers, plant):
                 stream.write(reset + ' ')
 
             # for state in range(numNeurStates):
-            #     stream.write('f' + str(state + 1) + '\' := f' + str(state + 1) + ' ')
+            #     stream.write('_f' + str(state + 1) + '\' := _f' + str(state + 1) + ' ')
 
             stream.write('clock\' := 0')
             stream.write('}\n')
@@ -339,33 +340,47 @@ def writePlant2ControllerJumps(stream, trans, dynamics, numRays, numNeurLayers):
 
 def writeEndJump(stream):
 
-    stream.write('\t\tcont_m2 ->  m_end_pl\n')
+    stream.write('\t\t_cont_m2 ->  m_end_pl\n')
     stream.write('\t\tguard { ax = 1 y2 = 10.0 y1 <= 0.65}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\tcont_m2 ->  m_end_pr\n')
+    stream.write('\t\t_cont_m2 ->  m_end_pr\n')
     stream.write('\t\tguard { ax = 1 y2 = 10.0 y1 >= 0.85}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\tcont_m2 ->  m_end_hr\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 <= -0.05}\n')
+    stream.write('\t\t_cont_m2 ->  m_end_hr\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 <= -0.02}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\tcont_m2 ->  m_end_hl\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 >= 0.05}\n')
+    stream.write('\t\t_cont_m2 ->  m_end_hl\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 >= 0.02}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_end_sr\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 >= ' + str(2.4 + SPEED_EPSILON) + ' }\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_end_sl\n')
+    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 <= ' + str(2.4 - SPEED_EPSILON) + ' }\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')        
 
 
 def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
@@ -379,7 +394,7 @@ def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
         stream.write('\t\t\t' + prop + '\n')
 
     for i in range(numRays):
-        stream.write('\t\t\tf' + str(i + 1) + ' in [0, 0]\n')
+        stream.write('\t\t\t_f' + str(i + 1) + ' in [0, 0]\n')
 
     stream.write('\t\t\tprevErr in [0, 0]\n')
     stream.write('\t\t\tt in [0, 0]\n')
@@ -468,7 +483,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
 
         lidarStates = []
         for i in range(numRays):
-            fName = 'f' + str(i + 1)
+            fName = '_f' + str(i + 1)
             lidarStates.append(fName)
 
         if 'states' in plant[1]:
@@ -482,7 +497,7 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
                 stream.write(state + ', ')
 
         for i in range(numRays):
-            stream.write('f' + str(i + 1) + ', ')
+            stream.write('_f' + str(i + 1) + ', ')
 
         stream.write('prevErr, t, ax, ')
         stream.write('clock\n\n')
@@ -516,6 +531,8 @@ def writeComposedSystem(filename, initProps, numRays, plant, glueTrans, safetyPr
         writeEndMode(stream, numRays, plant[1]['dynamics'], 'm_end_pl')
         writeEndMode(stream, numRays, plant[1]['dynamics'], 'm_end_hr')
         writeEndMode(stream, numRays, plant[1]['dynamics'], 'm_end_hl')
+        writeEndMode(stream, numRays, plant[1]['dynamics'], 'm_end_sr')
+        writeEndMode(stream, numRays, plant[1]['dynamics'], 'm_end_sl')
 
         # close modes brace
         stream.write('\t}\n')
@@ -570,11 +587,13 @@ def main(argv):
         + ('\tright_bottom_wallm3000001\n\t{'
            + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + WALL_MAX + '\n\n\t}\n') \
         + '\ttop_wallm4000001\n\t{\n\t\ty2 <= ' + WALL_MIN + '\n\n\t}\n' \
-        + '\tcont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
+        + '\t_cont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
         + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
         + '\tm_end_pr\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
         + '\tm_end_hl\n\t{\n\t\ty4 >= 0.02\n\n\t}\n' \
-        + '\tm_end_hr\n\t{\n\t\ty4 <= -0.02\n\n\t}\n}'
+        + '\tm_end_hr\n\t{\n\t\ty4 <= -0.02\n\n\t}\n' \
+        + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
+        + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -584,13 +603,15 @@ def main(argv):
 
     curLBPos = 0.65
     posOffset = 0.005
-
+    
     count = 1
 
     initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                 'y2 in [10.0, 10.0]', 'y3 in [0, 0]', 'y4 in [0, 0.001]', 'k in [0, 0]',
+                 'y2 in [6.5, 6.5]',
+                 'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
+                 'y4 in [-0.005, 0.005]', 'k in [0, 0]',
                  'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
-                 'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
+                 'theta_l in [0, 0]', 'theta_r in [0, 0]', 'ax in [0, 0]']  # F1/10
 
     curModelFile = modelFile + '_' + str(count) + '.model'
 

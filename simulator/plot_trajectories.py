@@ -1,7 +1,7 @@
 from Car import World
 import numpy as np
 import matplotlib.pyplot as plt
-
+from controller import Controller
 
 def normalize(s):
     mean = [2.5]
@@ -30,9 +30,8 @@ def errorFunc(observation, thresh):
 
 def main():
 
-    # input_filename = argv[0]
-
-    # model = models.load_model(input_filename)
+    params = [9.321, 0.0, 3.546, -0.1424]  # pee, eye, dee, thresh
+    model = Controller(params)
 
     numTrajectories = 100
 
@@ -96,8 +95,12 @@ def main():
 
             observation = normalize(observation)
 
-            delta, prev_err = predict(observation, prev_err)
+            #delta, prev_err = predict(observation, prev_err)
             # 15 * model.predict(observation.reshape(1, len(observation)))
+
+            delta = model.predict(observation.reshape(1, len(observation)))
+
+            delta = np.clip(delta, -15, 15)
 
             observation, reward, done, info = w.step(delta, throttle)
 

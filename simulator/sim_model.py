@@ -1,21 +1,21 @@
 from Car import World
 import numpy as np
-import random
-from keras import models
 import sys
 from controller import Controller
+
 
 def normalize(s):
     mean = [2.5]
     spread = [5.0]
     return (s - mean) / spread
 
+
 def main(argv):
 
     # input_filename = argv[0]
-    
+
     # model = models.load_model(input_filename)
-    params = [9.321, 0.0, 3.546, -0.1424] # pee, eye, dee, thresh
+    params = [9.321, 0.0, 3.546, -0.1424]  # pee, eye, dee, thresh
     model = Controller(params)
     hallWidths = [1.5, 1.5, 1.5, 1.5]
     hallLengths = [20, 20, 20, 20]
@@ -33,10 +33,10 @@ def main(argv):
 
     lidar_noise = 0
     missing_lidar_rays = 0
-    
-    w = World(hallWidths, hallLengths, turns,\
-              car_dist_s, car_dist_f, car_heading, car_V,\
-              episode_length, time_step, lidar_field_of_view,\
+
+    w = World(hallWidths, hallLengths, turns,
+              car_dist_s, car_dist_f, car_heading, car_V,
+              episode_length, time_step, lidar_field_of_view,
               lidar_num_rays, lidar_noise, missing_lidar_rays)
 
     throttle = 16
@@ -45,26 +45,24 @@ def main(argv):
 
     observation = w.scan_lidar()
 
-    prev_err = 0
-    
     for e in range(episode_length):
 
         observation = normalize(observation)
 
-        delta = model.predict(observation.reshape(1,len(observation)))
+        delta = model.predict(observation.reshape(1, len(observation)))
         # delta = 15 * model.predict(observation.reshape(1,len(observation)))
 
         delta = np.clip(delta, -15, 15)
-        
+
         observation, reward, done, info = w.step(delta, throttle)
 
         time += time_step
-        
+
         rew += reward
 
         if done:
             break
-        
+
     print('velocity: ' + str(w.car_V))
     print('distance from side wall: ' + str(w.car_dist_s))
     print('distance from front wall: ' + str(w.car_dist_f))
@@ -73,7 +71,8 @@ def main(argv):
     print('steps: ' + str(e))
     print('final reward: ' + str(rew))
     w.plot_trajectory()
-    #w.plot_lidar()
-    
+    # w.plot_lidar()
+
+
 if __name__ == '__main__':
     main(sys.argv[1:])
