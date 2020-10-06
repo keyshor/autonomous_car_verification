@@ -30,7 +30,6 @@ Example usage:
 import os
 import subprocess
 from subprocess import PIPE
-import sys
 import numpy as np
 
 
@@ -88,9 +87,11 @@ def writeOneMode(stream, modeIndex, dynamics=DYNAMICS, name=''):
 
     for sysState in dynamics:
 
-        stream.write('\t\t\t\t' + sysState + '\' = 0\n')
+        if sysState != 'clock':
+            stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
     stream.write('\t\t\t\tt\' = 1\n')
+    stream.write('\t\t\t\tclock\' = 1\n')
     stream.write('\t\t\t}\n')
 
     stream.write('\t\t\tinv\n')
@@ -110,10 +111,11 @@ def writePlantModes(stream, name='', dynamics=DYNAMICS):
     stream.write('\t\t\t{\n')
 
     for sysState in dynamics:
-
-        stream.write('\t\t\t\t' + dynamics[sysState])
+        if sysState != 'clock':
+            stream.write('\t\t\t\t' + dynamics[sysState])
 
     stream.write('\t\t\t\tt\' = 1\n')
+    stream.write('\t\t\t\tclock\' = 1\n')
     stream.write('\t\t\t}\n')
 
     stream.write('\t\t\tinv\n')
@@ -132,10 +134,11 @@ def writeEndMode(stream, name, dynamics=DYNAMICS):
     stream.write('\t\t\t{\n')
 
     for sysState in dynamics:
-
-        stream.write('\t\t\t\t' + sysState + '\' = 0\n')
+        if sysState != 'clock':
+            stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
     stream.write('\t\t\t\tt\' = 1\n')
+    stream.write('\t\t\t\tclock\' = 1\n')
     stream.write('\t\t\t}\n')
 
     stream.write('\t\t\tinv\n')
