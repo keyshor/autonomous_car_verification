@@ -40,6 +40,7 @@ PD_COEFF = P_COEFF + D_COEFF
 WALL_LIMIT = 0.15
 SPEED_EPSILON = 1e-8
 
+
 def writeControllerModes(stream, numRays, dynamics):
 
     # first mode
@@ -379,7 +380,7 @@ def writeEndJump(stream):
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')    
+    stream.write('\t\tinterval aggregation\n')
 
 
 def writeInitCond(stream, initProps, numInputs, numRays, initState='m0'):
@@ -614,7 +615,8 @@ def main(argv):
 
             initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                          'y2 in [6.5, 6.5]',
-                         'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
+                         'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' +
+                         str(2.4 + SPEED_EPSILON) + ']',
                          'y4 in [' + str(curHeading) + ', ' + str(curHeading + headingOffset) + ']',
                          'k in [0, 0]', 'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]',
                          'temp2 in [0, 0]', 'theta_l in [0, 0]', 'theta_r in [0, 0]']  # F1/10
