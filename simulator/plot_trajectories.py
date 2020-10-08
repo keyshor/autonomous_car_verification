@@ -1,36 +1,16 @@
 from Car import World
 import numpy as np
 import matplotlib.pyplot as plt
-from controller import Controller
+from controller2 import Controller
 
 def normalize(s):
     mean = [2.5]
     spread = [5.0]
     return (s - mean) / spread
 
-
-def predict(observation, prevErr):
-    thresh = 0.005
-    pee = 5
-    dee = 0.6
-    err = errorFunc(observation, thresh)
-    result = pee*err + dee*(err - prevErr)
-    return result, err
-
-
-def errorFunc(observation, thresh):
-    mid = len(observation)//2
-    rightView = observation[0:mid]
-    leftView = observation[mid+1:]
-    numRight = sum([int(a > thresh) for a in rightView])
-    numLeft = sum([int(a > thresh) for a in leftView])
-    err = numLeft - numRight
-    return err
-
-
 def main():
 
-    params = [9.321, 0.0, 3.546, -0.1424]  # pee, eye, dee, thresh
+    params = [14, 0.0, 3]  # pee, eye, dee, thresh
     model = Controller(params)
 
     numTrajectories = 100

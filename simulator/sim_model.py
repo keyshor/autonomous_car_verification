@@ -1,7 +1,7 @@
 from Car import World
 import numpy as np
 import sys
-from controller import Controller
+from controller2 import Controller
 
 
 def normalize(s):
@@ -9,18 +9,18 @@ def normalize(s):
     spread = [5.0]
     return (s - mean) / spread
 
-
 def main(argv):
 
     # input_filename = argv[0]
 
     # model = models.load_model(input_filename)
-    params = [9.321, 0.0, 3.546, -0.1424]  # pee, eye, dee, thresh
+    params = [14, 0, 3]
+    
     model = Controller(params)
     hallWidths = [1.5, 1.5, 1.5, 1.5]
     hallLengths = [20, 20, 20, 20]
     turns = ['right', 'right', 'right', 'right']
-    car_dist_s = hallWidths[0]/2.0
+    car_dist_s = hallWidths[0]/2.0 + 0.2
     car_dist_f = 5
     car_V = 2.4
     car_heading = 0.2
@@ -29,7 +29,7 @@ def main(argv):
     time = 0
 
     lidar_field_of_view = 115
-    lidar_num_rays = 41
+    lidar_num_rays = 21
 
     lidar_noise = 0
     missing_lidar_rays = 0
