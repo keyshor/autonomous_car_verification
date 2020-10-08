@@ -39,7 +39,7 @@ def bicycle_dynamics(use_beta: bool) -> Dict[str, str]:
     d.update({
         'x_x': 'x_V * cos(x_theta)',
         'x_y': 'x_V * sin(x_theta)',
-        'x_theta': '(x_V * sin(delta)) / (CAR_LENGTH * cos(delta))',
+        'x_theta': '(x_V * sin(delta)) / (CAR_LENGTH * cos(delta))'
         })
     d['x_V'] = 'CAR_ACCEL_CONST * (CAR_MOTOR_CONST * (u - HYSTERESIS_CONSTANT) - x_V)'
     return d
@@ -103,11 +103,13 @@ def atan1(srcExpr: str, srcMode: Mode, destVar: str, destMode: Mode, f: TextIO) 
     src_minus_one = 'tmp3'
     beginMode = Mode(name=f'atan1_begin_m{next(freshModeId)}')
     arcModeMid = Mode(name=f'_arc_{varIndex[destVar]}_{varIndex[src]}_atan1_m{next(freshModeId)}')
-    divMode = Mode(name=f'_div_{varIndex[destVar]}_{varIndex[src]}_atan1_m{next(freshModeId)}')
+    posDivMode = Mode(name=f'_div_{varIndex[destVar]}_{varIndex[src]}_atan1_pos_m{next(freshModeId)}')
+    negDivMode = Mode(name=f'_div_{varIndex[destVar]}_{varIndex[src]}_atan1_neg_m{next(freshModeId)}')
     arcModeOut = Mode(name=f'_arc_{varIndex[destVar]}_{varIndex[destVar]}_atan1_m{next(freshModeId)}')
     beginMode.output(f)
     arcModeMid.output(f)
-    divMode.output(f)
+    posDivMode.output(f)
+    negDivMode.output(f)
     arcModeOut.output(f)
     transitions.append(Transition(
         srcMode=srcMode,
@@ -125,16 +127,20 @@ def atan1(srcExpr: str, srcMode: Mode, destVar: str, destMode: Mode, f: TextIO) 
         ))
     transitions.append(Transition(
         srcMode=beginMode,
-        destMode=divMode,
+        destMode=negDivMode,
         guards=['clock = 0', f'{src_plus_one} <= 0']
         ))
     transitions.append(Transition(
         srcMode=beginMode,
-        destMode=divMode,
+        destMode=posDivMode,
         guards=['clock = 0', f'{src_minus_one} >= 0']
         ))
     transitions.append(Transition(
-        srcMode=divMode,
+        srcMode=negDivMode,
+        destMode=arcModeOut
+        ))
+    transitions.append(Transition(
+        srcMode=posDivMode,
         destMode=arcModeOut
         ))
     transitions.append(Transition(
@@ -167,11 +173,15 @@ def atan2(srcExprY: str, srcExprX: str, srcMode: Mode, destVar: str, destMode: M
     x_plus_epsilon = 'tmp1'
     x_minus_epsilon = 'tmp2'
     beginMode = Mode(name=f'atan2_begin_m{next(freshModeId)}')
-    divMode = Mode(name=f'_div_{varIndex[x_inv]}_{varIndex[x_inv]}_atan2_m{next(freshModeId)}')
-    joinMode = Mode(name=f'atan2_join_m{next(freshModeId)}')
+    posDivMode = Mode(name=f'_div_{varIndex[x_inv]}_{varIndex[x_inv]}_atan2_pos_m{next(freshModeId)}')
+    negDivMode = Mode(name=f'_div_{varIndex[x_inv]}_{varIndex[x_inv]}_atan2_neg_m{next(freshModeId)}')
+    preAtanMode = Mode(name=f'atan2_pre_m{next(freshModeId)}')
+    postAtanMode = Mode(name=f'atan2_post_m{next(freshModeId)}')
     beginMode.output(f)
-    divMode.output(f)
-    joinMode.output(f)
+    posDivMode.output(f)
+    negDivMode.output(f)
+    preAtanMode.output(f)
+    postAtanMode.output(f)
     transitions.append(Transition(
         srcMode=srcMode,
         destMode=beginMode,
@@ -203,21 +213,29 @@ def atan2(srcExprY: str, srcExprX: str, srcMode: Mode, destVar: str, destMode: M
         ))
     transitions.append(Transition(
         srcMode=beginMode,
-        destMode=divMode,
+        destMode=posDivMode,
         guards=['clock = 0', f'{x_minus_epsilon} >= 0']
         ))
     transitions.append(Transition(
         srcMode=beginMode,
-        destMode=divMode,
+        destMode=negDivMode,
         guards=['clock = 0', f'{x_plus_epsilon} <= 0']
+        ))
+    transitions.append(Transition(
+        srcMode=posDivMode,
+        destMode=preAtanMode
+        ))
+    transitions.append(Transition(
+        srcMode=negDivMode,
+        destMode=preAtanMode
         ))
 
     atanyx = 'tmp1'
 
-    atan1(srcExpr=f'{y_var} * {x_inv}', srcMode=divMode, destVar=atanyx, destMode=joinMode, f=f)
+    atan1(srcExpr=f'{y_var} * {x_inv}', srcMode=preAtanMode, destVar=atanyx, destMode=postAtanMode, f=f)
 
     transitions.append(Transition(
-        srcMode=joinMode,
+        srcMode=postAtanMode,
         destMode=destMode,
         guards=['clock = 0', f'{x_inv} >= 0'],
         resets={
@@ -226,7 +244,7 @@ def atan2(srcExprY: str, srcExprX: str, srcMode: Mode, destVar: str, destMode: M
             }
         ))
     transitions.append(Transition(
-        srcMode=joinMode,
+        srcMode=postAtanMode,
         destMode=destMode,
         guards=['clock = 0', f'{x_inv} <= 0', f'{y_var} >= 0'],
         resets={
@@ -235,7 +253,7 @@ def atan2(srcExprY: str, srcExprX: str, srcMode: Mode, destVar: str, destMode: M
             }
         ))
     transitions.append(Transition(
-        srcMode=joinMode,
+        srcMode=postAtanMode,
         destMode=destMode,
         guards=['clock = 0', f'{x_inv} <= 0', f'{y_var} <= 0'],
         resets={
