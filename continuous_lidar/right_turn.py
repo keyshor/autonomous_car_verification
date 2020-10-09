@@ -5,7 +5,7 @@ from typing import Iterator, TextIO, List, Dict, Tuple, Final
 import itertools
 
 R: Final[float] = 0.005 * 5 + 2.5
-EPSILON: Final[float] = 1e-2
+EPSILON: Final[float] = 1e-5
 SAFE_DISTANCE: Final[float] = 0.3
 atan_uncertainty: Final[float] = math.atan(EPSILON / SAFE_DISTANCE)
 acos_uncertainty: Final[float] = math.acos((R - EPSILON) / R)
@@ -517,7 +517,7 @@ def rays_in_interval(srcExprLb: str, srcExprUb: str, srcMode: Mode, destVar: str
         ))
 
 #overwrites tmp1 and tmp2
-def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) -> None:
+def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
     theta_L = 'x_theta + RAY_DIST'
     theta_R = 'x_theta - RAY_DIST'
     zeta_L = 'x_theta + LIDAR_FIELD_OF_VIEW'
@@ -528,21 +528,14 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     d_B = 'HALL_WIDTH + x_y'
     pre_mode1 = Mode(name=f'steering_pre1_m{next(freshModeId)}')
     pre_mode2 = Mode(name=f'steering_pre2_m{next(freshModeId)}')
-    pre_mode3 = Mode(name=f'steering_pre3_m{next(freshModeId)}')
     pre_mode1.output(f)
     pre_mode2.output(f)
-    pre_mode3.output(f)
-    transitions.append(Transition(
-        srcMode=srcMode,
-        destMode=pre_mode1,
-        guards=start_guards
-        ))
-    atan2(srcExprY=f'-({d_B})', srcExprX=d_R, srcMode=pre_mode1, destVar='eta', destMode=pre_mode2, f=f)
+    atan2(srcExprY=f'-({d_B})', srcExprX=d_R, srcMode=srcMode, destVar='eta', destMode=pre_mode1, f=f)
     eta_big = 'eta + 2 * PI'
     corner_dist_sq_minus_r_sq = 'tmp1'
     transitions.append(Transition(
-        srcMode=pre_mode2,
-        destMode=pre_mode3,
+        srcMode=pre_mode1,
+        destMode=pre_mode2,
         resets={
             'clock': '0',
             corner_dist_sq_minus_r_sq: f'({d_L})^2 + ({d_F})^2 - r^2',
@@ -570,7 +563,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     front_left_mode8.output(f)
     front_left_mode9.output(f)
     transitions.append(Transition(
-        srcMode=pre_mode3,
+        srcMode=pre_mode2,
         destMode=front_left_mode1,
         guards=['clock = 0', f'{corner_dist_sq_minus_r_sq} <= 0']
         ))
@@ -614,7 +607,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
     front_left_sep_mode2.output(f)
     dL_minus_r = 'tmp1'
     transitions.append(Transition(
-        srcMode=pre_mode3,
+        srcMode=pre_mode2,
         destMode=front_left_sep_mode1,
         guards=['clock = 0', f'{corner_dist_sq_minus_r_sq} >= 0'],
         resets={
@@ -984,7 +977,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
             }
         ))
     transitions.append(Transition(
-        srcMode=corner_end_mode,
+        srcMode=steering_end_mode,
         destMode=destMode,
         guards=['clock = 0', f'{delta_plus_max} <= 0'],
         resets={
@@ -994,7 +987,7 @@ def steering(srcMode: Mode, destMode: Mode, start_guards: List[str], f: TextIO) 
             }
         ))
     transitions.append(Transition(
-        srcMode=corner_end_mode,
+        srcMode=steering_end_mode,
         destMode=destMode,
         guards=['clock = 0', f'{delta_minus_max} >= 0'],
         resets={
@@ -1015,12 +1008,19 @@ def throttle(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
         ))
 
 def write_modes(f: TextIO) -> None:
+    start_controller = Mode(name=f'start_controller_m{next(freshModeId)}')
     steering_computed = Mode(name=f'steering_computed_m{next(freshModeId)}')
     errorMode.output(f)
     bicycle_mode.output(f)
+    start_controller.output(f)
     steering_computed.output(f)
 
-    steering(srcMode=bicycle_mode, destMode=steering_computed, start_guards=['clock = TIME_STEP'], f=f)
+    transitions.append(Transition(
+        srcMode=bicycle_mode,
+        destMode=start_controller,
+        guards=['clock = TIME_STEP']
+        ))
+    steering(srcMode=start_controller, destMode=steering_computed, f=f)
     throttle(srcMode=steering_computed, destMode=bicycle_mode, f=f)
 
 def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]], f: TextIO) -> None:
@@ -1031,8 +1031,8 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
             'HALF_NUM_LIDAR_RAYS': half_num_lidar_rays,
             'LIDAR_FIELD_OF_VIEW': lidar_field_of_view,
             'HALL_WIDTH': 1.5,
-            'k_P': 50 / half_num_lidar_rays,
-            'k_D': 6 / half_num_lidar_rays,
+            'k_P': math.radians(50 / half_num_lidar_rays),
+            'k_D': math.radians(6 / half_num_lidar_rays),
             'r': R,
             # distance in radians between adjacent lidar rays
             'RAY_DIST': lidar_field_of_view / half_num_lidar_rays,
@@ -1065,7 +1065,7 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
     f.write('\t{\n')
     for s in [
             'adaptive steps {min 1e-6, max 0.005}',
-            'time 10.0',
+            'time 1.0',
             'remainder estimation 1e-1',
             'identity precondition',
             'gnuplot octagon x_x, x_y',
