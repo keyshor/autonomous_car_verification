@@ -560,13 +560,22 @@ class World:
         region3 = False
 
         if car_dist_f_inner >= 0:
-            theta_outer = np.arctan(float(self.car_dist_s) / self.car_dist_f) * 180 / np.pi
-            theta_inner = -np.arctan(float(car_dist_s_inner) / car_dist_f_inner) * 180 / np.pi
 
-            if np.abs(theta_inner) <= np.abs(self.turns[self.curHall]) * 180 / np.pi:
-                region1 = True
+            theta_outer = np.arctan(float(self.car_dist_s) / self.car_dist_f) * 180 / np.pi
+
+            if self.car_dist_s <= self.hallWidths[self.curHall]:
+                
+                theta_inner = -np.arctan(float(car_dist_s_inner) / car_dist_f_inner) * 180 / np.pi
+
+                if np.abs(theta_inner) <= np.abs(self.turns[self.curHall]) * 180 / np.pi:
+                    region1 = True
+                else:
+                    region2 = True
             else:
-                region2 = True
+
+                car_dist_s_inner = self.car_dist_s - self.hallWidths[self.curHall]
+                theta_inner = np.arctan(float(car_dist_s_inner) / car_dist_f_inner) * 180 / np.pi
+                region3 = True
         else:
 
             car_dist_f_inner = np.abs(car_dist_f_inner)
@@ -1050,9 +1059,9 @@ def square_hall_left():
 
     return (hallWidths, hallLengths, turns)
 
-def trapezoid_hall_sharp_right():
+def trapezoid_hall_sharp_right(width=1.5):
 
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
+    hallWidths = [width, width, width, width]
     hallLengths = [20 + 2 * np.sqrt(200), 20, 20, 20]
     turns = [(-3 * np.pi) / 4, -np.pi/4, -np.pi/4, (-3 * np.pi)/4]
 
