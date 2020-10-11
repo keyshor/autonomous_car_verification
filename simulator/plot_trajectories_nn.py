@@ -28,7 +28,7 @@ def main(argv):
     episode_length = 70
     time_step = 0.1
 
-    state_feedback = True
+    state_feedback = False
 
     lidar_field_of_view = 115
     lidar_num_rays = model.get_layer(index=0).input_shape[1]
