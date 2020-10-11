@@ -1,4 +1,5 @@
 from Car import World
+from Car import square_hall_right
 import numpy as np
 import matplotlib.pyplot as plt
 from controller2 import Controller
@@ -15,13 +16,12 @@ def main():
 
     numTrajectories = 100
 
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
-    hallLengths = [20, 20, 20, 20]
-    turns = ['right', 'right', 'right', 'right']
+    (hallWidths, hallLengths, turns) = square_hall_right()
+    
     car_dist_s = hallWidths[0]/2.0
-    car_dist_f = 10
+    car_dist_f = 6.5
     car_heading = 0
-    car_V = 0
+    car_V = 2.4
     episode_length = 100
     time_step = 0.1
 

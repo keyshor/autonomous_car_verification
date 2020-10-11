@@ -1,4 +1,5 @@
 from Car import World
+from Car import square_hall_right
 import numpy as np
 import random
 from keras import models
@@ -18,15 +19,16 @@ def main(argv):
 
     numTrajectories = 100
 
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
-    hallLengths = [20, 20, 20, 20]
-    turns = ['right', 'right', 'right', 'right']
+    (hallWidths, hallLengths, turns) = square_hall_right()
+    
     car_dist_s = hallWidths[0]/2.0
     car_dist_f = 6.5
     car_heading = 0
     car_V = 2.4
     episode_length = 70
     time_step = 0.1
+
+    state_feedback = True
 
     lidar_field_of_view = 115
     lidar_num_rays = model.get_layer(index=0).input_shape[1]
@@ -42,7 +44,7 @@ def main(argv):
     w = World(hallWidths, hallLengths, turns,\
               car_dist_s, car_dist_f, car_heading, car_V,\
               episode_length, time_step, lidar_field_of_view,\
-              lidar_num_rays, lidar_noise, missing_lidar_rays, True)
+              lidar_num_rays, lidar_noise, missing_lidar_rays, True, state_feedback=state_feedback)
 
     throttle = 16
     
@@ -52,15 +54,15 @@ def main(argv):
 
     for step in range(numTrajectories):
 
-        w.reset()
+        observation = w.reset()
 
-        observation = w.scan_lidar()
+        #observation = w.scan_lidar()
 
         rew = 0
 
         for e in range(episode_length):
 
-            observation = normalize(observation)
+            #observation = normalize(observation)
 
             delta = 15 * model.predict(observation.reshape(1,len(observation)))
 
@@ -87,7 +89,7 @@ def main(argv):
     w.plotHalls()
     
     plt.ylim((-1,11))
-    plt.xlim((-1.75,10.25))
+    plt.xlim((-1.75,15.25))
     plt.tick_params(labelsize=20)
 
     for i in range(numTrajectories):

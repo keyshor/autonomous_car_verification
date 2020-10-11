@@ -1396,7 +1396,9 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index + 5]['transitions'] = {}
     plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 6)] = {}
     plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 6)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 6)]['reset1'] = []
+    plant[mode1_reg2 + index + 5]['transitions'][(mode1_reg2 + index + 5, mode1_reg2 + index + 6)]['reset1'] =\
+                                 ['temp1\' := angle * ' + str(LIDAR_MAX_DISTANCE) + ' - ' + str(HALLWAY_WIDTH) + ' + y1']    
+    
 
     plant[mode1_reg2 + index + 6] = {}
     plant[mode1_reg2 + index + 6]['name'] = '_div_0_0_'
@@ -1475,7 +1477,8 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index + 7]['transitions'] = {}
     plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 8)] = {}
     plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 8)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 8)]['reset1'] = []
+    plant[mode1_reg2 + index + 7]['transitions'][(mode1_reg2 + index + 7, mode1_reg2 + index + 8)]['reset1'] =\
+                                                ['temp1\' := angle * ' + str(LIDAR_MAX_DISTANCE) + ' - ' + str(HALLWAY_WIDTH) + ' + y2']    
 
     plant[mode1_reg2 + index + 8] = {}
     plant[mode1_reg2 + index + 8]['name'] = '_div_0_0_'
@@ -1551,7 +1554,8 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index + 9]['transitions'] = {}
     plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)] = {}
     plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['guards1'] = ['clock = 0']
-    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['reset1'] = []
+    plant[mode1_reg2 + index + 9]['transitions'][(mode1_reg2 + index + 9, mode1_reg2 + index + 10)]['reset1'] =\
+                                                ['temp1\' := angle * ' + str(LIDAR_MAX_DISTANCE) + ' - y2']    
 
     plant[mode1_reg2 + index + 10] = {}
     plant[mode1_reg2 + index + 10]['name'] = '_div_0_0_'
@@ -1627,7 +1631,7 @@ while curRay <= NUM_RAYS:
     plant[mode1_reg2 + index + 11]['transitions'][(mode1_reg2 + index + 11, mode1_reg2 + index + 12)] = {}
     plant[mode1_reg2 + index + 11]['transitions'][(mode1_reg2 + index + 11, mode1_reg2 + index + 12)]['guards1'] = ['clock = 0']
     plant[mode1_reg2 + index + 11]['transitions'][(mode1_reg2 + index + 11, mode1_reg2 + index + 12)]['reset1'] =\
-        ['clock\' := 0', '_f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := y1 * angle']
+                                                 ['temp1\' := angle * ' + str(LIDAR_MAX_DISTANCE) + ' - y1']    
 
     plant[mode1_reg2 + index + 12] = {}
     plant[mode1_reg2 + index + 12]['name'] = '_div_0_0_'
@@ -1683,20 +1687,12 @@ while curRay <= NUM_RAYS:
 
     plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)] = {}
     plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['guards1'] =\
-        ['clock = 0', '_f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + ' >= ' + str(LIDAR_MAX_DISTANCE)]
+        ['clock = 0',]
     plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['reset1'] =\
-        ['_f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + '\' := ' + str(LIDAR_MAX_DISTANCE),
-         'angle\' := y4 + ' + str(nextAngle),
-         'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
-         'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
-
-    plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['guards2'] =\
-        ['clock = 0', '_f' + str((index + NUM_MODES_REG2)//NUM_MODES_REG2) + ' <= ' + str(LIDAR_MAX_DISTANCE)]
-    plant[mode1_reg2 + index + 13]['transitions'][(mode1_reg2 + index + 13, mode1_reg2 + index + NUM_MODES_REG2)]['reset2'] =\
         ['angle\' := y4 + ' + str(nextAngle),
          'temp1\' := y4 + ' + str(nextAngle) + ' - theta_l',
          'temp2\' := y4 + ' + str(nextAngle) + ' - theta_r']
-
+    
     nextAngle += LIDAR_OFFSET
     index += NUM_MODES_REG2
     curRay += 1

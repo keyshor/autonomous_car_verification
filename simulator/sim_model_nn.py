@@ -1,8 +1,10 @@
 from Car import World
+from Car import square_hall_right
 import numpy as np
 import random
 from keras import models
 import sys
+import matplotlib.pyplot as plt
 
 def normalize(s):
     mean = [2.5]
@@ -14,15 +16,14 @@ def main(argv):
     input_filename = argv[0]
     
     model = models.load_model(input_filename)
+
+    (hallWidths, hallLengths, turns) = square_hall_right()
     
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
-    hallLengths = [20, 20, 20, 20]
-    turns = ['right', 'right', 'right', 'right']
-    car_dist_s = 0.655
-    car_dist_f = 6.5
+    car_dist_s = 0.75
+    car_dist_f = 6
     car_V = 2.4
-    car_heading = 0.003
-    episode_length = 5
+    car_heading = 0#-3*np.pi/4
+    episode_length = 110
     time_step = 0.1
     time = 0
 
@@ -70,7 +71,7 @@ def main(argv):
     print('steps: ' + str(e))
     print('final reward: ' + str(rew))
     w.plot_trajectory()
-    #w.plot_lidar()
+    w.plot_lidar()
     
 if __name__ == '__main__':
     main(sys.argv[1:])

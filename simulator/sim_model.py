@@ -1,4 +1,5 @@
 from Car import World
+from Car import square_hall_right
 import numpy as np
 import sys
 from controller2 import Controller
@@ -17,14 +18,14 @@ def main(argv):
     params = [14, 0, 3]
     
     model = Controller(params)
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
-    hallLengths = [20, 20, 20, 20]
-    turns = ['right', 'right', 'right', 'right']
-    car_dist_s = hallWidths[0]/2.0 + 0.2
-    car_dist_f = 5
+    
+    (hallWidths, hallLengths, turns) = square_hall_right()
+    
+    car_dist_s = hallWidths[0]/2.0 - 0.1
+    car_dist_f = 6.5
     car_V = 2.4
-    car_heading = 0.2
-    episode_length = 50
+    car_heading = 0
+    episode_length = 1
     time_step = 0.1
     time = 0
 
