@@ -589,7 +589,6 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=front_left_mode9,
         destMode=corner_start_mode,
-        guards=['clock = 0', f'{zetaR_minus_gammaLBsmall} >= 0'],
         resets={
             'clock': '0',
             'left_L': '0'
@@ -661,7 +660,6 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=left_mode6,
         destMode=front_left_sep_mode2,
-        guards=['clock = 0', f'{zetaR_minus_gammaLBsmall} >= 0', f'{thetaR_minus_gammaLF} <= 0'],
         resets={
             'clock': '0',
             dF_minus_r: f'{d_F} - r'
@@ -742,8 +740,7 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
         ))
     transitions.append(Transition(
         srcMode=front_mode9,
-        destMode=corner_start_mode,
-        guards=['clock = 0', f'{zetaR_minus_gammaFLsmall} >= 0']
+        destMode=corner_start_mode
         ))
     transitions.append(Transition(
         srcMode=front_mode9,
@@ -756,7 +753,7 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_end_mode,
-        guards=['clock = 0', f'{dR_minus_r} >= 0'],
+        guards=['clock = 0', f'{dR_minus_r} >= 0', f'{dB_test} <= 0'],
         resets={
             'clock': '0',
             'corner_R': '0'
@@ -765,7 +762,7 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=corner_start_mode,
         destMode=corner_end_mode,
-        guards=['clock = 0', f'{dB_minus_r} >= 0'],
+        guards=['clock = 0', f'{dB_minus_r} >= 0', f'{dR_test} <= 0'],
         resets={
             'clock': '0',
             'corner_R': '0'
@@ -821,13 +818,7 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
         ))
     transitions.append(Transition(
         srcMode=corner_pre_mode6,
-        destMode=corner_end_mode,
-        guards=['clock = 0', f'{thetaL_minus_eta} >= 0', f'{zetaL_minus_gammaRBbig} <= 0']
-        ))
-    transitions.append(Transition(
-        srcMode=corner_pre_mode6,
-        destMode=corner_end_mode,
-        guards=['clock = 0', f'{thetaL_minus_gammaRF} >= 0', f'{zetaL_minus_gammaRBbig} <= 0']
+        destMode=corner_end_mode
         ))
     transitions.append(Transition(
         srcMode=corner_pre_mode6,
@@ -879,8 +870,7 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
         ))
     transitions.append(Transition(
         srcMode=corner_bend_mode7,
-        destMode=corner_end_mode,
-        guards=['clock = 0', f'{thetaL_minus_gammaBR} >= 0', f'{zetaL_minus_gammaRBbig} <= 0']
+        destMode=corner_end_mode
         ))
     transitions.append(Transition(
         srcMode=corner_bend_mode7,
@@ -933,13 +923,7 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
         ))
     transitions.append(Transition(
         srcMode=corner_post_mode6,
-        destMode=corner_end_mode,
-        guards=['clock = 0', f'{thetaL_minus_gammaBR} >= 0', f'{zetaL_minus_etabig} <= 0']
-        ))
-    transitions.append(Transition(
-        srcMode=corner_post_mode6,
-        destMode=corner_end_mode,
-        guards=['clock = 0', f'{thetaL_minus_gammaBR} >= 0', f'{zetaL_minus_gammaBLbig} <= 0']
+        destMode=corner_end_mode
         ))
     transitions.append(Transition(
         srcMode=corner_post_mode6,
@@ -949,7 +933,7 @@ def steering(srcMode: Mode, destMode: Mode, f: TextIO) -> None:
     transitions.append(Transition(
         srcMode=corner_post_mode6,
         destMode=errorMode,
-        guards=['clock = 0', f'{zetaL_minus_etabig} >= 0']
+        guards=['clock = 0', f'{zetaL_minus_etabig} >= 0', f'{zetaL_minus_gammaBLbig} >= 0']
         ))
 
     steering_end_mode = Mode(name=f'steering_end_m{next(freshModeId)}')
@@ -1065,7 +1049,7 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
     f.write('\t{\n')
     for s in [
             'adaptive steps {min 1e-6, max 0.005}',
-            'time 1.0',
+            'time 2.45',
             'remainder estimation 1e-1',
             'identity precondition',
             'gnuplot octagon x_x, x_y',
@@ -1114,12 +1098,15 @@ if __name__ == '__main__':
     parser.add_argument('-n', '--num-lidar-rays', default=21, type=int)
     parser.add_argument('-o', '--output-file', default=sys.stdout, type=argparse.FileType('x'))
     args = parser.parse_args()
+    x_variation = 0.005
+    y_variation = 0
+    theta_variation = 0
     initial_set = {v:(0.0,0.0) for v in varIndex}
     initial_set.update({
-        'x_x': (0.745, 0.755),
-        'x_y': (-5.905, -5.895),
+        'x_x': (0.75 - x_variation, 0.75 + x_variation),
+        'x_y': (-5.9 - y_variation, -5.9 + y_variation),
         'x_V': (2.4, 2.4),
-        'x_theta': (0.5 * math.pi - 0.000, 0.5 * math.pi + 0.000),
+        'x_theta': (0.5 * math.pi - theta_variation, 0.5 * math.pi + theta_variation),
         'u': (16, 16)
         })
     write_model(args.num_lidar_rays, initial_set, args.output_file)
