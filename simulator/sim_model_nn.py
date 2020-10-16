@@ -2,6 +2,7 @@ from Car import World
 from Car import square_hall_right
 from Car import trapezoid_hall_sharp_right
 from Car import triangle_hall_sharp_right
+from Car import triangle_hall_equilateral_right
 import numpy as np
 import random
 from keras import models
@@ -19,15 +20,15 @@ def main(argv):
     
     model = models.load_model(input_filename)
 
-    (hallWidths, hallLengths, turns) = square_hall_right(2)
+    #(hallWidths, hallLengths, turns) = square_hall_right(2)
     #(hallWidths, hallLengths, turns) = trapezoid_hall_sharp_right(2)
-    #(hallWidths, hallLengths, turns) = triangle_hall_sharp_right(2)
+    (hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(2)
     
-    car_dist_s = 0.655
-    car_dist_f = 7
+    car_dist_s = 0.65
+    car_dist_f = 10
     car_V = 2.4
-    car_heading = -0.005
-    episode_length = 60
+    car_heading = 0.02
+    episode_length = 65
     time_step = 0.1
     time = 0
 
