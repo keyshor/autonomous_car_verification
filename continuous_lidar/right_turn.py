@@ -4,7 +4,7 @@ import math
 from typing import Iterator, TextIO, List, Dict, Tuple, Final
 import itertools
 
-R: Final[float] = 0.005 * 5 + 2.5
+R: Final[float] = -0.1424 * 5 + 2.5
 EPSILON: Final[float] = 1e-5
 SAFE_DISTANCE: Final[float] = 0.3
 atan_uncertainty: Final[float] = math.atan(EPSILON / SAFE_DISTANCE)
@@ -1015,8 +1015,8 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
             'HALF_NUM_LIDAR_RAYS': half_num_lidar_rays,
             'LIDAR_FIELD_OF_VIEW': lidar_field_of_view,
             'HALL_WIDTH': 1.5,
-            'k_P': math.radians(50 / half_num_lidar_rays),
-            'k_D': math.radians(6 / half_num_lidar_rays),
+            'k_P': math.radians(93.21 / half_num_lidar_rays),
+            'k_D': math.radians(35.46 / half_num_lidar_rays),
             'r': R,
             # distance in radians between adjacent lidar rays
             'RAY_DIST': lidar_field_of_view / half_num_lidar_rays,
@@ -1049,7 +1049,7 @@ def write_model(num_lidar_rays: int, initial_set: Dict[str, Tuple[float, float]]
     f.write('\t{\n')
     for s in [
             'adaptive steps {min 1e-6, max 0.005}',
-            'time 2.45',
+            'time 10.01',
             'remainder estimation 1e-1',
             'identity precondition',
             'gnuplot octagon x_x, x_y',
@@ -1099,8 +1099,8 @@ if __name__ == '__main__':
     parser.add_argument('-o', '--output-file', default=sys.stdout, type=argparse.FileType('x'))
     args = parser.parse_args()
     x_variation = 0.005
-    y_variation = 0
-    theta_variation = 0
+    y_variation = 0.005
+    theta_variation = 0.001
     initial_set = {v:(0.0,0.0) for v in varIndex}
     initial_set.update({
         'x_x': (0.75 - x_variation, 0.75 + x_variation),
