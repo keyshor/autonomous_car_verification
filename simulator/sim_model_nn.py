@@ -1,5 +1,7 @@
 from Car import World
 from Car import square_hall_right
+from Car import trapezoid_hall_sharp_right
+from Car import triangle_hall_sharp_right
 import numpy as np
 import random
 from keras import models
@@ -17,15 +19,19 @@ def main(argv):
     
     model = models.load_model(input_filename)
 
-    (hallWidths, hallLengths, turns) = square_hall_right()
+    (hallWidths, hallLengths, turns) = square_hall_right(2)
+    #(hallWidths, hallLengths, turns) = trapezoid_hall_sharp_right(2)
+    #(hallWidths, hallLengths, turns) = triangle_hall_sharp_right(2)
     
-    car_dist_s = 0.75
-    car_dist_f = 6
+    car_dist_s = 0.655
+    car_dist_f = 7
     car_V = 2.4
-    car_heading = 0#-3*np.pi/4
-    episode_length = 110
+    car_heading = -0.005
+    episode_length = 60
     time_step = 0.1
     time = 0
+
+    state_feedback = True
 
     lidar_field_of_view = 115
     lidar_num_rays = 21
@@ -36,7 +42,7 @@ def main(argv):
     w = World(hallWidths, hallLengths, turns,\
               car_dist_s, car_dist_f, car_heading, car_V,\
               episode_length, time_step, lidar_field_of_view,\
-              lidar_num_rays, lidar_noise, missing_lidar_rays)
+              lidar_num_rays, lidar_noise, missing_lidar_rays, state_feedback=state_feedback)
 
     throttle = 16
 
@@ -44,15 +50,20 @@ def main(argv):
 
     observation = w.scan_lidar()
 
+    if state_feedback:
+        observation =  w.reset(side_pos = car_dist_s, pos_noise = 0, heading_noise = 0)
+
+
     prev_err = 0
     
     for e in range(episode_length):
 
-        observation = normalize(observation)
-        
+        if not state_feedback:
+            observation = normalize(observation)
+            
         delta = 15 * model.predict(observation.reshape(1,len(observation)))
 
-        #delta = np.clip(delta, -15, 15)
+        delta = np.clip(delta, -15, 15)
         
         observation, reward, done, info = w.step(delta, throttle)
 
@@ -71,7 +82,7 @@ def main(argv):
     print('steps: ' + str(e))
     print('final reward: ' + str(rew))
     w.plot_trajectory()
-    w.plot_lidar()
+    #w.plot_lidar()
     
 if __name__ == '__main__':
     main(sys.argv[1:])

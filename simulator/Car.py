@@ -25,10 +25,13 @@ CONST_THROTTLE = 16
 MAX_THROTTLE = 50 # just used to compute maximum possible velocity
 
 # training parameters
-STEP_REWARD_GAIN = 10
+STEP_REWARD_GAIN = 5
 INPUT_REWARD_GAIN = -0.05
 CRASH_REWARD = -100
-MIDDLE_REWARD_GAIN = -5
+MIDDLE_REWARD_GAIN = -0.5
+HEADING_GAIN = -1
+MOVE_FORWARD_GAIN = 10
+REGION3_ENTER_GAIN = 0#100
 
 # direction parameters
 UP = 0
@@ -50,6 +53,10 @@ class World:
         self.hallLengths = hallLengths
         self.turns = turns
         self.curHall = 0
+        self.in_region3 = False
+        self.in_region3_1m = False
+        self.in_region3_2m = False
+        self.in_region3_3m = False
 
         # observation parameter
         self.state_feedback = state_feedback
@@ -122,14 +129,23 @@ class World:
 
         in_wall_proj_length = np.abs(self.hallWidths[1] / np.sin(self.turns[0]))
         self.inner_x = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
-        self.inner_y = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length            
+        self.inner_y = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
+
+        self.init_outer_x = self.outer_x
+        self.init_outer_y = self.outer_y
+        self.init_inner_x = self.inner_x
+        self.init_inner_y = self.inner_y
 
         # parameters needed for consistency with gym environments
         if state_feedback:
             #self.obs_low = np.array([0, 0, 0, -np.pi])
             #self.obs_high = np.array([max(hallLengths), max(hallLengths), CAR_MOTOR_CONST * (MAX_THROTTLE - HYSTERESIS_CONSTANT), np.pi])
-            self.obs_low = np.array([0, 0, -np.pi])
-            self.obs_high = np.array([max(hallLengths), max(hallLengths), np.pi])
+            
+            #self.obs_low = np.array([0, 0, -np.pi])
+            #self.obs_high = np.array([max(hallLengths), max(hallLengths), np.pi])
+
+            self.obs_low = np.array([0, 0, -2*max(hallWidths), -2*max(hallWidths), -np.pi])
+            self.obs_high = np.array([LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, np.pi])
 
         else:
             self.obs_low = np.zeros(self.lidar_num_rays, )
@@ -195,7 +211,7 @@ class World:
                 self.car_heading = self.car_heading + 2 * np.pi
 
         if self.car_global_heading > np.pi:
-            self.car_global_heading = self.car_global_heading - 2 * np.pi        
+            self.car_global_heading = self.car_global_heading - 2 * np.pi
 
     def reset(self, side_pos = None, pos_noise = 0.2, heading_noise = 0.1):
         self.curHall = 0
@@ -222,14 +238,37 @@ class World:
         
         self.cur_step = 0
 
+        self.outer_x = self.init_outer_x
+        self.outer_y = self.init_outer_y
+        self.inner_x = self.init_inner_x
+        self.inner_y = self.init_inner_y
+
+        self.in_region3 = False
+        self.in_region3_1m = False
+        self.in_region3_2m = False
+        self.in_region3_3m = False
+
         self.allX = []
         self.allY = []
         self.allX.append(self.car_global_x)
         self.allY.append(self.car_global_y)
-
+        
         if self.state_feedback:
             #return np.array([self.car_dist_s, self.car_dist_f, self.car_V, self.car_heading])
-            return np.array([self.car_dist_s, self.car_dist_f, self.car_heading])
+
+            corner_dist = np.sqrt((self.outer_x - self.inner_x) ** 2 + (self.outer_y - self.inner_y) ** 2)
+            wall_dist = np.sqrt(corner_dist ** 2 - self.hallWidths[(self.curHall+1)%self.numHalls] ** 2)
+
+            dist_f = self.car_dist_f
+            dist_f_inner = self.car_dist_f - wall_dist
+
+            if dist_f > LIDAR_RANGE:
+                dist_f = LIDAR_RANGE
+            if dist_f_inner > LIDAR_RANGE:
+                dist_f_inner = LIDAR_RANGE
+            
+            return np.array([self.car_dist_s, self.hallWidths[self.curHall] - self.car_dist_s,\
+                             dist_f, dist_f_inner, self.car_heading])
         else:
             return self.scan_lidar()
 
@@ -382,35 +421,50 @@ class World:
             new_x[6] = new_x[6] - theta_added_noise
         # end of adding noise
 
+        delta_s = new_x[0] - self.car_dist_s
+        delta_f = self.car_dist_f - new_x[1]
+
+        # compute delta along the 2nd hallway
+        old_s = self.car_dist_s
+        old_f = self.car_dist_f
+                
         self.car_dist_s, self.car_dist_f, self.car_V, self.car_heading, self.car_global_x, self.car_global_y, self.car_global_heading =\
                     new_x[0], new_x[1], new_x[2], new_x[3], new_x[4], new_x[5], new_x[6]
+
+        if self.car_heading > np.pi:
+            self.car_heading -= 2*np.pi
+        elif self.car_heading < -np.pi:
+            self.car_heading += 2*np.pi
 
         terminal = False
 
         # Compute reward
         reward = STEP_REWARD_GAIN
 
+        corner_dist = np.sqrt((self.outer_x - self.inner_x) ** 2 + (self.outer_y - self.inner_y) ** 2)
+        wall_dist = np.sqrt(corner_dist ** 2 - self.hallWidths[(self.curHall+1)%self.numHalls] ** 2)
+
         # Region 1
         if self.car_dist_s > 0 and self.car_dist_s < self.hallWidths[self.curHall] and\
-           self.car_dist_f > self.hallWidths[self.curHall]:
+           self.car_dist_f > wall_dist:
 
             reward += INPUT_REWARD_GAIN * delta * delta
             reward += MIDDLE_REWARD_GAIN * abs(self.car_dist_s - self.hallWidths[self.curHall] / 2.0)
-            #pass
 
         # Region 2
         elif self.car_dist_s > 0 and self.car_dist_s < self.hallWidths[self.curHall] and\
-           self.car_dist_f <= self.hallWidths[self.curHall]:
+           self.car_dist_f <= wall_dist:
 
-            #reward += INPUT_REWARD_GAIN * delta * delta
-            pass
+            reward += HEADING_GAIN * (np.abs(self.car_heading - self.turns[self.curHall]))
+            if not np.sign(self.car_heading) == np.sign(self.turns[self.curHall]):
+                reward -= 10 * STEP_REWARD_GAIN
 
         # Region 3
         elif self.car_dist_s >  self.hallWidths[self.curHall] and\
              self.car_dist_f <= self.hallWidths[self.curHall]:
 
             pass
-
+            
         # Check for a crash
         corner_angle = np.pi - np.abs(self.turns[self.curHall])
         normal_to_top_wall = [np.sin(corner_angle), -np.cos(corner_angle)]
@@ -422,8 +476,30 @@ class World:
            (dot_prod_top >= (self.hallWidths[(self.curHall+1) % self.numHalls] - SAFE_DISTANCE)\
            and self.car_dist_s >= self.hallWidths[(self.curHall) % self.numHalls] - SAFE_DISTANCE) or\
            self.car_dist_s <= SAFE_DISTANCE:
+            print('heading: ' + str(self.car_heading) + ', position: ' + str(self.car_dist_s))
             terminal = True
             reward = CRASH_REWARD
+
+        if self.car_dist_s > self.hallWidths[self.curHall] and not terminal:
+            
+            corner_angle = np.pi - np.abs(self.turns[self.curHall])
+
+            dist_to_outer_old = np.sqrt(old_s ** 2 + old_f ** 2)
+            dist_to_outer_new = np.sqrt(new_x[0] ** 2 + new_x[1] ** 2)
+            inner_angle_old = corner_angle - math.atan(old_s / np.abs(old_f))
+            inner_angle_new = corner_angle - math.atan(new_x[0] / np.abs(new_x[1]))
+        
+            if corner_angle > np.pi/2:
+                inner_angle_old = corner_angle - math.atan(np.abs(old_f) / old_s) - np.pi/2
+                inner_angle_new = corner_angle - math.atan(np.abs(new_x[1]) / new_x[0]) - np.pi/2
+
+            f2_old = np.cos(inner_angle_old) * dist_to_outer_old
+            f2_new = np.cos(inner_angle_new) * dist_to_outer_new
+            s_new = np.sin(inner_angle_new) * dist_to_outer_new
+            
+            reward += MOVE_FORWARD_GAIN * (f2_new - f2_old)
+
+            reward += MIDDLE_REWARD_GAIN * abs(s_new - self.hallWidths[(self.curHall+1)%self.numHalls] / 2.0)
 
         if self.cur_step == self.episode_length:
             terminal = True
@@ -477,52 +553,10 @@ class World:
                     self.direction = DOWN
 
             # update local car states
-            dist_to_outer = np.sqrt(self.car_dist_s ** 2 + self.car_dist_f ** 2)
-            corner_angle = np.pi - np.abs(self.turns[self.curHall])
-            inner_angle = corner_angle - math.atan(self.car_dist_s / np.abs(self.car_dist_f))
+            (self.car_dist_s, self.car_dist_f, self.car_heading) = self.next_car_states(flip_sides)
 
-            if corner_angle > np.pi/2:
-                inner_angle = corner_angle - math.atan(np.abs(self.car_dist_f) / self.car_dist_s) - np.pi/2
-
-            self.car_dist_s = np.sin(inner_angle) * dist_to_outer
-            if flip_sides:
-                self.car_dist_s = self.hallWidths[(self.curHall+1)%self.numHalls] - self.car_dist_s
-
-            self.car_dist_f = self.hallLengths[(self.curHall+1)%self.numHalls] - np.cos(inner_angle) * dist_to_outer
-            
-            self.car_heading = self.car_heading - self.turns[self.curHall]
-
-            # update corner coordinates        
-            # add the length minus the distance from starting outer to inner corner
-            if flip_sides:
-                starting_corner_dist = np.sqrt((self.outer_x - self.inner_x) ** 2 + (self.outer_y - self.inner_y) ** 2)
-                wall_dist = np.sqrt(starting_corner_dist ** 2 - self.hallWidths[(self.curHall+1)%self.numHalls] ** 2)
-                        
-                self.outer_x = self.inner_x + np.cos(self.cur_hall_heading) * (self.hallLengths[(self.curHall+1)%self.numHalls] - wall_dist)
-                self.outer_y = self.inner_y + np.sin(self.cur_hall_heading) * (self.hallLengths[(self.curHall+1)%self.numHalls] - wall_dist)
-            else:
-                self.outer_x = self.outer_x + np.cos(self.cur_hall_heading) * self.hallLengths[(self.curHall+1)%self.numHalls]
-                self.outer_y = self.outer_y + np.sin(self.cur_hall_heading) * self.hallLengths[(self.curHall+1)%self.numHalls]
-
-            reverse_cur_heading = self.cur_hall_heading - np.pi
-            if reverse_cur_heading > np.pi:
-                reverse_cur_heading -= 2 * np.pi
-            elif reverse_cur_heading < -np.pi:
-                reverse_cur_heading += 2 * np.pi
-
-            next_heading = self.cur_hall_heading + self.turns[(self.curHall+1)%self.numHalls]
-            if next_heading > np.pi:
-                next_heading -= 2 * np.pi
-            elif next_heading < -np.pi:
-                next_heading += 2 * np.pi
-                
-            out_wall_proj_length = np.abs(self.hallWidths[self.curHall] / np.sin(self.turns[(self.curHall+1)%self.numHalls]))
-            proj_point_x = self.outer_x + np.cos(next_heading) * out_wall_proj_length
-            proj_point_y = self.outer_y + np.sin(next_heading) * out_wall_proj_length
-
-            in_wall_proj_length = np.abs(self.hallWidths[(self.curHall+1)%self.numHalls] / np.sin(self.turns[(self.curHall+1)%self.numHalls]))
-            self.inner_x = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
-            self.inner_y = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
+            # update corner coordinates
+            (self.outer_x, self.outer_y, self.inner_x, self.inner_y) = self.next_corner_coordinates(flip_sides)
 
             # update hall index
             self.curHall = self.curHall + 1 # next hallway
@@ -536,9 +570,100 @@ class World:
 
         if self.state_feedback:
             #return np.array([self.car_dist_s, self.car_dist_f, self.car_V, self.car_heading]), reward, terminal, -1
-            return np.array([self.car_dist_s, self.car_dist_f, self.car_heading]), reward, terminal, -1
+
+            if self.car_dist_s <= self.hallWidths[self.curHall]:
+
+                corner_dist = np.sqrt((self.outer_x - self.inner_x) ** 2 + (self.outer_y - self.inner_y) ** 2)
+                wall_dist = np.sqrt(corner_dist ** 2 - self.hallWidths[(self.curHall+1)%self.numHalls] ** 2)
+                
+                dist_s = self.car_dist_s
+                dist_s2 = self.hallWidths[self.curHall] - dist_s
+                dist_f = self.car_dist_f
+                dist_f2 = dist_f - wall_dist
+                car_heading = self.car_heading
+            else:
+
+                flip_sides = False
+                (next_outer_x, next_outer_y, next_inner_x, next_inner_y) = self.next_corner_coordinates(flip_sides)
+
+                corner_dist = np.sqrt((next_outer_x - next_inner_x) ** 2 + (next_outer_y - next_inner_y) ** 2)
+                wall_dist = np.sqrt(corner_dist ** 2 - self.hallWidths[(self.curHall+2)%self.numHalls] ** 2)                
+                
+                (dist_s, dist_f, car_heading) = self.next_car_states(flip_sides)
+                
+                dist_s2 = self.hallWidths[(self.curHall+1)%self.numHalls] - dist_s
+                dist_f2 = dist_f - wall_dist
+
+            if dist_f > LIDAR_RANGE:
+                dist_f = LIDAR_RANGE
+            if dist_f2 > LIDAR_RANGE:
+                dist_f2 = LIDAR_RANGE
+                
+            return np.array([dist_s, dist_s2, dist_f, dist_f2, car_heading]), reward, terminal, -1
+
+            
+            #return np.array([self.car_dist_s, self.car_dist_f, self.car_heading]), reward, terminal, -1
         else:
             return self.scan_lidar(), reward, terminal, -1
+
+    def next_car_states(self, flip_sides):
+
+        dist_to_outer = np.sqrt(self.car_dist_s ** 2 + self.car_dist_f ** 2)
+        corner_angle = np.pi - np.abs(self.turns[self.curHall])
+        inner_angle = corner_angle - math.atan(self.car_dist_s / np.abs(self.car_dist_f))
+
+        if corner_angle > np.pi/2:
+            inner_angle = corner_angle - math.atan(np.abs(self.car_dist_f) / self.car_dist_s) - np.pi/2
+
+        next_dist_s = np.sin(inner_angle) * dist_to_outer
+        if flip_sides:
+            next_dist_s = self.hallWidths[(self.curHall+1)%self.numHalls] - self.car_dist_s
+
+        next_dist_f = self.hallLengths[(self.curHall+1)%self.numHalls] - np.cos(inner_angle) * dist_to_outer
+            
+        next_car_heading = self.car_heading - self.turns[self.curHall]
+        if next_car_heading > np.pi:
+            next_car_heading -= 2 * np.pi
+        elif next_car_heading < -np.pi:
+            next_car_heading += 2 * np.pi
+
+        return (next_dist_s, next_dist_f, next_car_heading)
+
+
+    def next_corner_coordinates(self, flip_sides):
+
+        # add the length minus the distance from starting outer to inner corner
+        if flip_sides:
+            starting_corner_dist = np.sqrt((self.outer_x - self.inner_x) ** 2 + (self.outer_y - self.inner_y) ** 2)
+            wall_dist = np.sqrt(starting_corner_dist ** 2 - self.hallWidths[(self.curHall+1)%self.numHalls] ** 2)
+                        
+            next_outer_x = self.inner_x + np.cos(self.cur_hall_heading) * (self.hallLengths[(self.curHall+1)%self.numHalls] - wall_dist)
+            next_outer_y = self.inner_y + np.sin(self.cur_hall_heading) * (self.hallLengths[(self.curHall+1)%self.numHalls] - wall_dist)
+        else:
+            next_outer_x = self.outer_x + np.cos(self.cur_hall_heading) * self.hallLengths[(self.curHall+1)%self.numHalls]
+            next_outer_y = self.outer_y + np.sin(self.cur_hall_heading) * self.hallLengths[(self.curHall+1)%self.numHalls]
+            
+        reverse_cur_heading = self.cur_hall_heading - np.pi
+        if reverse_cur_heading > np.pi:
+            reverse_cur_heading -= 2 * np.pi
+        elif reverse_cur_heading < -np.pi:
+            reverse_cur_heading += 2 * np.pi
+
+        next_heading = self.cur_hall_heading + self.turns[(self.curHall+1)%self.numHalls]
+        if next_heading > np.pi:
+            next_heading -= 2 * np.pi
+        elif next_heading < -np.pi:
+            next_heading += 2 * np.pi
+                
+        out_wall_proj_length = np.abs(self.hallWidths[self.curHall] / np.sin(self.turns[(self.curHall+1)%self.numHalls]))
+        proj_point_x = next_outer_x + np.cos(next_heading) * out_wall_proj_length
+        proj_point_y = next_outer_y + np.sin(next_heading) * out_wall_proj_length
+        
+        in_wall_proj_length = np.abs(self.hallWidths[(self.curHall+1)%self.numHalls] / np.sin(self.turns[(self.curHall+1)%self.numHalls]))
+        next_inner_x = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
+        next_inner_y = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
+
+        return (next_outer_x, next_outer_y, next_inner_x, next_inner_y)
 
     def scan_lidar(self):
 
@@ -929,6 +1054,7 @@ class World:
                         
                         l1x2 = l1x1 + np.cos(cur_heading) * self.hallLengths[i]
                         l1y2 = l1y1 + np.sin(cur_heading) * self.hallLengths[i]
+
                     # add the length minus the distance from starting outer to inner corner
                     else:
                         l2x2 = prev_inner_x + np.cos(cur_heading) * (self.hallLengths[i] - wall_dist)
@@ -997,11 +1123,11 @@ class World:
                 next_ind = 0
             if self.turns[i] < 0:
 
-                out_wall_proj_length = np.abs(self.hallWidths[i] / np.sin(self.turns[next_ind]))
+                out_wall_proj_length = np.abs(self.hallWidths[i] / np.sin(self.turns[i]))
                 proj_point_x = l1x2 + np.cos(next_heading) * out_wall_proj_length
                 proj_point_y = l1y2 + np.sin(next_heading) * out_wall_proj_length
 
-                in_wall_proj_length = np.abs(self.hallWidths[next_ind] / np.sin(self.turns[next_ind]))
+                in_wall_proj_length = np.abs(self.hallWidths[next_ind] / np.sin(self.turns[i]))
                 l2x2 = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
                 l2y2 = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
 
@@ -1014,11 +1140,11 @@ class World:
 
             else:
 
-                out_wall_proj_length = np.abs(self.hallWidths[i] / np.sin(self.turns[next_ind]))
+                out_wall_proj_length = np.abs(self.hallWidths[i] / np.sin(self.turns[i]))
                 proj_point_x = l2x2 + np.cos(next_heading) * out_wall_proj_length
                 proj_point_y = l2y2 + np.sin(next_heading) * out_wall_proj_length
 
-                in_wall_proj_length = np.abs(self.hallWidths[next_ind] / np.sin(self.turns[next_ind]))
+                in_wall_proj_length = np.abs(self.hallWidths[next_ind] / np.sin(self.turns[i]))
                 l1x2 = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
                 l1y2 = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
 
@@ -1043,17 +1169,17 @@ class World:
 
 
 
-def square_hall_right():
+def square_hall_right(width=1.5):
 
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
+    hallWidths = [width, width, width, width]
     hallLengths = [20, 20, 20, 20]
     turns = [-np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2]
 
     return (hallWidths, hallLengths, turns)
 
-def square_hall_left():
+def square_hall_left(width=1.5):
 
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
+    hallWidths = [width, width, width, width]
     hallLengths = [20, 20, 20, 20]
     turns = [np.pi/2, np.pi/2, np.pi/2, np.pi/2]
 
@@ -1067,17 +1193,33 @@ def trapezoid_hall_sharp_right(width=1.5):
 
     return (hallWidths, hallLengths, turns)
 
-def trapezoid_hall_sharp_left():
+def trapezoid_hall_sharp_left(width=1.5):
 
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
+    hallWidths = [width, width, width, width]
     hallLengths = [20 + 2 * np.sqrt(200), 20, 20, 20]
     turns = [(3 * np.pi) / 4, np.pi/4, np.pi/4, (3 * np.pi)/4]
 
     return (hallWidths, hallLengths, turns)
 
-def trapezoid_hall_slight_right():
+def triangle_hall_sharp_right(width=1.5):
 
-    hallWidths = [1.5, 1.5, 1.5, 1.5]
+    hallWidths = [width, width, width]
+    hallLengths = [30, np.sqrt(1800), 30]
+    turns = [(-3 * np.pi) / 4, (-3 * np.pi)/4, -np.pi / 2]
+
+    return (hallWidths, hallLengths, turns)
+
+def triangle_hall_equilateral_right(width=1.5):
+
+    hallWidths = [width, width, width]
+    hallLengths = [20, 20, 20]
+    turns = [(-2 * np.pi) / 3, (-2 * np.pi) / 3, (-2 * np.pi) / 3]
+
+    return (hallWidths, hallLengths, turns)
+
+def trapezoid_hall_slight_right(width=1.5):
+
+    hallWidths = [width, width, width, width]
     hallLengths = [20, 20, 20 + 2 * np.sqrt(200), 20]
     turns = [-np.pi/4, (-3 * np.pi) / 4,  (-3 * np.pi)/4, -np.pi/4]    
 
