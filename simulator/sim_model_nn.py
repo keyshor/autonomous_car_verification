@@ -8,6 +8,35 @@ import random
 from keras import models
 import sys
 import matplotlib.pyplot as plt
+import yaml
+
+def predict(model, inputs):
+    weights = {}
+    offsets = {}
+
+    layerCount = 0
+    activations = []
+
+    for layer in range(1, len(model['weights']) + 1):
+        
+        weights[layer] = np.array(model['weights'][layer])
+        offsets[layer] = np.array(model['offsets'][layer])
+
+        layerCount += 1
+        activations.append(model['activations'][layer])
+
+    curNeurons = inputs
+
+    for layer in range(layerCount):
+
+        curNeurons = curNeurons.dot(weights[layer + 1].T) + offsets[layer + 1]
+
+        if 'Sigmoid' in activations[layer]:
+            curNeurons = sigmoid(curNeurons)
+        elif 'Tanh' in activations[layer]:
+            curNeurons = np.tanh(curNeurons)
+
+    return curNeurons    
 
 def normalize(s):
     mean = [2.5]
@@ -17,18 +46,23 @@ def normalize(s):
 def main(argv):
 
     input_filename = argv[0]
-    
-    model = models.load_model(input_filename)
 
-    #(hallWidths, hallLengths, turns) = square_hall_right(2)
-    #(hallWidths, hallLengths, turns) = trapezoid_hall_sharp_right(2)
-    (hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(2)
+    if 'yml' in input_filename:
+        with open(input_filename, 'rb') as f:
+            
+            model = yaml.load(f)
+    else:
     
-    car_dist_s = 0.65
-    car_dist_f = 10
+        model = models.load_model(input_filename)
+
+    (hallWidths, hallLengths, turns) = square_hall_right(1.5)
+    #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
+    
+    car_dist_s = 0.7
+    car_dist_f = 7
     car_V = 2.4
-    car_heading = 0.02
-    episode_length = 65
+    car_heading = 0
+    episode_length = 70
     time_step = 0.1
     time = 0
 
@@ -62,7 +96,10 @@ def main(argv):
         if not state_feedback:
             observation = normalize(observation)
             
-        delta = 15 * model.predict(observation.reshape(1,len(observation)))
+        if 'yml' in input_filename:
+            delta = 15 * predict(model, observation.reshape(1,len(observation)))
+        else:
+            delta = 15 * model.predict(observation.reshape(1,len(observation)))
 
         delta = np.clip(delta, -15, 15)
         

@@ -33,7 +33,7 @@ from subprocess import PIPE
 import numpy as np
 import yaml
 
-MAX_TURNING_INPUT = 15  # in degrees
+MAX_TURNING_INPUT = 20  # in degrees
 CONST_THROTTLE = 16  # constant throttle input for this case study
 SPEED_EPSILON = 1e-8
 
@@ -43,7 +43,7 @@ CAR_CENTER_OF_MASS = 0.225  # from rear of car (m)
 CAR_ACCEL_CONST = 1.633
 CAR_MOTOR_CONST = 0.2  # 45 MPH top speed (20 m/s) at 100 throttle
 
-EXIT_DISTANCE = 20
+EXIT_DISTANCE = 10
 
 TIME_STEP = 0.1  # in s
 
@@ -51,15 +51,20 @@ HYSTERESIS_CONSTANT = 4
 PIBY180 = np.pi / 180.0
 PIBY2 = np.pi / 2
 
-HALLWAY_WIDTH = 2
-HALLWAY_LENGTH = 30
+HALLWAY_WIDTH = 1.5
+HALLWAY_LENGTH = 20
+
+POS_LB = 0.3
+POS_UB = 1.2
+HEADING_LB = -0.02
+HEADING_UB = 0.02
 
 WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
 WALL_MAX = str(HALLWAY_WIDTH - WALL_LIMIT)
 
-#TURN_ANGLE = -np.pi/2
-TURN_ANGLE = -2 * np.pi / 3
+TURN_ANGLE = -np.pi/2
+#TURN_ANGLE = -2 * np.pi / 3
 
 CORNER_ANGLE = np.pi - np.abs(TURN_ANGLE)
 SIN_CORNER = np.sin(CORNER_ANGLE)
@@ -69,8 +74,6 @@ COS_CORNER = np.cos(CORNER_ANGLE)
 if TURN_ANGLE == -np.pi/2:
     SIN_CORNER = 1
     COS_CORNER = 0
-    HALLWAY_LENGTH = 20 # hallway length for square hall
-    EXIT_DISTANCE = 13 # 
 
 NORMAL_TO_TOP_WALL = [SIN_CORNER, -COS_CORNER]
 
@@ -315,28 +318,28 @@ def writePlant2ControllerJumps(stream):
 def writeEndJump(stream):
 
     stream.write('\t\t_cont_m2 ->  m_end_pl\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 <= 0.65 ax = 1}\n')
+    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 <= ' + str(POS_LB) + ' ax = 1}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_pr\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 >= 1.35 ax = 1}\n')
+    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 >= ' + str(POS_UB) + ' ax = 1}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_hr\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 <= ' + str(- 0.02) + ' ax = 1 }\n')
+    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 <= ' + str(HEADING_LB) + ' ax = 1 }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_hl\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 >= ' + str(0.02) + ' ax = 1 }\n')
+    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 >= ' + str(HEADING_UB) + ' ax = 1 }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -357,7 +360,6 @@ def writeEndJump(stream):
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_top_wall\n')
-    #stream.write('\t\tguard { y2 <= ' + WALL_MIN + ' }\n')
     stream.write('\t\tguard { ' + str(NORMAL_TO_TOP_WALL[0]) + ' * y2 + ' + str(NORMAL_TO_TOP_WALL[1]) + ' * y1  <= ' + WALL_MIN + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
@@ -499,14 +501,12 @@ def main(argv):
         + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + str(wall_dist - WALL_LIMIT) + '\n\n\t}\n' \
         + '\tm_top_wall\n\t{\n\t\t ' + str(NORMAL_TO_TOP_WALL[0]) + ' * y2 + ' + str(NORMAL_TO_TOP_WALL[1]) + ' * y1 <= ' + WALL_MIN + '\n\n\t}\n' \
         + '\t_cont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
-        + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
-        + '\tm_end_pr\n\t{\n\t\ty1 >= 1.35\n\n\t}\n' \
-        + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(0.02) + '\n\n\t}\n' \
-        + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(-0.02) + '\n\n\t}\n' \
+        + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(POS_LB) + '\n\n\t}\n' \
+        + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_UB) + '\n\n\t}\n' \
+        + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
+        + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n' \
         + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
         + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
-
-    #+ '\tm_top_wall\n\t{\n\t\ty2 <= ' + WALL_MIN + '\n\n\t}\n' \
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -517,12 +517,16 @@ def main(argv):
     curLBPos = 0.65
     posOffset = 0.05
 
+    init_y2 = 8
+    if TURN_ANGLE == -np.pi/2:
+        init_y2 = 7
+
     count = 1
 
     initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                 'y2 in [10, 10]',
+                 'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
                  'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
-                 'y4 in [-0.02, 0.02]', 'k in [0, 0]', 'u in [0, 0]']  # F1/10
+                 'y4 in [' + str(HEADING_LB) + ', ' + str(HEADING_UB) + ']', 'k in [0, 0]', 'u in [0, 0]']  # F1/10
 
     curModelFile = modelFile + '_' + str(count) + '.model'
 

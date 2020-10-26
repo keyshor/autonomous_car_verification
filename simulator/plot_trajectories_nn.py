@@ -22,16 +22,14 @@ def main(argv):
 
     numTrajectories = 100
     
-    (hallWidths, hallLengths, turns) = square_hall_right(2)
-    #(hallWidths, hallLengths, turns) = trapezoid_hall_sharp_right(2)
-    #(hallWidths, hallLengths, turns) = triangle_hall_sharp_right(2)
-    #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(2)
+    (hallWidths, hallLengths, turns) = square_hall_right(1.5)
+    #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
     
     car_dist_s = hallWidths[0]/2.0
     car_dist_f = 7
     car_heading = 0
     car_V = 2.4
-    episode_length = 70
+    episode_length = 80
     time_step = 0.1
 
     state_feedback = True
@@ -59,7 +57,7 @@ def main(argv):
     allR = []
 
     # initial uncertainty
-    init_pos_noise = 0.5
+    init_pos_noise = 0.1
     init_heading_noise = 0.02
 
     for step in range(numTrajectories):

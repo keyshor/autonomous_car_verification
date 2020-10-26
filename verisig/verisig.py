@@ -3,11 +3,57 @@ import os, sys
 import time
 import subprocess
 import yaml
+import numpy as np
 
+HALLWAY_WIDTH = 1.5
+HALLWAY_LENGTH = 20
 WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
 WALL_MAX = str(1.5 - WALL_LIMIT)
 SPEED_EPSILON = 1e-8
+
+TURN_ANGLE = -np.pi/2
+#TURN_ANGLE = -2 * np.pi / 3
+
+CORNER_ANGLE = np.pi - np.abs(TURN_ANGLE)
+SIN_CORNER = np.sin(CORNER_ANGLE)
+COS_CORNER = np.cos(CORNER_ANGLE)
+
+name = 'sharp_turn_'
+
+EXIT_DISTANCE = 10
+
+# just a check to avoid numerical error
+if TURN_ANGLE == -np.pi/2:
+    name = 'right_turn_'
+    SIN_CORNER = 1
+    COS_CORNER = 0
+
+NORMAL_TO_TOP_WALL = [SIN_CORNER, -COS_CORNER]
+
+POS_LB = 0.3
+POS_UB = 1.2
+HEADING_LB = -0.03
+HEADING_UB = 0.03
+
+def getCornerDist(next_heading=np.pi/2 + TURN_ANGLE, reverse_cur_heading=-np.pi/2,\
+                  hallLength=HALLWAY_LENGTH, hallWidth=HALLWAY_WIDTH, turnAngle=TURN_ANGLE):
+
+    outer_x = -hallWidth/2.0
+    outer_y = hallLength/2.0
+    
+    out_wall_proj_length = np.abs(hallWidth / np.sin(turnAngle))
+    proj_point_x = outer_x + np.cos(next_heading) * out_wall_proj_length
+    proj_point_y = outer_y + np.sin(next_heading) * out_wall_proj_length
+    
+    in_wall_proj_length = np.abs(hallWidth / np.sin(turnAngle))
+    inner_x = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
+    inner_y = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
+
+    corner_dist = np.sqrt((outer_x - inner_x) ** 2 + (outer_y - inner_y) ** 2)
+    wall_dist = np.sqrt(corner_dist ** 2 - hallWidth ** 2)
+
+    return wall_dist
 
 def writeDnnModes(stream, weights, offsets, activations, dynamics, states):
 
@@ -306,42 +352,42 @@ def writePlant2DnnJumps(stream, trans, dynamics, numNeurLayers, plant):
 def writeEndJump(stream):
 
     stream.write('\t\t_cont_m2 ->  m_end_pl\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y1 <= 0.65}\n')
+    stream.write('\t\tguard { ax = 1 y2 = ' + str(EXIT_DISTANCE) + ' y1 <= ' + str(POS_LB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_pr\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y1 >= 0.85}\n')
+    stream.write('\t\tguard { ax = 1 y2 = ' + str(EXIT_DISTANCE) + ' y1 >= ' + str(POS_UB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_hr\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 <= -0.02}\n')
+    stream.write('\t\tguard { ax = 1 y2 = ' + str(EXIT_DISTANCE) + ' y4 <= ' + str(HEADING_LB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_hl\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y4 >= 0.02}\n')
+    stream.write('\t\tguard { ax = 1 y2 = ' + str(EXIT_DISTANCE) + ' y4 >= ' + str(HEADING_UB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sr\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 >= ' + str(2.4 + SPEED_EPSILON) + ' }\n')
+    stream.write('\t\tguard { ax = 1 y2 = ' + str(EXIT_DISTANCE) + ' y3 >= ' + str(2.4 + SPEED_EPSILON) + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sl\n')
-    stream.write('\t\tguard { ax = 1 y2 = 10.0 y3 <= ' + str(2.4 - SPEED_EPSILON) + ' }\n')
+    stream.write('\t\tguard { ax = 1 y2 = ' + str(EXIT_DISTANCE) + ' y3 <= ' + str(2.4 - SPEED_EPSILON) + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -507,7 +553,8 @@ def writeComposedSystem(filename, initProps, dnn, plant, glueTrans, safetyProps,
         stream.write('\t\tcutoff 1e-12\n')
         stream.write('\t\tprecision 100\n')
         stream.write('\t\toutput autosig\n')
-        stream.write('\t\tmax jumps ' + str((numNeurLayers + 2 + 10 + 5 * numInputs) * numSteps) + '\n') #F1/10 
+        stream.write('\t\tmax jumps ' + str((numNeurLayers + 2 + 10 + 6 * numInputs) * numSteps) + '\n') #F1/10
+        #stream.write('\t\tmax jumps 10\n') #F1/10 
         stream.write('\t\tprint on\n')
         stream.write('\t}\n\n')
 
@@ -556,8 +603,11 @@ def main(argv):
     dnnYaml = argv[0]
     numRays = int(argv[1])
     
-    plantPickle = '../plant_models/dynamics_nn_{}.pickle'.format(numRays)
-    gluePickle = '../plant_models/glue_nn_{}.pickle'.format(numRays)
+    #plantPickle = '../plant_models/dynamics_nn_{}.pickle'.format(numRays)
+    #gluePickle = '../plant_models/glue_nn_{}.pickle'.format(numRays)
+
+    plantPickle = '../plant_models/dynamics_nn_' + name + '{}.pickle'.format(numRays)
+    gluePickle = '../plant_models/glue_generic_nn_{}.pickle'.format(numRays)
 
     with open(plantPickle, 'rb') as f:
 
@@ -567,20 +617,22 @@ def main(argv):
 
         glue = pickle.load(f)
 
-    numSteps = 100
+    numSteps = 70
     WALL_MIN = str(WALL_LIMIT)
-    WALL_MAX = str(1.5 - WALL_LIMIT)
+    WALL_MAX = str(HALLWAY_WIDTH - WALL_LIMIT)
+
+    wall_dist = getCornerDist()
 
     # F1/10 Safety + Reachability
     safetyProps = 'unsafe\n{\tleft_wallm2000001\n\t{\n\t\ty1 <= ' + WALL_MIN + '\n\n\t}\n' \
-        + ('\tright_bottom_wallm3000001\n\t{'
-           + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + WALL_MAX + '\n\n\t}\n') \
-        + '\ttop_wallm4000001\n\t{\n\t\ty2 <= ' + WALL_MIN + '\n\n\t}\n' \
+        + '\tright_bottom_wallm3000001\n\t{'\
+        + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + str(wall_dist - WALL_LIMIT) + '\n\n\t}\n' \
+        + '\ttop_wallm4000001\n\t{\n\t\t ' + str(NORMAL_TO_TOP_WALL[0]) + ' * y2 + ' + str(NORMAL_TO_TOP_WALL[1]) + ' * y1 <= ' + WALL_MIN + '\n\n\t}\n' \
         + '\t_cont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
-        + '\tm_end_pl\n\t{\n\t\ty1 <= 0.65\n\n\t}\n' \
-        + '\tm_end_pr\n\t{\n\t\ty1 >= 0.85\n\n\t}\n' \
-        + '\tm_end_hl\n\t{\n\t\ty4 >= 0.02\n\n\t}\n' \
-        + '\tm_end_hr\n\t{\n\t\ty4 <= -0.02\n\n\t}\n}' \
+        + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(POS_LB) + '\n\n\t}\n' \
+        + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_UB) + '\n\n\t}\n' \
+        + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
+        + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n}' \
         + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
         + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
 
@@ -591,12 +643,16 @@ def main(argv):
     modelFile = modelFolder + '/testModel'
 
     curLBPos = 0.65
-    posOffset = 0.01
+    posOffset = 0.005
+
+    init_y2 = 8
+    if TURN_ANGLE == -np.pi/2:
+        init_y2 = 7
     
     count = 1
 
     initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                 'y2 in [6.5, 6.5]',
+                 'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
                  'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
                  'y4 in [-0.005, 0.005]', 'k in [0, 0]',
                  'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',

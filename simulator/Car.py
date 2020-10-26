@@ -12,7 +12,7 @@ CAR_DECEL_CONST = .4
 CAR_ACCEL_CONST = 1.633 # estimated from data
 CAR_MOTOR_CONST = 0.2 # estimated from data
 HYSTERESIS_CONSTANT = 4
-MAX_TURNING_INPUT = 15 # in degrees
+MAX_TURNING_INPUT = 20 # in degrees
 
 # lidar parameter
 LIDAR_RANGE = 5 # in m
@@ -29,7 +29,7 @@ STEP_REWARD_GAIN = 5
 INPUT_REWARD_GAIN = -0.05
 CRASH_REWARD = -100
 MIDDLE_REWARD_GAIN = -0.5
-HEADING_GAIN = -1
+HEADING_GAIN = -3
 MOVE_FORWARD_GAIN = 10
 REGION3_ENTER_GAIN = 0#100
 
@@ -448,8 +448,11 @@ class World:
         if self.car_dist_s > 0 and self.car_dist_s < self.hallWidths[self.curHall] and\
            self.car_dist_f > wall_dist:
 
-            reward += INPUT_REWARD_GAIN * delta * delta
-            reward += MIDDLE_REWARD_GAIN * abs(self.car_dist_s - self.hallWidths[self.curHall] / 2.0)
+            # only apply these rules if not too close to a turn
+            if self.car_dist_f > LIDAR_RANGE:
+
+                reward += INPUT_REWARD_GAIN * delta * delta
+                reward += MIDDLE_REWARD_GAIN * abs(self.car_dist_s - self.hallWidths[self.curHall] / 2.0)
 
         # Region 2
         elif self.car_dist_s > 0 and self.car_dist_s < self.hallWidths[self.curHall] and\
@@ -703,11 +706,23 @@ class World:
                 region3 = True
         else:
 
+            corner_angle = np.pi - np.abs(self.turns[self.curHall])
+            normal_to_top_wall = [np.sin(corner_angle), -np.cos(corner_angle)]
+
+            # note that dist_f is the x coordinate, and dist_s is the y coordinate
+            dot_prod_top = normal_to_top_wall[0] * self.car_dist_f + normal_to_top_wall[1] * self.car_dist_s
+
             car_dist_f_inner = np.abs(car_dist_f_inner)
             
             if car_dist_s_inner >= 0:
+
+                if dot_prod_top >= self.hallWidths[(self.curHall+1) % self.numHalls]:
+                    region1 = True
+                else:
+                    region2 = True
+                    
                 theta_inner = -90 - np.arctan(float(car_dist_f_inner) / car_dist_s_inner) * 180 / np.pi
-                region2 = True
+
             else:
                 car_dist_s_inner = np.abs(car_dist_s_inner)
                 theta_inner = 90 + np.arctan(float(car_dist_f_inner) / car_dist_s_inner) * 180 / np.pi
@@ -716,6 +731,7 @@ class World:
             if self.car_dist_f >= 0:
                 car_dist_f_outer = self.car_dist_f
                 theta_outer = np.arctan(float(self.car_dist_s) / self.car_dist_f) * 180 / np.pi
+                
             else:
                 car_dist_f_outer = np.abs(self.car_dist_f)
                 theta_outer = 90 + np.arctan(np.abs(self.car_dist_f) / float(self.car_dist_s)) * 180 / np.pi
