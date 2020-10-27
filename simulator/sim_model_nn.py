@@ -1,8 +1,10 @@
 from Car import World
 from Car import square_hall_right
+from Car import square_hall_left
 from Car import trapezoid_hall_sharp_right
 from Car import triangle_hall_sharp_right
 from Car import triangle_hall_equilateral_right
+from Car import triangle_hall_equilateral_left
 import numpy as np
 import random
 from keras import models
@@ -55,18 +57,22 @@ def main(argv):
     
         model = models.load_model(input_filename)
 
-    (hallWidths, hallLengths, turns) = square_hall_right(1.5)
-    #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
+    #(hallWidths, hallLengths, turns) = square_hall_right(1.5)
+    #(hallWidths, hallLengths, turns) = square_hall_left(1.5)
+    (hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
+    #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_left(1.5)
+
+    #temp = [0.5829178211060824, 8, -0.09540465144355266]
     
-    car_dist_s = 0.7
+    car_dist_s = 0.65
     car_dist_f = 7
     car_V = 2.4
     car_heading = 0
-    episode_length = 70
+    episode_length = 80
     time_step = 0.1
     time = 0
 
-    state_feedback = True
+    state_feedback = False
 
     lidar_field_of_view = 115
     lidar_num_rays = 21
@@ -79,6 +85,8 @@ def main(argv):
               episode_length, time_step, lidar_field_of_view,\
               lidar_num_rays, lidar_noise, missing_lidar_rays, state_feedback=state_feedback)
 
+    action_scale = float(w.action_space.high[0])
+
     throttle = 16
 
     rew = 0
@@ -88,7 +96,6 @@ def main(argv):
     if state_feedback:
         observation =  w.reset(side_pos = car_dist_s, pos_noise = 0, heading_noise = 0)
 
-
     prev_err = 0
     
     for e in range(episode_length):
@@ -97,11 +104,11 @@ def main(argv):
             observation = normalize(observation)
             
         if 'yml' in input_filename:
-            delta = 15 * predict(model, observation.reshape(1,len(observation)))
+            delta = action_scale * predict(model, observation.reshape(1,len(observation)))
         else:
-            delta = 15 * model.predict(observation.reshape(1,len(observation)))
+            delta = action_scale * model.predict(observation.reshape(1,len(observation)))
 
-        delta = np.clip(delta, -15, 15)
+        delta = np.clip(delta, -action_scale, action_scale)
         
         observation, reward, done, info = w.step(delta, throttle)
 
