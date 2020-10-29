@@ -187,3 +187,6 @@ flowstar_verisig/flowstar
 *.output
 *.tab.c
 *.tab.h
+
+# mode detector training data
+*.csv
