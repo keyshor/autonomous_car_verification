@@ -514,7 +514,7 @@ def main(argv):
 
     modelFile = modelFolder + '/testModel'
 
-    curLBPos = POSITION_LB
+    curLBPos = POS_LB
     posOffset = 0.05
 
     init_y2 = 8
@@ -523,7 +523,7 @@ def main(argv):
 
     count = 1
 
-    while curLBPos < POSITION_UB:
+    while curLBPos < POS_UB:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
