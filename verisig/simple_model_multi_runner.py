@@ -458,7 +458,7 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         stream.write('\t\tprecision 100\n')
         stream.write('\t\toutput {}\n'.format(os.path.basename(filename[:-6])))
         stream.write('\t\tmax jumps ' + str(5 * numSteps + 2) + '\n')  # F1/10 case study
-        stream.write('\t\tprint on\n')
+        stream.write('\t\tprint off\n')
         stream.write('\t}\n\n')
 
         # encode modes-----------------------------------------------------------------------------
