@@ -89,6 +89,8 @@ DYNAMICS['u'] = 'u\' = 0\n'
 DYNAMICS['ax'] = 'ax\' = 0\n'
 DYNAMICS['clock'] = 'clock\' = 1\n'
 
+IS_STRAIGHT = True
+
 
 def getCornerDist(next_heading=np.pi/2 + TURN_ANGLE, reverse_cur_heading=-np.pi/2,\
                   hallLength=HALLWAY_LENGTH, hallWidth=HALLWAY_WIDTH, turnAngle=TURN_ANGLE):
@@ -318,42 +320,61 @@ def writePlant2ControllerJumps(stream):
 def writeEndJump(stream):
 
     stream.write('\t\t_cont_m2 ->  m_end_pl\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 <= ' + str(POS_LB) + ' ax = 1}\n')
+    if IS_STRAIGHT:
+        stream.write('\t\tguard { k = 1 y1 <= ' + str(POS_LB) + ' ax = 1}\n')
+    else:
+        stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 <= ' + str(POS_LB) + ' ax = 1}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_pr\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 >= ' + str(POS_UB) + ' ax = 1}\n')
+
+    if IS_STRAIGHT:
+        stream.write('\t\tguard { k = 1 y1 >= ' + str(POS_UB) + ' ax = 1}\n')
+    else:
+        stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y1 >= ' + str(POS_UB) + ' ax = 1}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_hr\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 <= ' + str(HEADING_LB) + ' ax = 1 }\n')
+    if IS_STRAIGHT:
+        stream.write('\t\tguard { k = 1 y4 <= ' + str(HEADING_LB) + ' ax = 1 }\n')
+    else:
+        stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 <= ' + str(HEADING_LB) + ' ax = 1 }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_hl\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 >= ' + str(HEADING_UB) + ' ax = 1 }\n')
+    if IS_STRAIGHT:
+        stream.write('\t\tguard { k = 1 y4 >= ' + str(HEADING_UB) + ' ax = 1 }\n')
+    else:
+        stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y4 >= ' + str(HEADING_UB) + ' ax = 1 }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sr\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y3 >= ' + str(2.4 + SPEED_EPSILON) + ' ax = 1 }\n')
+    if IS_STRAIGHT:
+        stream.write('\t\tguard { k = 1 y3 >= ' + str(2.4 + SPEED_EPSILON) + ' ax = 1 }\n')
+    else:
+        stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y3 >= ' + str(2.4 + SPEED_EPSILON) + ' ax = 1 }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sl\n')
-    stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y3 <= ' + str(2.4 - SPEED_EPSILON) + ' ax = 1 }\n')
+    if IS_STRAIGHT:
+        stream.write('\t\tguard { k = 1 y3 <= ' + str(2.4 - SPEED_EPSILON) + ' ax = 1 }\n')
+    else:
+        stream.write('\t\tguard { y2 = ' + str(EXIT_DISTANCE) + ' y3 <= ' + str(2.4 - SPEED_EPSILON) + ' ax = 1 }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -508,13 +529,28 @@ def main(argv):
         + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
         + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
 
+
+    if IS_STRAIGHT:
+        numSteps = 1
+
+        safetyProps = 'unsafe\n{\tm_left_wall\n\t{\n\t\ty1 <= ' + WALL_MIN + '\n\n\t}\n' \
+                      + '\tm_right_bottom_wall\n\t{'\
+                      + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + str(wall_dist - WALL_LIMIT) + '\n\n\t}\n' \
+                      + '\tm_top_wall\n\t{\n\t\t ' + str(NORMAL_TO_TOP_WALL[0]) + ' * y2 + ' + str(NORMAL_TO_TOP_WALL[1]) + ' * y1 <= ' + WALL_MIN + '\n\n\t}\n' \
+                      + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(POS_LB) + '\n\n\t}\n' \
+                      + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_UB) + '\n\n\t}\n' \
+                      + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
+                      + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n' \
+                      + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
+                      + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
+
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
         os.makedirs(modelFolder)
 
     modelFile = modelFolder + '/testModel'
 
-    curLBPos = 0.65
+    curLBPos = 0.45
     posOffset = 0.05
 
     init_y2 = 8
@@ -527,6 +563,10 @@ def main(argv):
                  'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
                  'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
                  'y4 in [' + str(HEADING_LB) + ', ' + str(HEADING_UB) + ']', 'k in [0, 0]', 'u in [0, 0]']  # F1/10
+
+
+    if IS_STRAIGHT:
+        initProps.append('ax in [1, 1]')
 
     curModelFile = modelFile + '_' + str(count) + '.model'
 
