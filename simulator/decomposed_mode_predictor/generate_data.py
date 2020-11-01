@@ -26,7 +26,6 @@ goal_heading_range = 0.02
 goal_pos_range = 0.01
 offset = 0.05
 iter_batch = 200
-goal_iter_batch = 50
 
 LIDAR_MEAN = 2.5
 LIDAR_SPREAD = 5
@@ -50,9 +49,12 @@ def generate_data():
             open('big_left.csv', mode='x', newline='') as big_left_file:
 
         straight_little_notgoal = csv.writer(straight_little_notgoal_file)
+        straight_little_notgoal = csv.writer(straight_little_notgoal_file)
         straight_little_goal = csv.writer(straight_little_goal_file)
         right_little_notgoal = csv.writer(right_little_notgoal_file)
+        right_little_notgoal = csv.writer(right_little_notgoal_file)
         right_little_goal = csv.writer(right_little_goal_file)
+        left_little_notgoal = csv.writer(left_little_notgoal_file)
         left_little_notgoal = csv.writer(left_little_notgoal_file)
         left_little_goal = csv.writer(left_little_goal_file)
         big_straight = csv.writer(big_straight_file)
@@ -94,14 +96,17 @@ def generate_data():
                     straight_little_notgoal.writerow(obs)
                 right_little_notgoal.writerow(obs)
                 big_right.writerow(obs)
-            for _ in range(goal_iter_batch):
+            for _ in range(50 * iter_batch):
                 w.set_state_local(
-                        cur_dist_s + np.random.uniform(-goal_pos_range, goal_pos_range),
+                        cur_dist_s + np.random.uniform(-1.5 * goal_pos_range, 1.5 * goal_pos_range),
                         cur_dist_f,
-                        cur_heading + np.random.uniform(-goal_heading_range, goal_heading_range)
+                        cur_heading + np.random.uniform(-1.5 * goal_heading_range, 1.5 * goal_heading_range)
                         )
                 obs = normalize(w.scan_lidar())
-                straight_little_goal.writerow(obs)
+                if abs(w.car_dist_s - cur_dist_s) < 0.01 and abs(w.car_heading - cur_heading) < 0.02:
+                    straight_little_goal.writerow(obs)
+                else:
+                    straight_little_notgoal.writerow(obs)
                 right_little_notgoal.writerow(obs)
                 big_right.writerow(obs)
             cur_dist_f -= offset
@@ -164,14 +169,17 @@ def generate_data():
                     right_little_notgoal.writerow(obs)
                 straight_little_notgoal.writerow(obs)
                 big_straight.writerow(obs)
-            for _ in range(goal_iter_batch):
+            for _ in range(50 * iter_batch):
                 w.set_state_local(
                         cur_dist_s,
-                        cur_dist_f + np.random.uniform(-goal_pos_range, goal_pos_range),
-                        cur_heading + np.random.uniform(-goal_heading_range, goal_heading_range)
+                        cur_dist_f + np.random.uniform(-1.5 * goal_pos_range, 1.5 * goal_pos_range),
+                        cur_heading + np.random.uniform(-1.5 * goal_heading_range, 1.5 * goal_heading_range)
                         )
                 obs = normalize(w.scan_lidar())
-                right_little_goal.writerow(obs)
+                if abs(w.car_dist_f - cur_dist_f) < 0.01 and abs(w.car_heading - cur_heading) < 0.02:
+                    right_little_goal.writerow(obs)
+                else:
+                    right_little_notgoal.writerow(obs)
                 straight_little_notgoal.writerow(obs)
                 big_straight.writerow(obs)
             cur_dist_s += offset
@@ -209,14 +217,17 @@ def generate_data():
                     straight_little_notgoal.writerow(obs)
                 left_little_notgoal.writerow(obs)
                 big_left.writerow(obs)
-            for _ in range(goal_iter_batch):
+            for _ in range(50 * iter_batch):
                 w.set_state_local(
-                        cur_dist_s + np.random.uniform(-goal_pos_range, goal_pos_range),
+                        cur_dist_s + np.random.uniform(-1.5 * goal_pos_range, 1.5 * goal_pos_range),
                         cur_dist_f,
-                        cur_heading + np.random.uniform(-goal_heading_range, goal_heading_range)
+                        cur_heading + np.random.uniform(-1.5 * goal_heading_range, 1.5 * goal_heading_range)
                         )
                 obs = normalize(w.scan_lidar())
-                straight_little_goal.writerow(obs)
+                if abs(w.car_dist_s - cur_dist_s) < 0.01 and abs(w.car_heading - cur_heading) < 0.02:
+                    straight_little_goal.writerow(obs)
+                else:
+                    straight_little_notgoal.writerow(obs)
                 left_little_notgoal.writerow(obs)
                 big_left.writerow(obs)
             cur_dist_f -= offset
@@ -278,14 +289,17 @@ def generate_data():
                     left_little_notgoal.writerow(obs)
                 straight_little_notgoal.writerow(obs)
                 big_straight.writerow(obs)
-            for _ in range(goal_iter_batch):
+            for _ in range(50 * iter_batch):
                 w.set_state_local(
                         cur_dist_s,
-                        cur_dist_f + np.random.uniform(-goal_pos_range, goal_pos_range),
-                        cur_heading + np.random.uniform(-goal_heading_range, goal_heading_range)
+                        cur_dist_f + np.random.uniform(-1.5 * goal_pos_range, 1.5 * goal_pos_range),
+                        cur_heading + np.random.uniform(-1.5 * goal_heading_range, 1.5 * goal_heading_range)
                         )
                 obs = normalize(w.scan_lidar())
-                left_little_goal.writerow(obs)
+                if abs(w.car_dist_f - cur_dist_f) < 0.01 and abs(w.car_heading - cur_heading) < 0.02:
+                    left_little_goal.writerow(obs)
+                else:
+                    left_little_notgoal.writerow(obs)
                 straight_little_notgoal.writerow(obs)
                 big_straight.writerow(obs)
             cur_dist_s += offset
