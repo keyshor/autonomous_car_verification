@@ -1,6 +1,7 @@
 from Car import World
 from Car import square_hall_right
 from Car import square_hall_left
+from Car import T_hall_right
 from Car import trapezoid_hall_sharp_right
 from Car import triangle_hall_sharp_right
 from Car import triangle_hall_equilateral_right
@@ -45,6 +46,14 @@ def normalize(s):
     spread = [5.0]
     return (s - mean) / spread
 
+def reverse_lidar(data):
+    new_data = np.zeros((data.shape))
+
+    for i in range(len(data)):
+        new_data[i] = data[len(data) - i - 1]
+
+    return new_data
+
 def main(argv):
 
     input_filename = argv[0]
@@ -58,8 +67,9 @@ def main(argv):
         model = models.load_model(input_filename)
 
     #(hallWidths, hallLengths, turns) = square_hall_right(1.5)
+    (hallWidths, hallLengths, turns) = T_hall_right(1.5)
     #(hallWidths, hallLengths, turns) = square_hall_left(1.5)
-    (hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
+    #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
     #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_left(1.5)
 
     #temp = [0.5829178211060824, 8, -0.09540465144355266]
@@ -73,6 +83,8 @@ def main(argv):
     time = 0
 
     state_feedback = False
+
+    reverse_controller = False
 
     lidar_field_of_view = 115
     lidar_num_rays = 21
@@ -108,9 +120,15 @@ def main(argv):
         else:
             delta = action_scale * model.predict(observation.reshape(1,len(observation)))
 
+        if reverse_controller:
+            delta = -delta
+
         delta = np.clip(delta, -action_scale, action_scale)
         
-        observation, reward, done, info = w.step(delta, throttle)
+        observation, reward, done, info = w.step(delta, throttle=throttle)
+
+        if reverse_controller:
+            observation = reverse_lidar(observation)
 
         time += time_step
         

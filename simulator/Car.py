@@ -144,8 +144,8 @@ class World:
             #self.obs_low = np.array([0, 0, -np.pi])
             #self.obs_high = np.array([max(hallLengths), max(hallLengths), np.pi])
 
-            self.obs_low = np.array([0, 0, -2*max(hallWidths), -2*max(hallWidths), -np.pi])
-            self.obs_high = np.array([LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, np.pi])
+            self.obs_low = np.array([0, 0, -2*max(hallWidths), -2*max(hallWidths), -np.pi, -1])
+            self.obs_high = np.array([LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, np.pi, 1])
 
         else:
             self.obs_low = np.zeros(self.lidar_num_rays, )
@@ -266,9 +266,13 @@ class World:
                 dist_f = LIDAR_RANGE
             if dist_f_inner > LIDAR_RANGE:
                 dist_f_inner = LIDAR_RANGE
-            
-            return np.array([self.car_dist_s, self.hallWidths[self.curHall] - self.car_dist_s,\
-                             dist_f, dist_f_inner, self.car_heading])
+
+            if self.turns[self.curHall] <= 0:
+                return np.array([self.car_dist_s, self.hallWidths[self.curHall] - self.car_dist_s,\
+                                 dist_f, dist_f_inner, self.car_heading, np.sign(self.turns[self.curHall])])
+            else:
+                return np.array([self.hallWidths[self.curHall] - self.car_dist_s, self.car_dist_s,\
+                                 dist_f_inner, dist_f, self.car_heading, np.sign(self.turns[self.curHall])])
         else:
             return self.scan_lidar()
 
@@ -498,8 +502,9 @@ class World:
 
             f2_old = np.cos(inner_angle_old) * dist_to_outer_old
             f2_new = np.cos(inner_angle_new) * dist_to_outer_new
-            s_new = np.sin(inner_angle_new) * dist_to_outer_new
             
+            s_new = np.sin(inner_angle_new) * dist_to_outer_new
+
             reward += MOVE_FORWARD_GAIN * (f2_new - f2_old)
 
             reward += MIDDLE_REWARD_GAIN * abs(s_new - self.hallWidths[(self.curHall+1)%self.numHalls] / 2.0)
@@ -541,10 +546,10 @@ class World:
             else: # left turn 
                 # update corner coordinates
                 if self.turns[(self.curHall+1)%self.numHalls] > 0:
-                    flip_sides = True
+                    flip_sides = False
                         
                 else:
-                    flip_sides = False
+                    flip_sides = True
 
                 if self.direction == UP:
                     self.direction = LEFT
@@ -565,8 +570,7 @@ class World:
             self.curHall = self.curHall + 1 # next hallway
             #NB: this case deals with loops in the environment
             if self.curHall >= self.numHalls:
-                self.curHall = 0                    
-
+                self.curHall = 0
 
         self.allX.append(self.car_global_x)
         self.allY.append(self.car_global_y)
@@ -601,11 +605,12 @@ class World:
                 dist_f = LIDAR_RANGE
             if dist_f2 > LIDAR_RANGE:
                 dist_f2 = LIDAR_RANGE
-                
-            return np.array([dist_s, dist_s2, dist_f, dist_f2, car_heading]), reward, terminal, -1
 
-            
-            #return np.array([self.car_dist_s, self.car_dist_f, self.car_heading]), reward, terminal, -1
+            if self.turns[self.curHall] <= 0:
+                return np.array([dist_s, dist_s2, dist_f, dist_f2, car_heading, np.sign(self.turns[self.curHall])]), reward, terminal, -1
+            else:
+                return np.array([dist_s2, dist_s, dist_f2, dist_f, car_heading, np.sign(self.turns[self.curHall])]), reward, terminal, -1
+
         else:
             return self.scan_lidar(), reward, terminal, -1
 
@@ -905,9 +910,10 @@ class World:
                         data[index] = dist_to_bottom_wall /\
                                   np.cos(np.pi/2 - self.turns[self.curHall] + angle * np.pi / 180)
                 else:
+
                     if angle >= self.turns[self.curHall] * 180 / np.pi:
                         dist_to_outer = np.sqrt(self.car_dist_s ** 2 + self.car_dist_f ** 2)                    
-                        outer_angle = -self.turns[self.curHall] + theta_r * np.pi / 180
+                        outer_angle = self.turns[self.curHall] - theta_r * np.pi / 180
                         dist_to_bottom_wall = self.hallWidths[(self.curHall+1) % self.numHalls] - dist_to_outer * np.sin(outer_angle)
                         
                         data[index] = dist_to_bottom_wall /\
@@ -915,7 +921,7 @@ class World:
 
                     elif angle < self.turns[self.curHall] * 180 / np.pi and angle >= theta_r:
                         dist_to_outer = np.sqrt(self.car_dist_s ** 2 + self.car_dist_f ** 2)
-                        outer_angle = -self.turns[self.curHall] + theta_r * np.pi / 180
+                        outer_angle = self.turns[self.curHall] - theta_r * np.pi / 180
                         dist_to_top_wall = dist_to_outer * np.sin(outer_angle)
                     
                         data[index] = dist_to_top_wall /\
@@ -928,11 +934,12 @@ class World:
                     else:
 
                         dist_to_outer = np.sqrt(self.car_dist_s ** 2 + self.car_dist_f ** 2)                    
-                        outer_angle = -self.turns[self.curHall] + theta_outer * np.pi / 180
+                        outer_angle = self.turns[self.curHall] - theta_r * np.pi / 180
                         dist_to_bottom_wall = self.hallWidths[(self.curHall+1) % self.numHalls] - dist_to_outer * np.sin(outer_angle)
                         
                         data[index] = dist_to_bottom_wall /\
                                   np.cos(np.pi/2 + self.turns[self.curHall] - angle * np.pi / 180)
+                        
 
                 # add noise
                 data[index] += np.random.uniform(0, self.lidar_noise)
@@ -967,13 +974,12 @@ class World:
 
         plt.show()
 
-    def plot_lidar(self):
+    def plot_lidar(self, show_halls=True, zero_dist_rays=False, savefilename=''):
 
         fig = plt.figure()
 
-        self.plotHalls()
-
-        plt.scatter([self.car_global_x], [self.car_global_y], c = 'red')
+        if show_halls:
+            self.plotHalls()
 
         data = self.scan_lidar()
 
@@ -984,17 +990,25 @@ class World:
 
         index = 0
 
-        for curAngle in theta_t:    
+        for curAngle in theta_t:
+
+            if zero_dist_rays and data[index] >= LIDAR_RANGE:
+                data[index] = 0
 
             lidX.append(self.car_global_x + data[index] * np.cos(curAngle * np.pi / 180 + self.car_global_heading))
             lidY.append(self.car_global_y + data[index] * np.sin(curAngle * np.pi / 180 + self.car_global_heading))
                           
             index += 1
 
-        plt.scatter(lidX, lidY, c = 'green')
+        plt.scatter(lidX, lidY, c = 'green', s=8)
+
+        plt.scatter([self.car_global_x], [self.car_global_y], c = 'red')
 
         #plt.ylim((-1,11))
         #plt.xlim((-2, np.max(self.hallLengths) + np.max(self.hallWidths)))
+
+        if len(savefilename) > 0:
+            plt.savefig(savefilename)
 
         plt.show()
 
@@ -1073,6 +1087,7 @@ class World:
 
                     # add the length minus the distance from starting outer to inner corner
                     else:
+                        
                         l2x2 = prev_inner_x + np.cos(cur_heading) * (self.hallLengths[i] - wall_dist)
                         l2y2 = prev_inner_y + np.sin(cur_heading) * (self.hallLengths[i] - wall_dist)
 
@@ -1164,6 +1179,9 @@ class World:
                 l1x2 = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
                 l1y2 = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
 
+                #print(l1y2)
+                #print(l2y2)
+
                 # update next outer corner
                 prev_outer_x = l2x2
                 prev_outer_y = l2y2
@@ -1171,8 +1189,8 @@ class World:
                 prev_inner_x = l1x2
                 prev_inner_y = l1y2
 
-            starting_corner_dist = np.sqrt((l1x1 - l2x1) ** 2 + (l1y1 - l2y1) ** 2)
-            wall_dist = np.sqrt(starting_corner_dist ** 2 - self.hallWidths[i] ** 2)
+            starting_corner_dist_sq = (l1x2 - l2x2) ** 2 + (l1y2 - l2y2) ** 2
+            wall_dist = np.sqrt(starting_corner_dist_sq - self.hallWidths[i] ** 2)
 
             cur_heading = next_heading
 
@@ -1183,13 +1201,19 @@ class World:
             plt.plot(l1x, l1y, 'b', linewidth=wallwidth)
             plt.plot(l2x, l2y, 'b', linewidth=wallwidth)
 
-
-
 def square_hall_right(width=1.5):
 
     hallWidths = [width, width, width, width]
     hallLengths = [20, 20, 20, 20]
     turns = [-np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2]
+
+    return (hallWidths, hallLengths, turns)
+
+def T_hall_right(width=1.5):
+
+    hallWidths = [width, width, width, width, width, width, width, width]
+    hallLengths = [10, 10, 10, 10, 27, 10, 10, 10]
+    turns = [-np.pi/2, np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2, -np.pi/2, np.pi/2, -np.pi/2]
 
     return (hallWidths, hallLengths, turns)
 
@@ -1233,10 +1257,29 @@ def triangle_hall_equilateral_right(width=1.5):
 
     return (hallWidths, hallLengths, turns)
 
+def triangle_hall_equilateral_left(width=1.5):
+
+    hallWidths = [width, width, width]
+    hallLengths = [20, 20, 20]
+    turns = [(2 * np.pi) / 3, (2 * np.pi) / 3, (2 * np.pi) / 3]
+
+    return (hallWidths, hallLengths, turns)
+
 def trapezoid_hall_slight_right(width=1.5):
 
     hallWidths = [width, width, width, width]
     hallLengths = [20, 20, 20 + 2 * np.sqrt(200), 20]
     turns = [-np.pi/4, (-3 * np.pi) / 4,  (-3 * np.pi)/4, -np.pi/4]    
+
+    return (hallWidths, hallLengths, turns)            
+
+def complex_track(width=1.5):
+
+    #print(2 * (15 + (10 - 8 - width / np.sin(2 * np.pi / 3)) ))
+    #exit()
+
+    hallWidths = [width, width, width, width, width, width, width, width]
+    hallLengths = [20, 16, 10, 10, 2 * (10 + (10 - 0.5 * (16 - width / np.tan(np.pi / 3)) - width / np.sin(2 * np.pi / 3))), 10, 10, 16]
+    turns = [(-2 * np.pi) / 3, (2 * np.pi) / 3, (-np.pi) / 2, (-np.pi) / 2, (-np.pi) / 2, (-np.pi) / 2, (2 * np.pi) / 3, (-2*np.pi) / 3]
 
     return (hallWidths, hallLengths, turns)            
