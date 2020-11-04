@@ -144,8 +144,8 @@ class World:
             #self.obs_low = np.array([0, 0, -np.pi])
             #self.obs_high = np.array([max(hallLengths), max(hallLengths), np.pi])
 
-            self.obs_low = np.array([0, 0, -2*max(hallWidths), -2*max(hallWidths), -np.pi, -1])
-            self.obs_high = np.array([LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, np.pi, 1])
+            self.obs_low = np.array([0, 0, -2*max(hallWidths), -2*max(hallWidths), -np.pi])
+            self.obs_high = np.array([LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, LIDAR_RANGE, np.pi])
 
         else:
             self.obs_low = np.zeros(self.lidar_num_rays, )
@@ -269,10 +269,10 @@ class World:
 
             if self.turns[self.curHall] <= 0:
                 return np.array([self.car_dist_s, self.hallWidths[self.curHall] - self.car_dist_s,\
-                                 dist_f, dist_f_inner, self.car_heading, np.sign(self.turns[self.curHall])])
+                                 dist_f, dist_f_inner, self.car_heading])
             else:
                 return np.array([self.hallWidths[self.curHall] - self.car_dist_s, self.car_dist_s,\
-                                 dist_f_inner, dist_f, self.car_heading, np.sign(self.turns[self.curHall])])
+                                 dist_f_inner, dist_f, self.car_heading])
         else:
             return self.scan_lidar()
 
@@ -484,6 +484,7 @@ class World:
            and self.car_dist_s >= self.hallWidths[(self.curHall) % self.numHalls] - SAFE_DISTANCE) or\
            self.car_dist_s <= SAFE_DISTANCE:
             print('heading: ' + str(self.car_heading) + ', position: ' + str(self.car_dist_s))
+            
             terminal = True
             reward = CRASH_REWARD
 
@@ -560,7 +561,7 @@ class World:
                 elif self.direction == LEFT:
                     self.direction = DOWN
 
-            # update local car states
+            # update local car states          
             (self.car_dist_s, self.car_dist_f, self.car_heading) = self.next_car_states(flip_sides)
 
             # update corner coordinates
@@ -607,9 +608,9 @@ class World:
                 dist_f2 = LIDAR_RANGE
 
             if self.turns[self.curHall] <= 0:
-                return np.array([dist_s, dist_s2, dist_f, dist_f2, car_heading, np.sign(self.turns[self.curHall])]), reward, terminal, -1
+                return np.array([dist_s, dist_s2, dist_f, dist_f2, car_heading]), reward, terminal, -1
             else:
-                return np.array([dist_s2, dist_s, dist_f2, dist_f, car_heading, np.sign(self.turns[self.curHall])]), reward, terminal, -1
+                return np.array([dist_s2, dist_s, dist_f2, dist_f, car_heading]), reward, terminal, -1
 
         else:
             return self.scan_lidar(), reward, terminal, -1
@@ -625,7 +626,7 @@ class World:
 
         next_dist_s = np.sin(inner_angle) * dist_to_outer
         if flip_sides:
-            next_dist_s = self.hallWidths[(self.curHall+1)%self.numHalls] - self.car_dist_s
+            next_dist_s = self.hallWidths[(self.curHall+1)%self.numHalls] - next_dist_s
 
         next_dist_f = self.hallLengths[(self.curHall+1)%self.numHalls] - np.cos(inner_angle) * dist_to_outer
             
