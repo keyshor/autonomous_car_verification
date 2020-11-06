@@ -58,7 +58,7 @@ def getCornerDist(next_heading=np.pi/2 + TURN_ANGLE, reverse_cur_heading=-np.pi/
 def writeDnnModes(stream, states):
 
     # first mode
-    writeOneMode(stream, 0, states)
+    writeOneMode(stream, 0, states, 'm')
 
     # DNN mode
     writeOneMode(stream, 1, states, 'DNN')
