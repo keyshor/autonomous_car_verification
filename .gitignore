@@ -178,6 +178,7 @@ flowstar/flowstar
 *.flow
 *.plt
 outputs/
+verisig/images
 *.DS_Store
 *.eps
 
