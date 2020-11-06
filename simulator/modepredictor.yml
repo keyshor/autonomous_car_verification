@@ -1,6 +1,6 @@
 activations:
-  1: Tanh
-  2: Tanh
+  1: Linear
+  2: Linear
   3: Linear
 offsets:
   1:
