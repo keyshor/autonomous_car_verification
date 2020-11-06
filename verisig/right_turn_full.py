@@ -167,7 +167,7 @@ def writeDnnJumps(stream, numInputs):
 
     # jump from mode predictor to controller (straight)---------------
     stream.write('\t\tDNN1 -> DNN2\n')
-    stream.write('\t\tguard { clock = 0 _f3 <= _f1 _f2 <= _f1 }\n')
+    stream.write('\t\tguard { clock = 0 _f3 - _f1 <= 0 _f2 - _f1 <= 0 }\n')
     stream.write('\t\treset { ')
     for i in range(numInputs):
         stream.write('_f{ray}\' := f_temp{ray} '.format(ray=i+1))
@@ -178,7 +178,7 @@ def writeDnnJumps(stream, numInputs):
 
     # jump from mode predictor to controller (right)---------------
     stream.write('\t\tDNN1 -> DNN2\n')
-    stream.write('\t\tguard { clock = 0 _f3 <= _f2 _f1 <= _f2 }\n')
+    stream.write('\t\tguard { clock = 0 _f3 - _f2 <= 0 _f1 - _f2 <= 0 }\n')
     stream.write('\t\treset { ')
     for i in range(numInputs):
         stream.write('_f{ray}\' := f_temp{ray} '.format(ray=i+1))
@@ -189,7 +189,7 @@ def writeDnnJumps(stream, numInputs):
 
     # jump from mode predictor to controller (left)---------------
     stream.write('\t\tDNN1 -> DNN2\n')
-    stream.write('\t\tguard { clock = 0 _f2 <= _f3 _f1 <= _f3 }\n')
+    stream.write('\t\tguard { clock = 0 _f2 - _f3 <= 0 _f1 - _f3 <= 0 }\n')
     stream.write('\t\treset { ')
     for i in range(numInputs):
         stream.write('_f{}\' := f_temp{} '.format(i+1, numInputs-i))
