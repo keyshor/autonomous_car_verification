@@ -573,9 +573,9 @@ def writeComposedSystem(filename, initProps, dnn, mode_dnn,
 
 def main(argv):
 
-    dnnYaml = argv[0]
-    numRays = int(argv[1])
-    modeYaml = argv[2]
+    modeYaml = argv[0]
+    dnnYaml = argv[1]
+    numRays = int(argv[2])
 
     # plantPickle = '../plant_models/dynamics_nn_{}.pickle'.format(numRays)
     # gluePickle = '../plant_models/glue_nn_{}.pickle'.format(numRays)
