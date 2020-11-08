@@ -1,7 +1,7 @@
 activations:
-  1: Linear
-  2: Linear
-  3: Linear
+  1: Tanh
+  2: Tanh
+  3: Tanh
 offsets:
   1:
   - 0.08319662511348724
