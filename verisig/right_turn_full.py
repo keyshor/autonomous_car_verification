@@ -653,7 +653,7 @@ def main(argv):
 
     writeComposedSystem(curModelFile, initProps, dnn, mode_dnn, plant, glue, safetyProps, numSteps)
 
-    os.system('../flowstar_verisig/flowstar ' + modeYaml + '' + dnnYaml + ' < ' + curModelFile)
+    os.system('../flowstar_verisig/flowstar ' + modeYaml + ' ' + dnnYaml + ' < ' + curModelFile)
 
 
 if __name__ == '__main__':
