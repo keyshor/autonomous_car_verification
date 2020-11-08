@@ -1,12 +1,12 @@
 #!/usr/bin/python
 
-from keras.models import Sequential
-from keras import models
-from keras import optimizers
+from tensorflow.keras.models import Sequential
+from tensorflow.keras import models
+from tensorflow.keras import optimizers
 from keras.layers.core import Dense, Dropout, Activation
 from keras.layers.normalization import BatchNormalization
 from keras.layers.advanced_activations import LeakyReLU
-from keras.regularizers import l2
+from tensorflow.keras.regularizers import l2
 import numpy as np
 import sys
 import yaml
