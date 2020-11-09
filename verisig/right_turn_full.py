@@ -31,8 +31,8 @@ NORMAL_TO_TOP_WALL = [SIN_CORNER, -COS_CORNER]
 
 POS_LB = 0.65
 POS_UB = 0.85
-HEADING_LB = -0.02
-HEADING_UB = 0.02
+HEADING_LB = -0.005
+HEADING_UB = 0.005
 
 
 def getCornerDist(next_heading=np.pi/2 + TURN_ANGLE, reverse_cur_heading=-np.pi/2,
