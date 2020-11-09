@@ -4,6 +4,9 @@ import sys
 import yaml
 import numpy as np
 
+import subprocess
+from subprocess import PIPE
+
 HALLWAY_WIDTH = 1.5
 HALLWAY_LENGTH = 20
 WALL_LIMIT = 0.15
@@ -617,22 +620,6 @@ def main(argv):
 
     modelFile = modelFolder + '/testModel'
 
-    curLBPos = 0.65
-    posOffset = 0.005
-
-    init_y2 = 8
-    if TURN_ANGLE == -np.pi/2:
-        init_y2 = 6.5
-
-    count = 1
-
-    initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                 'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
-                 'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
-                 'y4 in [-0.005, 0.005]', 'k in [0, 0]',
-                 'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
-                 'theta_l in [0, 0]', 'theta_r in [0, 0]', 'ax in [0, 0]']  # F1/10
-
     with open(dnnYaml, 'rb') as f:
 
         dnn = yaml.load(f)
@@ -649,11 +636,34 @@ def main(argv):
 
         glue = pickle.load(f)
 
-    curModelFile = modelFile + '_' + str(count) + '.model'
+    curLBPos = 0.65
+    posOffset = 0.005
 
-    writeComposedSystem(curModelFile, initProps, dnn, mode_dnn, plant, glue, safetyProps, numSteps)
+    init_y2 = 8
+    if TURN_ANGLE == -np.pi/2:
+        init_y2 = 6.5
 
-    os.system('../flowstar_verisig/flowstar ' + modeYaml + ' ' + dnnYaml + ' < ' + curModelFile)
+    count = 1
+
+    while curLBPos < 0.85:
+
+        initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
+                     'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
+                     'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
+                     'y4 in [-0.005, 0.005]', 'k in [0, 0]',
+                     'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
+                     'theta_l in [0, 0]', 'theta_r in [0, 0]', 'ax in [0, 0]']  # F1/10
+
+        curModelFile = modelFile + '_' + str(count) + '.model'
+
+        writeComposedSystem(curModelFile, initProps, dnn, mode_dnn,
+                            plant, glue, safetyProps, numSteps)
+
+        args = '../flowstar_verisig/flowstar ' + modeYaml + ' ' + dnnYaml + ' < ' + curModelFile
+        subprocess.Popen(args, shell=True, stdin=PIPE)
+
+        curLBPos += posOffset
+        count += 1
 
 
 if __name__ == '__main__':
