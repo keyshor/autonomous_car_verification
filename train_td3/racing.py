@@ -7,6 +7,7 @@ from Car import CAR_MOTOR_CONST
 from Car import HYSTERESIS_CONSTANT
 from Car import trapezoid_hall_sharp_right
 from Car import square_hall_right
+from Car import complex_track
 from Car import square_hall_left
 from Car import triangle_hall_sharp_right
 from Car import triangle_hall_equilateral_right
@@ -26,7 +27,8 @@ SHARP_RIGHT_TURN = 0
 SHARP_LEFT_TURN = 1
 RIGHT_TURN = 2
 LEFT_TURN = 3
-ALL_TURNS = 4
+COMPLEX_TRACK = 4
+ALL_TURNS = 5
 
 def normalize(s, state_feedback=False):
     mean = [2.5]
@@ -97,8 +99,10 @@ if __name__ == "__main__":
     if args.save_model and not os.path.exists("./models"):
         os.makedirs("./models")
 
-    state_feedback = False
-    turn = ALL_TURNS
+    state_feedback = True
+    turn = COMPLEX_TRACK
+
+    episode_length = 80
         
     if turn == RIGHT_TURN:
         (hallWidths, hallLengths, turns) = square_hall_right(1.5)
@@ -115,7 +119,13 @@ if __name__ == "__main__":
     elif turn == SHARP_LEFT_TURN:
         (hallWidths, hallLengths, turns) = triangle_hall_equilateral_left(1.5)
         name = 'sharp_left_turn_'
-        car_dist_f = 8        
+        car_dist_f = 8
+    elif turn == COMPLEX_TRACK:
+        (hallWidths, hallLengths, turns) = complex_track(1.5)
+        name = 'complex_track_'
+        car_dist_f = 8
+        episode_length = 400
+        
     elif turn == ALL_TURNS:
         (hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
         (hallWidths2, hallLengths2, turns2) = square_hall_right(1.5)
@@ -127,7 +137,6 @@ if __name__ == "__main__":
     car_dist_s = hallWidths[0]/2.0
     car_heading = 0
     car_V = 2.4
-    episode_length = 80
     time_step = 0.1
     time = 0
 
