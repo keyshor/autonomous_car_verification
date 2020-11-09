@@ -51,7 +51,7 @@ def sharp_left_data():
         lidar_num_rays, lidar_noise, missing_lidar_rays, True),
         np.loadtxt('left120_test_position.csv', delimiter=','))
 
-def plot_data(world, data, filename):
+def plot_data(world, data, xy_file, xh_file, yh_file):
     plt.clf()
     plt.figure(figsize=(12, 10))
     world.plotHalls()
@@ -69,14 +69,47 @@ def plot_data(world, data, filename):
                 markersize=1
                 )
     plt.legend(markerscale=10)
-    plt.savefig(filename)
+    plt.savefig(xy_file)
+    plt.clf()
+
+    xh_fig, xh_ax = plt.subplots()
+    yh_fig, yh_ax = plt.subplots()
+    for label, array, color in [
+            ('straight', data[np.equal(labels, 0)], 'g'),
+            ('square_right', data[np.equal(labels, 1)], 'b'),
+            ('square_left', data[np.equal(labels, 2)], 'm'),
+            ('sharp_right', data[np.equal(labels, 3)], 'c'),
+            ('sharp_left', data[np.equal(labels, 4)], 'y')
+            ]:
+        xh_ax.plot(
+                array[:,0], array[:,2],
+                f'{color}.', label=label,
+                markersize=1
+                )
+        yh_ax.plot(
+                array[:,1], array[:,2],
+                f'{color}.', label=label,
+                markersize=1
+                )
+    xh_ax.legend(markerscale=10)
+    yh_ax.legend(markerscale=10)
+    xh_ax.set_xlabel('x coordinate')
+    xh_ax.set_ylabel('heading')
+    yh_ax.set_xlabel('y coordinate')
+    yh_ax.set_ylabel('heading')
+    xh_fig.savefig(xh_file)
+    yh_fig.savefig(yh_file)
 
 if __name__ == '__main__':
     square_right_world, square_right_points = square_right_data()
     square_left_world, square_left_points = square_left_data()
     sharp_right_world, sharp_right_points = sharp_right_data()
     sharp_left_world, sharp_left_points = sharp_left_data()
-    plot_data(square_right_world, square_right_points, 'square_right.png')
-    plot_data(square_left_world, square_left_points, 'square_left.png')
-    plot_data(sharp_right_world, sharp_right_points, 'sharp_right.png')
-    plot_data(sharp_left_world, sharp_left_points, 'sharp_left.png')
+    plot_data(square_right_world, square_right_points,
+            'square_right_xy.png', 'square_right_xh.png', 'square_right_yh.png')
+    plot_data(square_left_world, square_left_points,
+            'square_left_xy.png', 'square_left_xh.png', 'square_left_yh.png')
+    plot_data(sharp_right_world, sharp_right_points,
+            'sharp_right_xy.png', 'sharp_right_xh.png', 'sharp_right_yh.png')
+    plot_data(sharp_left_world, sharp_left_points,
+            'sharp_left_xy.png', 'sharp_left_xh.png', 'sharp_left_yh.png')
