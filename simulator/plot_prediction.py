@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 
 def plot_predictions(model):
     test_data = np.loadtxt(
-            os.path.join('decomposed_mode_predictor', 'right_test.csv'),
+            os.path.join('training_data', 'right_test.csv'),
             delimiter=','
             )
     test_position = np.loadtxt(
-            os.path.join('decomposed_mode_predictor', 'right_test_position.csv'),
+            os.path.join('training_data', 'right_test_position.csv'),
             delimiter=','
             )
     test_pred = np.argmax(model.predict(test_data), axis=1)
