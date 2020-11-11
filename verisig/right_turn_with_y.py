@@ -24,7 +24,7 @@ COS_CORNER = np.cos(CORNER_ANGLE)
 
 name = 'sharp_turn_'
 
-EXIT_DISTANCE = 6.5
+EXIT_DISTANCE = 12.5
 
 # just a check to avoid numerical error
 if TURN_ANGLE == -np.pi/2:
@@ -655,14 +655,14 @@ def main(argv):
 
     init_y2 = 8
     if TURN_ANGLE == -np.pi/2:
-        init_y2 = 6.5
+        init_y2 = 7.5
 
     count = 1
 
     while curLBPos < 0.655:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                     'y2 in [' + str(init_y2) + ', ' + str(init_y2+0.005) + ']',
+                     'y2 in [' + str(init_y2-0.005) + ', ' + str(init_y2) + ']',
                      'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
                      'y4 in [-0.005, 0.005]', 'k in [0, 0]',
                      'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',

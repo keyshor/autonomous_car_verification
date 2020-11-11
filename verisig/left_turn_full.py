@@ -20,9 +20,9 @@ CORNER_ANGLE = np.pi - np.abs(TURN_ANGLE)
 SIN_CORNER = np.sin(CORNER_ANGLE)
 COS_CORNER = np.cos(CORNER_ANGLE)
 
-name = 'sharp_turn_'
+name = 'right_turn_'
 
-EXIT_DISTANCE = 6.5
+EXIT_DISTANCE = 12.5
 
 # just a check to avoid numerical error
 if TURN_ANGLE == -np.pi/2:
@@ -642,11 +642,11 @@ def main(argv):
 
     init_y2 = 8
     if TURN_ANGLE == -np.pi/2:
-        init_y2 = 6.5
+        init_y2 = 7.5
 
     count = 1
 
-    while curLBPos < 0.85:
+    while curLBPos < 0.655:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
