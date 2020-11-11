@@ -57,12 +57,13 @@ HALLWAY_LENGTH = 20
 
 POS_LB = 0.6
 POS_UB = 0.9
-
-EXIT_POS_LB = 0.62
-EXIT_POS_UB = 0.63
-
 HEADING_LB = -0.005
 HEADING_UB = 0.005
+
+HEADING_INT_LB = -0.0048
+HEADING_INT_UB = 0.0048
+
+NUM_STEPS = 3
 
 WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
@@ -91,9 +92,7 @@ DYNAMICS['y3'] = 'y3\' = ' + str(CAR_ACCEL_CONST) +\
 DYNAMICS['y4'] = 'y4\' = ' + str(CAR_LENGTH_INV) + ' * y3 * sin(u) / cos(u)\n'
 DYNAMICS['k'] = 'k\' = 0\n'
 DYNAMICS['u'] = 'u\' = 0\n'
-DYNAMICS['ax'] = 'ax\' = 0\n'
 DYNAMICS['clock'] = 'clock\' = 1\n'
-
 
 def getCornerDist(next_heading=np.pi/2 + TURN_ANGLE, reverse_cur_heading=-np.pi/2,\
                   hallLength=HALLWAY_LENGTH, hallWidth=HALLWAY_WIDTH, turnAngle=TURN_ANGLE):
@@ -152,13 +151,13 @@ def writeOneMode(stream, modeIndex, numDnnInputs, dynamics=DYNAMICS, name=''):
     stream.write('\t\t}\n')
 
 
-def writePlantModes(stream, numDnnInputs, name='', dynamics=DYNAMICS):
+def writePlantModes(stream, numDnnInputs, name, dynamics=DYNAMICS):
 
     # init mode
     writeOneMode(stream, 1, numDnnInputs, dynamics=dynamics, name='init_mode')  
 
     # dynamics mode
-    stream.write('\t\t' + name + 'm2\n')
+    stream.write('\t\t' + name + '\n')
     stream.write('\t\t{\n')
     stream.write('\t\t\tnonpoly ode\n')
     stream.write('\t\t\t{\n')
@@ -224,37 +223,20 @@ def writeControllerJumps(stream):
 
 def writePlantJumps(stream):
 
-    # check for new hallway
-    stream.write('\t\t_cont_m2 -> switchm3\n')
-    stream.write('\t\tguard { clock = ' + str(TIME_STEP) + ' y1 <= ' + str(HALLWAY_WIDTH) + ' ax = 0 }\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m2 -> switchm3\n')
-    stream.write('\t\tguard { clock = ' + str(TIME_STEP) + ' y1 <= ' + str(HALLWAY_WIDTH) +\
-                 ' ax = 1 y2 >= ' + str(EXIT_DISTANCE) + ' }\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')    
-
-    stream.write('\t\t_cont_m2 -> switchm3\n')
-    stream.write('\t\tguard { clock = ' + str(TIME_STEP) + ' y1 >= ' + str(HALLWAY_WIDTH) + ' ax = 0 }\n')
-    stream.write('\t\treset { ')
-    stream.write('y1\' := ' + str(SIN_CORNER) + ' * y2 - ' + str(COS_CORNER) + ' * y1 ')
-    stream.write('y2\' := ' + str(HALLWAY_LENGTH) + ' - ' + str(COS_CORNER) + ' * y2 - ' + str(SIN_CORNER) + ' * y1 ')
-    stream.write('y4\' := y4 + ' + str(-TURN_ANGLE) + ' ')
-    stream.write('ax\' := 1 ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
+    pass
 
 def writeController2PlantJumps(stream):
 
     stream.write('\t\tDNN1m1 -> _cont_m2\n')
-    stream.write('\t\tguard { clock = 0 }\n')
+    stream.write('\t\tguard { clock = 0 k <= ' + str(NUM_STEPS - 2) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('u\' := ' + str(PIBY180 * MAX_TURNING_INPUT) + ' * _f1 ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\tDNN1m1 -> _cont_m3\n')
+    stream.write('\t\tguard { clock = 0 k = ' + str(NUM_STEPS - 1) + '}\n')
     stream.write('\t\treset { ')
     stream.write('u\' := ' + str(PIBY180 * MAX_TURNING_INPUT) + ' * _f1 ')
     stream.write('clock\' := 0')
@@ -276,118 +258,165 @@ def writePlant2ControllerJumps(stream):
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    # standard transition
-    wall_dist = getCornerDist()
-    
-    # different cases depending on value of y2
-    stream.write('\t\tswitchm3 -> m0\n')
-    stream.write('\t\tguard { clock = 0 y2 <= 5 }\n')
+    # standard transitions
+    stream.write('\t\t_cont_m2 -> m0\n')
+    stream.write('\t\tguard { clock = 0 }\n')
     stream.write('\t\treset { ')
-    stream.write('k\' := k + 1 ')
-    stream.write('_f1\' := y1 ')
-    stream.write('_f2\' := ' + str(HALLWAY_WIDTH) + ' - y1 ')
-    stream.write('_f3\' := y2 ')
-    stream.write('_f4\' := y2 - ' + str(wall_dist))
-    stream.write('_f5\' := y4 ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\tswitchm3 -> m0\n')
-    stream.write('\t\tguard { clock = 0 y2 >= 5 y2 <= ' + str(5 + wall_dist) + ' }\n')
-    stream.write('\t\treset { ')
-    stream.write('k\' := k + 1 ')
-    stream.write('_f1\' := y1 ')
-    stream.write('_f2\' := ' + str(HALLWAY_WIDTH) + ' - y1 ')
-    stream.write('_f3\' := 5 ')
-    stream.write('_f4\' := y2 - ' + str(wall_dist))
-    stream.write('_f5\' := y4 ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\tswitchm3 -> m0\n')
-    stream.write('\t\tguard { clock = 0 y2 >= ' + str(5 + wall_dist) + ' }\n')
-    stream.write('\t\treset { ')
-    stream.write('k\' := k + 1 ')
     stream.write('_f1\' := y1 ')
     stream.write('_f2\' := ' + str(HALLWAY_WIDTH) + ' - y1 ')
     stream.write('_f3\' := 5 ')
     stream.write('_f4\' := 5 ')
     stream.write('_f5\' := y4 ')
+    stream.write('k\' := k + 1 ')
     stream.write('clock\' := 0')
     stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')        
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 -> m0\n')
+    stream.write('\t\tguard { clock = 0 }\n')
+    stream.write('\t\treset { ')
+    stream.write('_f1\' := y1 ')
+    stream.write('_f2\' := ' + str(HALLWAY_WIDTH) + ' - y1 ')
+    stream.write('_f3\' := 5 ')
+    stream.write('_f4\' := 5 ')
+    stream.write('_f5\' := y4 ')
+    stream.write('k\' := k + 1 ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n') 
 
 
 def writeEndJump(stream):
 
-    stream.write('\t\t_cont_m2 ->  m_end_pl\n')
-    stream.write('\t\tguard { clock = 0.1 y2 <= ' + str(EXIT_DISTANCE) + ' y1 <= ' + str(EXIT_POS_LB) + ' ax = 1}\n')
+    stream.write('\t\t_cont_m2 ->  m_intermediate_hl\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y4 <= ' + str(HEADING_INT_LB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m2 ->  m_end_pr\n')
-    stream.write('\t\tguard { clock = 0.1 y2 <= ' + str(EXIT_DISTANCE) + ' y1 >= ' + str(EXIT_POS_UB) + ' ax = 1}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m2 ->  m_end_hr\n')
-    stream.write('\t\tguard { clock = 0.1 y2 <= ' + str(EXIT_DISTANCE) + ' y4 <= ' + str(HEADING_LB) + ' ax = 1 }\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m2 ->  m_end_hl\n')
-    stream.write('\t\tguard { clock = 0.1 y2 <= ' + str(EXIT_DISTANCE) + ' y4 >= ' + str(HEADING_UB) + ' ax = 1 }\n')
+    stream.write('\t\t_cont_m2 ->  m_intermediate_hr\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y4 >= ' + str(HEADING_INT_UB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sr\n')
-    stream.write('\t\tguard { clock = 0.1 y2 <= ' + str(EXIT_DISTANCE) + ' y3 >= ' + str(2.4 + SPEED_EPSILON) + ' ax = 1 }\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y3 >= ' + str(2.4 + SPEED_EPSILON) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sl\n')
-    stream.write('\t\tguard { clock = 0.1 y2 <= ' + str(EXIT_DISTANCE) + ' y3 <= ' + str(2.4 - SPEED_EPSILON) + ' ax = 1 }\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y3 <= ' + str(2.4 - SPEED_EPSILON) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m2 ->  m_top_wall\n')
-    stream.write('\t\tguard { ' + str(NORMAL_TO_TOP_WALL[0]) + ' * y2 + ' + str(NORMAL_TO_TOP_WALL[1]) + ' * y1  <= ' + WALL_MIN + ' }\n')
+    stream.write('\t\t_cont_m2 ->  m_left_boundary\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y1 <= ' + str(POS_LB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m2 ->  m_left_wall\n')
-    stream.write('\t\tguard { y1 <= ' + WALL_MIN + ' }\n')
+    stream.write('\t\t_cont_m2 ->  m_right_boundary\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y1 >= ' + str(POS_UB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    wall_dist = getCornerDist()
-    stream.write('\t\t_cont_m2 ->  m_right_bottom_wall\n')
-    stream.write('\t\tguard { y1 >= ' + WALL_MAX + ' ' + str(NORMAL_TO_TOP_WALL[0])\
-                 + ' * y2 + ' + str(NORMAL_TO_TOP_WALL[1]) + ' * y1  >= ' + WALL_MAX + ' }\n')
+    # second mode end
+    stream.write('\t\t_cont_m3 ->  m_intermediate_hl\n')
+    stream.write('\t\tguard { clock = 0.1 y4 <= ' + str(HEADING_INT_LB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
+    stream.write('\t\t_cont_m3 ->  m_intermediate_hr\n')
+    stream.write('\t\tguard { clock = 0.1 y4 >= ' + str(HEADING_INT_UB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
 
+    stream.write('\t\t_cont_m3 ->  m_end_sr\n')
+    stream.write('\t\tguard { clock = 0.1 y3 >= ' + str(2.4 + SPEED_EPSILON) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_end_sl\n')
+    stream.write('\t\tguard { clock = 0.1 y3 <= ' + str(2.4 - SPEED_EPSILON) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_left_boundary\n')
+    stream.write('\t\tguard { clock = 0.1 y1 <= ' + str(POS_LB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_right_boundary\n')
+    stream.write('\t\tguard { clock = 0.1 y1 >= ' + str(POS_UB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    # during second mode
+    stream.write('\t\t_cont_m3 ->  m_end_hr\n')
+    stream.write('\t\tguard { y4 <= ' + str(HEADING_LB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_end_hl\n')
+    stream.write('\t\tguard { y4 >= ' + str(HEADING_UB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_end_sr\n')
+    stream.write('\t\tguard { y3 >= ' + str(2.4 + SPEED_EPSILON) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_end_sl\n')
+    stream.write('\t\tguard { y3 <= ' + str(2.4 - SPEED_EPSILON) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_left_boundary\n')
+    stream.write('\t\tguard { y1 <= ' + str(POS_LB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m3 ->  m_right_boundary\n')
+    stream.write('\t\tguard { y1 >= ' + str(POS_UB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+    
+    
 def writeInitCond(stream, initProps, initState='m0'):
 
     stream.write('\tinit\n')
@@ -443,7 +472,7 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         stream.write('\t\tprecision 100\n')
         stream.write('\t\toutput {}\n'.format(os.path.basename(filename[:-6])))
         stream.write('\t\tmax jumps ' + str(5 * numSteps + 2) + '\n')  # F1/10 case study
-        stream.write('\t\tprint off\n')
+        stream.write('\t\tprint on\n')
         stream.write('\t}\n\n')
 
         # encode modes-----------------------------------------------------------------------------
@@ -451,16 +480,16 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         stream.write('\t{\n')
 
         writeControllerModes(stream, numDnnInputs)
-        writePlantModes(stream, numDnnInputs, name='_cont_')
-        writeEndMode(stream, 'm_end_pr', numDnnInputs)
-        writeEndMode(stream, 'm_end_pl', numDnnInputs)
+        writePlantModes(stream, numDnnInputs, name='_cont_m2')
+        writePlantModes(stream, numDnnInputs, name='_cont_m3')
+        writeEndMode(stream, 'm_intermediate_hr', numDnnInputs)
+        writeEndMode(stream, 'm_intermediate_hl', numDnnInputs)
         writeEndMode(stream, 'm_end_hr', numDnnInputs)
         writeEndMode(stream, 'm_end_hl', numDnnInputs)
         writeEndMode(stream, 'm_end_sr', numDnnInputs)
         writeEndMode(stream, 'm_end_sl', numDnnInputs)
-        writeEndMode(stream, 'm_left_wall', numDnnInputs)
-        writeEndMode(stream, 'm_top_wall', numDnnInputs)
-        writeEndMode(stream, 'm_right_bottom_wall', numDnnInputs)
+        writeEndMode(stream, 'm_left_boundary', numDnnInputs)
+        writeEndMode(stream, 'm_right_boundary', numDnnInputs)
 
         # close modes brace
         stream.write('\t}\n')
@@ -496,22 +525,18 @@ def main(argv):
 
         dnn = yaml.load(f)
     
-    numSteps = 65
-
     wall_dist = getCornerDist()
 
     # F1/10 Safety + Reachability
-    safetyProps = 'unsafe\n{\tm_left_wall\n\t{\n\t\ty1 <= ' + WALL_MIN + '\n\n\t}\n' \
-        + '\tm_right_bottom_wall\n\t{'\
-        + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + str(wall_dist - WALL_LIMIT) + '\n\n\t}\n' \
-        + '\tm_top_wall\n\t{\n\t\t ' + str(NORMAL_TO_TOP_WALL[0]) + ' * y2 + ' + str(NORMAL_TO_TOP_WALL[1]) + ' * y1 <= ' + WALL_MIN + '\n\n\t}\n' \
-        + '\t_cont_m2\n\t{\n\t\tk >= ' + str(numSteps-1) + '\n\n\t}\n' \
-        + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(EXIT_POS_LB) + '\n\n\t}\n' \
-        + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(EXIT_POS_UB) + '\n\n\t}\n' \
-        + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
-        + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n' \
-        + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
-        + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}' 
+    safetyProps = 'unsafe\n{\tm_left_boundary\n\t{\n\t\ty1 <= ' + str(POS_LB) + '\n\n\t}\n' \
+                  + '\tm_right_boundary\n\t{'\
+                  + '\n\t\ty1 >= ' + str(POS_UB) + '\n\n\t}\n' \
+                  + '\tm_intermediate_hl\n\t{\n\t\ty4 <= ' + str(HEADING_INT_LB) + '\n\n\t}\n' \
+                  + '\tm_intermediate_hr\n\t{\n\t\ty4 >= ' + str(HEADING_INT_UB) + '\n\n\t}\n' \
+                  + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
+                  + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n' \
+                  + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
+                  + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -519,48 +544,24 @@ def main(argv):
 
     modelFile = modelFolder + '/testModel'
 
-    curLBPos = POS_LB
-    posOffset = 0.05
-    posOffsetY = 0.06
+    curLBPos = 0.62
+    posOffset = 0.01
 
-    y_ub = 8
-    if TURN_ANGLE == -np.pi/2:
-        y_ub = 6.5
-        
-    cur_y_lb = y_ub - UNSAFE_Y
+    init_y2 = 12
 
     count = 1
 
-    num_x_instances = round((POS_UB - POS_LB) / float(posOffset))
-    num_y_instances = round(UNSAFE_Y / float(posOffsetY))
+    initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
+                 'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
+                 'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
+                 'y4 in [' + str(HEADING_LB) + ', ' + str(HEADING_UB) + ']', 'k in [0, 0]', 'u in [0, 0]']  # F1/10
 
-    x_ind = 0
-    y_ind = 0
-    
-    while x_ind < num_x_instances:
+    curModelFile = modelFile + '_' + str(count) + '.model'
 
-        while y_ind < num_y_instances:
+    writeComposedSystem(curModelFile, initProps, dnn, safetyProps, NUM_STEPS)
 
-            initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                         'y2 in [' + str(cur_y_lb) + ', ' + str(cur_y_lb + posOffsetY) + ']',
-                         'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
-                         'y4 in [' + str(HEADING_LB) + ', ' + str(HEADING_UB) + ']', 'k in [0, 0]', 'u in [0, 0]']  # F1/10
-
-            curModelFile = modelFile + '_' + str(count) + '.model'
-
-            writeComposedSystem(curModelFile, initProps, dnn, safetyProps, numSteps)
-
-            args = '../flowstar_verisig/flowstar ' + dnnYaml + ' < ' + curModelFile
-            _ = subprocess.Popen(args, shell=True, stdin=PIPE)
-
-            cur_y_lb += posOffsetY
-            count += 1
-            y_ind += 1
-            
-        curLBPos += posOffset
-        x_ind += 1
-        cur_y_lb = y_ub - UNSAFE_Y
-        y_ind = 0
+    args = '../flowstar_verisig/flowstar ' + dnnYaml + ' < ' + curModelFile
+    _ = subprocess.Popen(args, shell=True, stdin=PIPE)
 
 
 if __name__ == '__main__':
