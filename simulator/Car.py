@@ -28,7 +28,7 @@ MAX_THROTTLE = 50 # just used to compute maximum possible velocity
 STEP_REWARD_GAIN = 5
 INPUT_REWARD_GAIN = -0.05
 CRASH_REWARD = -100
-MIDDLE_REWARD_GAIN = -0.5
+MIDDLE_REWARD_GAIN = -2
 HEADING_GAIN = -3
 MOVE_FORWARD_GAIN = 10
 REGION3_ENTER_GAIN = 0#100
@@ -1180,9 +1180,6 @@ class World:
                 l1x2 = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
                 l1y2 = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
 
-                #print(l1y2)
-                #print(l2y2)
-
                 # update next outer corner
                 prev_outer_x = l2x2
                 prev_outer_y = l2y2
@@ -1276,11 +1273,18 @@ def trapezoid_hall_slight_right(width=1.5):
 
 def complex_track(width=1.5):
 
-    #print(2 * (15 + (10 - 8 - width / np.sin(2 * np.pi / 3)) ))
-    #exit()
+    l1 = 20
+    l2 = 16
+    l3 = 15
+    l4 = 15
+
+    y = width / np.sin(np.pi / 3)
+    delta = width / np.tan(np.pi / 3)
+    z = (l2 - delta) / 2.0
+    x = l1 / 2.0 - z - y
 
     hallWidths = [width, width, width, width, width, width, width, width]
-    hallLengths = [20, 16, 10, 10, 2 * (10 + (10 - 0.5 * (16 - width / np.tan(np.pi / 3)) - width / np.sin(2 * np.pi / 3))), 10, 10, 16]
+    hallLengths = [l1, l2, l3, l4, 2 * (l3 + x), l4, l3, l2]
     turns = [(-2 * np.pi) / 3, (2 * np.pi) / 3, (-np.pi) / 2, (-np.pi) / 2, (-np.pi) / 2, (-np.pi) / 2, (2 * np.pi) / 3, (-2*np.pi) / 3]
 
-    return (hallWidths, hallLengths, turns)            
+    return (hallWidths, hallLengths, turns)
