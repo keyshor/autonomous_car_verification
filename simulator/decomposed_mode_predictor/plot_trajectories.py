@@ -8,6 +8,7 @@ from Car import trapezoid_hall_sharp_right
 from Car import triangle_hall_sharp_right
 from Car import triangle_hall_equilateral_right
 from Car import T_hall_right
+from Car import complex_track
 import numpy as np
 import random
 from tensorflow.keras import models
@@ -139,9 +140,10 @@ def main(argv):
             'sharp_right_little.h5', 'sharp_left_little.h5'
             )
 
-    (hallWidths, hallLengths, turns) = T_hall_right(1.5)
+    #(hallWidths, hallLengths, turns) = T_hall_right(1.5)
     #(hallWidths, hallLengths, turns) = square_hall_left(1.5)
     #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
+    (hallWidths, hallLengths, turns) = complex_track(1.5)
     
     car_dist_s = hallWidths[0]/2.0
     car_dist_f = 6.5
@@ -181,10 +183,20 @@ def main(argv):
     allY = []
     allR = []
 
-    posX = []
-    posY = []
-    negX = []
-    negY = []
+    #posX = []
+    #posY = []
+    #negX = []
+    #negY = []
+    straight_pred_x = []
+    square_right_pred_x = []
+    square_left_pred_x = []
+    sharp_right_pred_x = []
+    sharp_left_pred_x = []
+    straight_pred_y = []
+    square_right_pred_y = []
+    square_left_pred_y = []
+    sharp_right_pred_y = []
+    sharp_left_pred_y = []
 
     # initial uncertainty
     init_pos_noise = 0.1
@@ -225,59 +237,75 @@ def main(argv):
             delta = steering_ctrl.predict(observation, mode)
 
             # verifying mode predictor
-            if w.car_dist_f >= 4 and w.direction == UP:
-                if mode == Modes.STRAIGHT:
-                    posX.append(w.car_global_x)
-                    posY.append(w.car_global_y)
-                else:
-                    it += 1
-                    negX.append(w.car_global_x)
-                    negY.append(w.car_global_y)
+            #if w.car_dist_f >= 4 and w.direction == UP:
+            #    if mode == Modes.STRAIGHT:
+            #        posX.append(w.car_global_x)
+            #        posY.append(w.car_global_y)
+            #    else:
+            #        it += 1
+            #        negX.append(w.car_global_x)
+            #        negY.append(w.car_global_y)
 
-            if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == UP:
-                if mode == Modes.SQUARE_RIGHT:
-                    posX.append(w.car_global_x)
-                    posY.append(w.car_global_y)
-                else:
-                    it += 1
-                    negX.append(w.car_global_x)
-                    negY.append(w.car_global_y)
+            #if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == UP:
+            #    if mode == Modes.SQUARE_RIGHT:
+            #        posX.append(w.car_global_x)
+            #        posY.append(w.car_global_y)
+            #    else:
+            #        it += 1
+            #        negX.append(w.car_global_x)
+            #        negY.append(w.car_global_y)
 
-            if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == UP:
-                if mode == Modes.STRAIGHT:
-                    posX.append(w.car_global_x)
-                    posY.append(w.car_global_y)
-                else:
-                    it += 1
-                    negX.append(w.car_global_x)
-                    negY.append(w.car_global_y)
+            #if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == UP:
+            #    if mode == Modes.STRAIGHT:
+            #        posX.append(w.car_global_x)
+            #        posY.append(w.car_global_y)
+            #    else:
+            #        it += 1
+            #        negX.append(w.car_global_x)
+            #        negY.append(w.car_global_y)
 
-            if w.car_dist_f >= 4 and w.direction == RIGHT:
-                if mode == Modes.STRAIGHT:
-                    posX.append(w.car_global_x)
-                    posY.append(w.car_global_y)
-                else:
-                    it += 1
-                    negX.append(w.car_global_x)
-                    negY.append(w.car_global_y)
+            #if w.car_dist_f >= 4 and w.direction == RIGHT:
+            #    if mode == Modes.STRAIGHT:
+            #        posX.append(w.car_global_x)
+            #        posY.append(w.car_global_y)
+            #    else:
+            #        it += 1
+            #        negX.append(w.car_global_x)
+            #        negY.append(w.car_global_y)
 
-            if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == RIGHT:
-                if mode == Modes.SQUARE_LEFT:
-                    posX.append(w.car_global_x)
-                    posY.append(w.car_global_y)
-                else:
-                    it += 1
-                    negX.append(w.car_global_x)
-                    negY.append(w.car_global_y)
+            #if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == RIGHT:
+            #    if mode == Modes.SQUARE_LEFT:
+            #        posX.append(w.car_global_x)
+            #        posY.append(w.car_global_y)
+            #    else:
+            #        it += 1
+            #        negX.append(w.car_global_x)
+            #        negY.append(w.car_global_y)
 
-            if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == RIGHT:
-                if mode == Modes.STRAIGHT:
-                    posX.append(w.car_global_x)
-                    posY.append(w.car_global_y)
-                else:
-                    it += 1
-                    negX.append(w.car_global_x)
-                    negY.append(w.car_global_y) 
+            #if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == RIGHT:
+            #    if mode == Modes.STRAIGHT:
+            #        posX.append(w.car_global_x)
+            #        posY.append(w.car_global_y)
+            #    else:
+            #        it += 1
+            #        negX.append(w.car_global_x)
+            #        negY.append(w.car_global_y) 
+
+            if mode == Modes.STRAIGHT:
+                straight_pred_x.append(w.car_global_x)
+                straight_pred_y.append(w.car_global_y)
+            elif mode == Modes.SQUARE_RIGHT:
+                square_right_pred_x.append(w.car_global_x)
+                square_right_pred_y.append(w.car_global_y)
+            elif mode == Modes.SQUARE_LEFT:
+                square_left_pred_x.append(w.car_global_x)
+                square_left_pred_y.append(w.car_global_y)
+            elif mode == Modes.SHARP_RIGHT:
+                sharp_right_pred_x.append(w.car_global_x)
+                sharp_right_pred_y.append(w.car_global_y)
+            elif mode == Modes.SHARP_LEFT:
+                sharp_left_pred_x.append(w.car_global_x)
+                sharp_left_pred_y.append(w.car_global_y)
             
             observation, reward, done, info = w.step(delta, throttle)
 
@@ -291,7 +319,7 @@ def main(argv):
             rew += reward
 
     print('number of crashes: ' + str(num_unsafe))
-    print(it)
+    #print(it)
     fig = plt.figure(figsize=(12,10))
     w.plotHalls()
     
@@ -299,14 +327,20 @@ def main(argv):
     # plt.xlim((-1.75,15.25))
     # plt.tick_params(labelsize=20)
 
-    plt.scatter(posX, posY, s = 1, c = 'r')
-    plt.scatter(negX, negY, s = 1, c = 'b')
+    #plt.scatter(posX, posY, s = 1, c = 'r')
+    #plt.scatter(negX, negY, s = 1, c = 'b')
     # plt.plot(negX, negY, 'b')
+    plt.scatter(straight_pred_x, straight_pred_y, s=1, c='r', label='straight')
+    plt.scatter(square_right_pred_x, square_right_pred_y, s=1, c='g', label='square right')
+    plt.scatter(square_left_pred_x, square_left_pred_y, s=1, c='b', label='square left')
+    plt.scatter(sharp_right_pred_x, sharp_right_pred_y, s=1, c='m', label='sharp right')
+    plt.scatter(sharp_left_pred_x, sharp_left_pred_y, s=1, c='c', label='sharp left')
 
     # for i in range(numTrajectories):
     #     plt.plot(allX[i], allY[i], 'r-')
 
     #plt.show()
+    plt.legend(markerscale=10)
     plt.savefig('trajectories.png')
     
 if __name__ == '__main__':
