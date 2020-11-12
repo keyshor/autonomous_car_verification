@@ -32,8 +32,8 @@ def main():
 
     w.plotHalls()
 
-    #plt.ylim((-1,11))
-    plt.xlim((-2,22))
+    plt.ylim((-16.5,16.5))
+    plt.xlim((-2,27))
     
     plt.savefig('track.png')
     
