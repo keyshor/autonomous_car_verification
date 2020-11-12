@@ -1,3 +1,4 @@
+import os
 import sys
 sys.path.append('..')
 from Car import World
@@ -11,9 +12,8 @@ import numpy as np
 import random
 from tensorflow.keras import models
 import matplotlib.pyplot as plt
-import sys
 import yaml
-from enum import IntEnum, auto
+from enum import Enum, auto
 
 # direction parameters
 UP = 0
@@ -21,12 +21,26 @@ DOWN = 1
 RIGHT = 2
 LEFT = 3
 
-class Modes(IntEnum):
-    STRAIGHT = 0
-    SQUARE_RIGHT = 1
-    SQUARE_LEFT = 2
-    SHARP_RIGHT = 3
-    SHARP_LEFT = 4
+class Modes(Enum):
+    STRAIGHT = auto()
+    SQUARE_RIGHT = auto()
+    SQUARE_LEFT = auto()
+    SHARP_RIGHT = auto()
+    SHARP_LEFT = auto()
+
+def int2mode(i):
+    if i == 0:
+        return Modes.STRAIGHT
+    elif i == 1:
+        return Modes.SQUARE_RIGHT
+    elif i == 2:
+        return Modes.SQUARE_LEFT
+    elif i == 3:
+        return Modes.SHARP_RIGHT
+    elif i == 4:
+        return Modes.SHARP_LEFT
+    else:
+        raise ValueError
 
 class ComposedModePredictor:
     def __init__(self, big_file,
@@ -45,8 +59,25 @@ class ComposedModePredictor:
     def predict(self, observation):
         obs = observation.reshape(1, -1)
         if self.little[self.current_mode].predict(obs).round()[0] > 0.5:
-            self.current_mode = np.argmax(self.big.predict(obs))
+            self.current_mode = int2mode(np.argmax(self.big.predict(obs)))
         return self.current_mode
+
+class ComposedSteeringPredictor:
+    def __init__(self, square_file, sharp_file, action_scale):
+        with open(square_file, 'rb') as f:
+            self.square_ctrl = yaml.load(f, Loader=yaml.CLoader)
+        with open(sharp_file, 'rb') as f:
+            self.sharp_ctrl = yaml.load(f, Loader=yaml.CLoader)
+        self.action_scale = action_scale
+
+    def predict(self, observation, mode):
+        if mode == Modes.STRAIGHT or mode == Modes.SQUARE_RIGHT or mode == Modes.SQUARE_LEFT:
+            delta = self.action_scale * predict(self.square_ctrl, observation.reshape(1, -1))
+        else:
+            delta = self.action_scale * predict(self.sharp_ctrl, observation.reshape(1, -1))
+        if mode == Modes.SQUARE_LEFT or mode == Modes.SHARP_LEFT:
+            delta = -delta
+        return delta
 
 def predict(model, inputs):
     weights = {}
@@ -90,15 +121,15 @@ def reverse_lidar(data):
     return new_data
 
 def main(argv):
-    input_right = argv[0]
+    #input_right = argv[0]
     
-    if 'yml' in input_right:
-        with open(input_right, 'rb') as f:
-            
-            right_ctrl = yaml.load(f)
-    else:
-    
-        right_ctrl = models.load_model(input_right)
+    #if 'yml' in input_right:
+    #    with open(input_right, 'rb') as f:
+    #        
+    #        right_ctrl = yaml.load(f)
+    #else:
+    #
+    #    right_ctrl = models.load_model(input_right)
     
     numTrajectories = 100
     #mode_predictor = models.load_model("modepredictor.h5")
@@ -139,6 +170,12 @@ def main(argv):
 
     throttle = 16
     action_scale = float(w.action_space.high[0])
+
+    steering_ctrl = ComposedSteeringPredictor(
+            os.path.join('..', '..', 'verisig', 'tanh64x64_right_turn_lidar.yml'),
+            os.path.join('..', '..', 'verisig', 'tanh64x64_sharp_turn_lidar.yml'),
+            action_scale
+            )
     
     allX = []
     allY = []
@@ -172,23 +209,24 @@ def main(argv):
             #mode = np.argmax(mode_predictor.predict(observation.reshape(1,len(observation)))[0])
             mode = mode_predictor.predict(observation)
             
-            if mode == 2:
+            if mode == Modes.SQUARE_LEFT or mode == Modes.SHARP_LEFT:
                 observation = reverse_lidar(observation)
             
             allX.append(w.car_global_x)
             allY.append(w.car_global_y)
             
-            if 'yml' in input_right:
-                delta = action_scale * predict(right_ctrl, observation.reshape(1,len(observation)))
-            else:
-                delta = action_scale * right_ctrl.predict(observation.reshape(1,len(observation)))
-            
-            if mode == 2:
-                delta = -delta
+            #if 'yml' in input_right:
+            #    delta = action_scale * predict(right_ctrl, observation.reshape(1,len(observation)))
+            #else:
+            #    delta = action_scale * right_ctrl.predict(observation.reshape(1,len(observation)))
+            #
+            #if mode == Modes.SQUARE_LEFT or mode == Modes.SHARP_LEFT:
+            #    delta = -delta
+            delta = steering_ctrl.predict(observation, mode)
 
             # verifying mode predictor
             if w.car_dist_f >= 4 and w.direction == UP:
-                if mode == 0:
+                if mode == Modes.STRAIGHT:
                     posX.append(w.car_global_x)
                     posY.append(w.car_global_y)
                 else:
@@ -197,7 +235,7 @@ def main(argv):
                     negY.append(w.car_global_y)
 
             if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == UP:
-                if mode == 1:
+                if mode == Modes.SQUARE_RIGHT:
                     posX.append(w.car_global_x)
                     posY.append(w.car_global_y)
                 else:
@@ -206,7 +244,7 @@ def main(argv):
                     negY.append(w.car_global_y)
 
             if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == UP:
-                if mode == 0:
+                if mode == Modes.STRAIGHT:
                     posX.append(w.car_global_x)
                     posY.append(w.car_global_y)
                 else:
@@ -215,7 +253,7 @@ def main(argv):
                     negY.append(w.car_global_y)
 
             if w.car_dist_f >= 4 and w.direction == RIGHT:
-                if mode == 0:
+                if mode == Modes.STRAIGHT:
                     posX.append(w.car_global_x)
                     posY.append(w.car_global_y)
                 else:
@@ -224,7 +262,7 @@ def main(argv):
                     negY.append(w.car_global_y)
 
             if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == RIGHT:
-                if mode == 2:
+                if mode == Modes.SQUARE_LEFT:
                     posX.append(w.car_global_x)
                     posY.append(w.car_global_y)
                 else:
@@ -233,7 +271,7 @@ def main(argv):
                     negY.append(w.car_global_y)
 
             if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == RIGHT:
-                if mode == 0:
+                if mode == Modes.STRAIGHT:
                     posX.append(w.car_global_x)
                     posY.append(w.car_global_y)
                 else:
