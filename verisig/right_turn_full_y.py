@@ -652,32 +652,40 @@ def main(argv):
 
     curLBPos = 0.65
     posOffset = 0.005
+    posOffset_y2 = 0.005
 
     init_y2 = 8
     if TURN_ANGLE == -np.pi/2:
         init_y2 = 7.5
+    cur_init_y2 = init_y2
 
     count = 1
 
-    while curLBPos < 0.655:
+    while curLBPos < 0.85:
 
-        initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                     'y2 in [' + str(init_y2-0.005) + ', ' + str(init_y2) + ']',
-                     'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
-                     'y4 in [-0.005, 0.005]', 'k in [0, 0]',
-                     'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
-                     'theta_l in [0, 0]', 'theta_r in [0, 0]', 'ax in [0, 0]']  # F1/10
+        while cur_init_y2 > init_y2 - 0.25:
 
-        curModelFile = modelFile + '_' + str(count) + '.model'
+            initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
+                         'y2 in [' + str(cur_init_y2-posOffset_y2) + ', ' + str(cur_init_y2) + ']',
+                         'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' +
+                         str(2.4 + SPEED_EPSILON) + ']',
+                         'y4 in [-0.005, 0.005]', 'k in [0, 0]',
+                         'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',
+                         'theta_l in [0, 0]', 'theta_r in [0, 0]', 'ax in [0, 0]']  # F1/10
 
-        writeComposedSystem(curModelFile, initProps, dnn, mode_dnn,
-                            plant, glue, safetyProps, numSteps)
+            curModelFile = modelFile + '_' + str(count) + '.model'
 
-        args = '../flowstar_verisig/flowstar ' + modeYaml + ' ' + dnnYaml + ' < ' + curModelFile
-        subprocess.Popen(args, shell=True, stdin=PIPE)
+            writeComposedSystem(curModelFile, initProps, dnn, mode_dnn,
+                                plant, glue, safetyProps, numSteps)
+
+            args = '../flowstar_verisig/flowstar ' + modeYaml + ' ' + dnnYaml + ' < ' + curModelFile
+            subprocess.Popen(args, shell=True, stdin=PIPE)
+
+            count += 1
+            cur_init_y2 -= posOffset_y2
 
         curLBPos += posOffset
-        count += 1
+        cur_init_y2 = init_y2
 
 
 if __name__ == '__main__':

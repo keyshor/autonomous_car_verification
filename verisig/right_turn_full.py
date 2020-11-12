@@ -645,7 +645,7 @@ def main(argv):
 
     count = 1
 
-    while curLBPos < 0.655:
+    while curLBPos < 0.85:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
