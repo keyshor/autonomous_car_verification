@@ -16,12 +16,6 @@ import matplotlib.pyplot as plt
 import yaml
 from enum import Enum
 
-# direction parameters
-UP = 0
-DOWN = 1
-RIGHT = 2
-LEFT = 3
-
 class Modes(Enum):
     STRAIGHT = 'STRAIGHT'
     SQUARE_RIGHT = 'SQUARE_RIGHT'
@@ -29,6 +23,12 @@ class Modes(Enum):
     SHARP_RIGHT = 'SHARP_RIGHT'
     SHARP_LEFT = 'SHARP_LEFT'
 
+def sigmoid(x):
+
+    sigm = 1. / (1. + np.exp(-x))
+
+    return sigm
+    
 def int2mode(i):
     if i == 0:
         return Modes.STRAIGHT
@@ -52,7 +52,6 @@ class ComposedModePredictor:
 
         if yml:
             with open(big_file, 'rb') as f:
-                print(big_file)
                 self.big = yaml.load(f, Loader=yaml.CLoader)
 
             self.little = {}
@@ -82,6 +81,8 @@ class ComposedModePredictor:
         obs = observation.reshape(1, -1)
 
         if self.yml:
+            #print(self.current_mode)
+            #print(predict(self.little[self.current_mode], obs))
             if predict(self.little[self.current_mode], obs).round()[0] > 0.5:
                 self.current_mode = int2mode(np.argmax(predict(self.big, obs)))
         else:
@@ -162,14 +163,14 @@ def main(argv):
             'square_right_little.yml', 'square_left_little.yml',
             'sharp_right_little.yml', 'sharp_left_little.yml', True)    
 
-    #(hallWidths, hallLengths, turns) = T_hall_right(1.5)
+    (hallWidths, hallLengths, turns) = T_hall_right(1.5)
     #(hallWidths, hallLengths, turns) = square_hall_left(1.5)
     #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
-    (hallWidths, hallLengths, turns) = complex_track(1.5)
+    #(hallWidths, hallLengths, turns) = complex_track(1.5)
     
     car_dist_s = hallWidths[0]/2.0
     car_dist_f = 6.5
-    car_heading = 0
+    car_heading = 0.005
     car_V = 2.4
     episode_length = 400
     time_step = 0.1
@@ -205,10 +206,6 @@ def main(argv):
     allY = []
     allR = []
 
-    #posX = []
-    #posY = []
-    #negX = []
-    #negY = []
     straight_pred_x = []
     square_right_pred_x = []
     square_left_pred_x = []
@@ -222,8 +219,15 @@ def main(argv):
 
     # initial uncertainty
     init_pos_noise = 0.1
-    init_heading_noise = 0.2
+    init_heading_noise = 0.005
     it = 0
+
+    min_s = 10
+    max_s = 0
+    min_f = 10
+    max_f = 0
+    min_h = 10
+    max_h = -10
 
     for step in range(numTrajectories):
 
@@ -231,18 +235,15 @@ def main(argv):
 
         init_cond = [w.car_dist_f, w.car_dist_s, w.car_heading, w.car_V]
 
-        #observation = w.scan_lidar()
-
         rew = 0
 
         for e in range(episode_length):
             
             if not state_feedback:
                 observation = normalize(observation)
-            
-            #mode = np.argmax(mode_predictor.predict(observation.reshape(1,len(observation)))[0])
+
             mode = mode_predictor.predict(observation)
-            
+
             if mode == Modes.SQUARE_LEFT or mode == Modes.SHARP_LEFT:
                 observation = reverse_lidar(observation)
             
@@ -273,10 +274,29 @@ def main(argv):
                 
                 if e < episode_length - 1:
                     num_unsafe += 1
-                
+
+                if w.car_dist_s > max_s:
+                    max_s = w.car_dist_s
+                if w.car_dist_s < min_s:
+                    min_s = w.car_dist_s
+                    
+                if w.car_dist_f > max_f:
+                    max_f = w.car_dist_f
+                if w.car_dist_f < min_f:
+                    min_f = w.car_dist_f
+
+                if w.car_heading > max_h:
+                    max_h = w.car_heading
+                if w.car_heading < min_h:
+                    min_h = w.car_heading
+                                
                 break
 
             rew += reward
+
+    print('s bounds: [' + str(min_s) + ', ' + str(max_s) + ']')
+    print('f bounds: [' + str(min_f) + ', ' + str(max_f) + ']')
+    print('h bounds: [' + str(min_h) + ', ' + str(max_h) + ']')
 
     print('number of crashes: ' + str(num_unsafe))
     #print(it)
