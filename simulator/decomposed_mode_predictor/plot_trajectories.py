@@ -45,22 +45,48 @@ def int2mode(i):
 
 class ComposedModePredictor:
     def __init__(self, big_file,
-            straight_file, square_right_file, square_left_file,
-            sharp_right_file, sharp_left_file):
-        self.big = models.load_model(big_file)
-        self.little = {
-                Modes.STRAIGHT: models.load_model(straight_file),
-                Modes.SQUARE_RIGHT: models.load_model(square_right_file),
-                Modes.SQUARE_LEFT: models.load_model(square_left_file),
-                Modes.SHARP_RIGHT: models.load_model(sharp_right_file),
-                Modes.SHARP_LEFT: models.load_model(sharp_left_file)
-                }
+                 straight_file, square_right_file, square_left_file,
+                 sharp_right_file, sharp_left_file, yml=False):
+
+        self.yml = yml
+
+        if yml:
+            with open(big_file, 'rb') as f:
+                print(big_file)
+                self.big = yaml.load(f, Loader=yaml.CLoader)
+
+            self.little = {}
+            with open(straight_file, 'rb') as f:
+                self.little[Modes.STRAIGHT] = yaml.load(f, Loader=yaml.CLoader)
+            with open(square_right_file, 'rb') as f:
+                self.little[Modes.SQUARE_RIGHT] = yaml.load(f, Loader=yaml.CLoader)
+            with open(square_left_file, 'rb') as f:
+                self.little[Modes.SQUARE_LEFT] = yaml.load(f, Loader=yaml.CLoader)
+            with open(sharp_right_file, 'rb') as f:
+                self.little[Modes.SHARP_RIGHT] = yaml.load(f, Loader=yaml.CLoader)
+            with open(sharp_left_file, 'rb') as f:
+                self.little[Modes.SHARP_LEFT] = yaml.load(f, Loader=yaml.CLoader)                
+        else:
+        
+            self.big = models.load_model(big_file)
+            self.little = {
+                    Modes.STRAIGHT: models.load_model(straight_file),
+                    Modes.SQUARE_RIGHT: models.load_model(square_right_file),
+                    Modes.SQUARE_LEFT: models.load_model(square_left_file),
+                    Modes.SHARP_RIGHT: models.load_model(sharp_right_file),
+                    Modes.SHARP_LEFT: models.load_model(sharp_left_file)
+                    }
         self.current_mode = Modes.STRAIGHT
 
     def predict(self, observation):
         obs = observation.reshape(1, -1)
-        if self.little[self.current_mode].predict(obs).round()[0] > 0.5:
-            self.current_mode = int2mode(np.argmax(self.big.predict(obs)))
+
+        if self.yml:
+            if predict(self.little[self.current_mode], obs).round()[0] > 0.5:
+                self.current_mode = int2mode(np.argmax(predict(self.big, obs)))
+        else:
+            if self.little[self.current_mode].predict(obs).round()[0] > 0.5:
+                self.current_mode = int2mode(np.argmax(self.big.predict(obs)))
         return self.current_mode
 
 class ComposedSteeringPredictor:
@@ -122,23 +148,19 @@ def reverse_lidar(data):
     return new_data
 
 def main(argv):
-    #input_right = argv[0]
-    
-    #if 'yml' in input_right:
-    #    with open(input_right, 'rb') as f:
-    #        
-    #        right_ctrl = yaml.load(f)
-    #else:
-    #
-    #    right_ctrl = models.load_model(input_right)
     
     numTrajectories = 100
-    #mode_predictor = models.load_model("modepredictor.h5")
+
+    # mode_predictor = ComposedModePredictor(
+    #         'big.h5', 'straight_little.h5',
+    #         'square_right_little.h5', 'square_left_little.h5',
+    #         'sharp_right_little.h5', 'sharp_left_little.h5'
+    #         )
+
     mode_predictor = ComposedModePredictor(
-            'big.h5', 'straight_little.h5',
-            'square_right_little.h5', 'square_left_little.h5',
-            'sharp_right_little.h5', 'sharp_left_little.h5'
-            )
+            'big.yml', 'straight_little.yml',
+            'square_right_little.yml', 'square_left_little.yml',
+            'sharp_right_little.yml', 'sharp_left_little.yml', True)    
 
     #(hallWidths, hallLengths, turns) = T_hall_right(1.5)
     #(hallWidths, hallLengths, turns) = square_hall_left(1.5)
@@ -227,69 +249,7 @@ def main(argv):
             allX.append(w.car_global_x)
             allY.append(w.car_global_y)
             
-            #if 'yml' in input_right:
-            #    delta = action_scale * predict(right_ctrl, observation.reshape(1,len(observation)))
-            #else:
-            #    delta = action_scale * right_ctrl.predict(observation.reshape(1,len(observation)))
-            #
-            #if mode == Modes.SQUARE_LEFT or mode == Modes.SHARP_LEFT:
-            #    delta = -delta
             delta = steering_ctrl.predict(observation, mode)
-
-            # verifying mode predictor
-            #if w.car_dist_f >= 4 and w.direction == UP:
-            #    if mode == Modes.STRAIGHT:
-            #        posX.append(w.car_global_x)
-            #        posY.append(w.car_global_y)
-            #    else:
-            #        it += 1
-            #        negX.append(w.car_global_x)
-            #        negY.append(w.car_global_y)
-
-            #if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == UP:
-            #    if mode == Modes.SQUARE_RIGHT:
-            #        posX.append(w.car_global_x)
-            #        posY.append(w.car_global_y)
-            #    else:
-            #        it += 1
-            #        negX.append(w.car_global_x)
-            #        negY.append(w.car_global_y)
-
-            #if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == UP:
-            #    if mode == Modes.STRAIGHT:
-            #        posX.append(w.car_global_x)
-            #        posY.append(w.car_global_y)
-            #    else:
-            #        it += 1
-            #        negX.append(w.car_global_x)
-            #        negY.append(w.car_global_y)
-
-            #if w.car_dist_f >= 4 and w.direction == RIGHT:
-            #    if mode == Modes.STRAIGHT:
-            #        posX.append(w.car_global_x)
-            #        posY.append(w.car_global_y)
-            #    else:
-            #        it += 1
-            #        negX.append(w.car_global_x)
-            #        negY.append(w.car_global_y)
-
-            #if w.car_dist_f < 4 and w.car_dist_s < 1.5 and w.direction == RIGHT:
-            #    if mode == Modes.SQUARE_LEFT:
-            #        posX.append(w.car_global_x)
-            #        posY.append(w.car_global_y)
-            #    else:
-            #        it += 1
-            #        negX.append(w.car_global_x)
-            #        negY.append(w.car_global_y)
-
-            #if w.car_dist_s >= 1.5 and w.car_dist_f < 1.5 and w.direction == RIGHT:
-            #    if mode == Modes.STRAIGHT:
-            #        posX.append(w.car_global_x)
-            #        posY.append(w.car_global_y)
-            #    else:
-            #        it += 1
-            #        negX.append(w.car_global_x)
-            #        negY.append(w.car_global_y) 
 
             if mode == Modes.STRAIGHT:
                 straight_pred_x.append(w.car_global_x)
