@@ -14,7 +14,7 @@ import random
 from tensorflow.keras import models
 import matplotlib.pyplot as plt
 import yaml
-from enum import Enum, auto
+from enum import Enum
 
 # direction parameters
 UP = 0
@@ -23,11 +23,11 @@ RIGHT = 2
 LEFT = 3
 
 class Modes(Enum):
-    STRAIGHT = auto()
-    SQUARE_RIGHT = auto()
-    SQUARE_LEFT = auto()
-    SHARP_RIGHT = auto()
-    SHARP_LEFT = auto()
+    STRAIGHT = 'STRAIGHT'
+    SQUARE_RIGHT = 'SQUARE_RIGHT'
+    SQUARE_LEFT = 'SQUARE_LEFT'
+    SHARP_RIGHT = 'SHARP_RIGHT'
+    SHARP_LEFT = 'SHARP_LEFT'
 
 def int2mode(i):
     if i == 0:
