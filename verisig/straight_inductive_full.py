@@ -36,10 +36,10 @@ POS_UB = 0.85
 HEADING_LB = -0.005
 HEADING_UB = 0.005
 
-POS_LB_STABLE = 0.82
-POS_UB_STABLE = 0.83
-HEADING_LB_STABLE = -0.003
-HEADING_UB_STABLE = 0.003
+POS_LB_STABLE = 0.822
+POS_UB_STABLE = 0.827
+HEADING_LB_STABLE = -0.001
+HEADING_UB_STABLE = 0.001
 
 NUM_STEPS = 1
 TIME_STEP = 0.1
@@ -715,7 +715,7 @@ def main(argv):
 
     count = 1
 
-    while curLBPos < POS_LB_STABLE+0.005:
+    while curLBPos < POS_UB_STABLE:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',

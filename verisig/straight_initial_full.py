@@ -36,12 +36,12 @@ POS_UB = 0.85
 HEADING_LB = -0.005
 HEADING_UB = 0.005
 
-POS_LB_STABLE = 0.82
-POS_UB_STABLE = 0.83
-HEADING_LB_STABLE = -0.003
-HEADING_UB_STABLE = 0.003
+POS_LB_STABLE = 0.822
+POS_UB_STABLE = 0.827
+HEADING_LB_STABLE = -0.001
+HEADING_UB_STABLE = 0.001
 
-NUM_STEPS = 20
+NUM_STEPS = 25
 TIME_STEP = 0.1
 
 
@@ -615,7 +615,6 @@ def main(argv):
         + '\n\t\ty1 >= ' + WALL_MAX + '\n\t\ty2 >= ' + str(wall_dist - WALL_LIMIT) + '\n\n\t}\n' \
         + '\ttop_wallm4000001\n\t{\n\t\t ' + str(NORMAL_TO_TOP_WALL[0]) + ' * y2 + ' \
         + str(NORMAL_TO_TOP_WALL[1]) + ' * y1 <= ' + WALL_MIN + '\n\n\t}\n' \
-        + '\t_cont_m2\n\t{\n\t\ty2 >= ' + str(18) + '\n\n\t}\n' \
         + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(POS_LB_STABLE) + '\n\n\t}\n' \
         + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_UB_STABLE) + '\n\n\t}\n' \
         + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB_STABLE) + '\n\n\t}\n' \
