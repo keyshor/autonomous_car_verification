@@ -8702,6 +8702,8 @@ int HybridSystem::reach_hybrid(std::list<std::list<TaylorModelVec> > & flowpipes
 					        dnn::totalNumBranches++;
 						branchIdQueue.push_back(dnn::totalNumBranches);
 
+						printf("branch when leaving mode %s\n", curModeName.c_str());
+
 						//if nothing has been saved yet, then don't store anything
 						if(dnn::saved_plant_states.find(dnn::curBranchId) != dnn::saved_plant_states.end()){
 						        dnn::saved_plant_states[dnn::totalNumBranches] =

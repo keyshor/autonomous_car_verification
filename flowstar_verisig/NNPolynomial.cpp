@@ -31,7 +31,7 @@ NNPolynomial::NNPolynomial(const NNPolynomial &polynomial)
 	}
 }
 
-NNPolynomial::NNPolynomial(const Polynomial &poly)
+NNPolynomial::NNPolynomial(const Polynomial &poly, const std::vector<std::string> & varNames)
 {
 
         list<Monomial>::const_iterator iter;
@@ -40,7 +40,7 @@ NNPolynomial::NNPolynomial(const Polynomial &poly)
 	for(iter = poly.monomials.begin(); iter != poly.monomials.end(); ++iter){
 
 		shared_ptr<NNMonomial> p(new NNMonomial((*iter)));
-		p->toStringNoCoef(mono_string, dnn::curAugmentedVarNames);
+		p->toStringNoCoef(mono_string, varNames);
 		monomials_map[mono_string] = p;
 	}
 
@@ -254,6 +254,27 @@ void NNPolynomial::add_assign(const shared_ptr<NNMonomial> & monomial)
 
 	string mono_string;
 	monomial->toStringNoCoef(mono_string, dnn::curAugmentedVarNames);
+
+	//NB: this is doing a shallow copy
+	if(monomials_map.find(mono_string) == monomials_map.end()){
+	        monomials_map[mono_string] = monomial;
+	}
+	else{
+	        (*monomials_map[mono_string]) += (*monomial);
+	}
+}
+
+void NNPolynomial::add_assign(const shared_ptr<NNMonomial> & monomial, const std::vector<std::string> & varNames)
+{
+	bool bAdded = false;
+
+	if(monomial->coefficient->subsetZero())
+	{
+		return;
+	}
+
+	string mono_string;
+	monomial->toStringNoCoef(mono_string, varNames);
 
 	//NB: this is doing a shallow copy
 	if(monomials_map.find(mono_string) == monomials_map.end()){

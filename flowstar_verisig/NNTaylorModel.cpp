@@ -30,9 +30,9 @@ NNTaylorModel::NNTaylorModel(const NNTaylorModel & tm)
 	remainder = tm.remainder;
 }
 
-NNTaylorModel::NNTaylorModel(const TaylorModel tm)
+NNTaylorModel::NNTaylorModel(const TaylorModel tm, const std::vector<std::string> & varNames)
 {
-        expansion = NNPolynomial(tm.expansion);
+        expansion = NNPolynomial(tm.expansion, varNames);
 	remainder = tm.remainder;
 }
 
@@ -54,7 +54,7 @@ NNTaylorModel::NNTaylorModel(const string & strPolynomial, const Variables & var
 
 	parseMultivariatePolynomial();
 
-	this->expansion = NNPolynomial(parsePolynomial.result);
+	this->expansion = NNPolynomial(parsePolynomial.result, vars.varNames);
 }
 
 NNTaylorModel::NNTaylorModel(const Interval & I, const int numVars)

@@ -55,7 +55,7 @@ public:
 	std::map<std::string, std::shared_ptr<NNMonomial>> monomials_map;
 public:
 	NNPolynomial();														// empty polynomial
-	NNPolynomial(const Polynomial &poly); // convert between the two polynomial classes
+	NNPolynomial(const Polynomial &poly, const std::vector<std::string> & varNames); // convert between the two polynomial classes
 	NNPolynomial(const NNPolynomial &polynomial);
 	NNPolynomial(const Interval & constant, const int numVars);  // constant polynomial where dim is the number of the variables
 	NNPolynomial(const std::vector<Interval> & coefficients);   // linear polynomial with the given coefficients, the input matrix is a row vector
@@ -71,6 +71,8 @@ public:
 
 	void add_assign(const NNPolynomial &polynomial);   // add a polynomial
 	void add_assign(const std::shared_ptr<NNMonomial> & monomial);   // add a monomial
+	void add_assign(const std::shared_ptr<NNMonomial> & monomial, const std::vector<std::string> & varNames);   // add a monomial; this should only be used when converting between NNTM and TM
+	
 	void add_assign(const std::list<std::shared_ptr<NNMonomial>> & monomials);   // add a list of monomial
 	//void add_to_end(const std::shared_ptr<NNMonomial> & monomial);
 

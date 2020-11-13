@@ -32,7 +32,7 @@ public:
 public:
 	NNTaylorModel();			// empty Taylor model.
         NNTaylorModel(const NNTaylorModel & tm);
-	NNTaylorModel(const TaylorModel tm);
+	NNTaylorModel(const TaylorModel tm, const std::vector<std::string> & varNames);
 	NNTaylorModel(const NNPolynomial & polyExp, const Interval & I);	// Taylor model (P,I)
 	NNTaylorModel(const Interval & I, const int numVars);				// constant
 	NNTaylorModel(const iMatrix coefficients, const int rowIndex, const bool noTime); // added by Rado

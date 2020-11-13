@@ -383,7 +383,6 @@ void NNMonomial::toStringNoCoef(string & result, const vector<string> & varNames
 
 	for(auto i=degrees_map.begin(); i != degrees_map.end(); ++i)
 	{
-
 	        if(i->second == 1)
 		{
 		        if(isFirst){
@@ -392,6 +391,7 @@ void NNMonomial::toStringNoCoef(string & result, const vector<string> & varNames
 			else{
 			        strMono += '*';
 			}
+	
 			strMono += varNames[i->first];
 		}
 		else
@@ -410,7 +410,6 @@ void NNMonomial::toStringNoCoef(string & result, const vector<string> & varNames
 			string num(strNum);
 			strMono += num;
 		}
-		
 	}
 
 	result = strMono;

@@ -508,24 +508,24 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 	        if(!strncmp(stateVarNames[varInd].c_str(), "_f", strlen("_f"))){
 
 		        int fIndex = std::stoi(stateVarNames[varInd].substr(2));
-
-			tmvMap[fIndex] = NNTaylorModel(fpAggregation.tmv.tms[varInd]);
-			tmvPreMap[fIndex] = NNTaylorModel(fpAggregation.tmvPre.tms[varInd]);
+			
+			tmvMap[fIndex] = NNTaylorModel(fpAggregation.tmv.tms[varInd], realStateVars.varNames);
+			tmvPreMap[fIndex] = NNTaylorModel(fpAggregation.tmvPre.tms[varInd], realStateVars.varNames);
 			domainMap[fIndex] = fpAggregation.domain[varInd+1];
 
 			numFstates++;
 		}
 	}
-
+	
 	std::map<int, int> stateToF, fToState;
 	dnn::get_state_to_f_map(stateToF, fToState, stateVarNames, tmvImage);
-					
+				
 	for(int varInd = 0; varInd < numFstates; varInd++){
 
 	        NNTaylorModel tmPre, tm;
-	  
-		dnn::convert_TM_dimension(tmPre, tmvPreMap[varInd+1], numDnnVars, varInd, stateToF);
-		dnn::convert_TM_dimension(tm, tmvMap[varInd+1], numDnnVars, varInd);  // should be identity
+
+		dnn::convert_TM_dimension(tmPre, tmvPreMap[varInd+1], numDnnVars, varInd, dnn::curAugmentedVarNames, stateToF);
+		dnn::convert_TM_dimension(tm, tmvMap[varInd+1], numDnnVars, varInd, dnn::curAugmentedVarNames);  // should be identity
 
 		tmv_left_after_activation_reset.tms.push_back(NNTaylorModel(tmPre));
 		tmv_right.tms.push_back(NNTaylorModel(tm));
@@ -554,7 +554,6 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 
 	bool normalize = true;
 	identity_preconditioning(tmv_left_after_activation_reset, tmv_right, tmv_composed, normalize, cur_dnn_crs);
-
 
 	//go through the DNN resets
 	for(int layer = 0; layer < cur_dnn_reset_weights.size(); layer++){
@@ -593,9 +592,15 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 						   cur_dnn_crs.step_end_exp_table,
 						   true, true, cur_dnn_crs.cutoff_threshold, cur_dnn_crs.order);
 
-		// this also composes the new left and right again since preconditioning might add numeric error
-		qr_preconditioning(tmv_left_after_linear_reset, tmv_right, tmv_composed, tmv_composed,
+		if (num_init_conds > 0){
+
+		        // this also composes the new left and right again since preconditioning might add numeric error
+		        qr_preconditioning(tmv_left_after_linear_reset, tmv_right, tmv_composed, tmv_composed,
 				   num_init_conds, dnn::curAugmentedVarNames, domain, cur_dnn_crs);
+		}
+		else{
+		        identity_preconditioning(tmv_left_after_linear_reset, tmv_right, tmv_composed, normalize, cur_dnn_crs);
+		}
 				
 		tmv_composed.intEvalNormal(all_ranges, cur_dnn_crs.step_end_exp_table);
 				
@@ -656,13 +661,14 @@ void dnn_reachability::compute_dnn_reachability(Flowpipe &result, const TaylorMo
 
 			//NB: left and right are switched since the Flow* representation is flipped for some reason
 			dnn::convert_TM_dimension(tm, tmv_left_after_activation_reset.tms[fIndex - 1],
-						  stateVarNames.size() + 1, varInd); //should be identity
+						  stateVarNames.size() + 1, varInd, realStateVars.varNames); //should be identity
 			dnn::convert_TM_dimension(tmPre, tmv_right.tms[fIndex - 1],
-						  stateVarNames.size() + 1, varInd, fToState);
+						  stateVarNames.size() + 1, varInd, realStateVars.varNames, fToState);
 			
 			result.tmvPre.tms[varInd] = TaylorModel(tmPre);
 			result.tmv.tms[varInd] = TaylorModel(tm);
-			result.domain[varInd+1] = domain[varInd+1];
+			
+			result.domain[varInd+1] = domain[fIndex];
 		}
 	}
         

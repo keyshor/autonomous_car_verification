@@ -43,8 +43,9 @@ void sig_reset(TaylorModel &tmReset, const Interval intC, const int varInd, cons
   
 void tanh_reset(TaylorModel &tmReset, const Interval intC, const int varInd, const int numVars);
 
- void convert_TM_dimension(NNTaylorModel &tmNew, const NNTaylorModel &tmOld,
-			   const int dimNew, const int varInd, const std::map<int, int> &indexMap=std::map<int,int>());
+void convert_TM_dimension(NNTaylorModel &tmNew, const NNTaylorModel &tmOld,
+			  const int dimNew, const int varInd, const std::vector<std::string> & varNames,
+			  const std::map<int, int> &indexMap=std::map<int,int>());
 
 void get_state_to_f_map(std::map<int, int> &stateToF, std::map<int, int> &fToState,
 			const std::vector<std::string> &stateVarNames, const TaylorModelVec &tmv);

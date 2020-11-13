@@ -1182,22 +1182,10 @@ void dnn::act_reset(NNTaylorModel &tmReset, const Interval intC, const int varIn
     tmReset.remainder = bestRem;
 }
 
-void dnn::convert_TM_dimension(NNTaylorModel &tmNew, const NNTaylorModel &tmOld, const int dimNew, const int varInd, const std::map<int, int> &indexMap){
+void dnn::convert_TM_dimension(NNTaylorModel &tmNew, const NNTaylorModel &tmOld, const int dimNew,
+			       const int varInd, const std::vector<std::string> & varNames, const std::map<int, int> &indexMap){
 
     NNPolynomial newPoly;
-
-    // if (indexMap.size() == 0){
-    //     std::vector<int> newDegs(dimNew, 0);
-    // 	newDegs[varInd+1] = 1;
-
-    // 	shared_ptr<NNMonomial> newMono(new NNMonomial(Interval(1.0, 1.0), newDegs));
-    // 	newPoly.add_assign(newMono);
-
-    // 	tmNew.expansion = NNPolynomial(newPoly);
-    // 	tmNew.remainder = Interval(tmOld.remainder);
-
-    // 	return;
-    // }
 
     for (auto it = tmOld.expansion.monomials_map.begin(); it != tmOld.expansion.monomials_map.end(); ++it){
 	
@@ -1211,11 +1199,11 @@ void dnn::convert_TM_dimension(NNTaylorModel &tmNew, const NNTaylorModel &tmOld,
 
 	    if(indexMap.size() == 0){
 	        newDegs[varInd+1] = 1;
+
 	    }
 
 	    // skip time
-	    else if(j > 0 && indexMap.find(j-1) != indexMap.end()){		  
-		  
+	    else if(j > 0 && indexMap.find(j-1) != indexMap.end()){		  	  
 	        newDegs[indexMap.at(j-1)+1] = curM->getDegree(j);
 
 	    }
@@ -1224,7 +1212,7 @@ void dnn::convert_TM_dimension(NNTaylorModel &tmNew, const NNTaylorModel &tmOld,
 	shared_ptr<NNMonomial> newMono(new NNMonomial(curM->getCoefficient(), newDegs));
 
 	//newPoly.monomials.push_back(newMono);
-	newPoly.add_assign(newMono);
+	newPoly.add_assign(newMono, varNames);
       
     }
 
