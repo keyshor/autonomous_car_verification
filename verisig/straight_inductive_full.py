@@ -13,6 +13,7 @@ WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
 WALL_MAX = str(1.5 - WALL_LIMIT)
 SPEED_EPSILON = 1e-8
+SPEED_EPSILON_STABLE = 1e-9
 
 TURN_ANGLE = -np.pi/2
 
@@ -350,14 +351,16 @@ def writeEndJump(stream):
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sr\n')
-    stream.write('\t\tguard { y3 >= ' + str(2.4 + SPEED_EPSILON) + ' }\n')
+    stream.write('\t\tguard { clock = ' + str(TIME_STEP) + ' k = ' +
+                 str(NUM_STEPS-1) + ' y3 >= ' + str(2.4 + SPEED_EPSILON_STABLE) + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sl\n')
-    stream.write('\t\tguard { y3 <= ' + str(2.4 - SPEED_EPSILON) + ' }\n')
+    stream.write('\t\tguard { clock = ' + str(TIME_STEP) + ' k = ' +
+                 str(NUM_STEPS-1) + ' y3 <= ' + str(2.4 - SPEED_EPSILON_STABLE) + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -386,6 +389,20 @@ def writeEndJump(stream):
 
     stream.write('\t\t_cont_m2 ->  m_int_hr\n')
     stream.write('\t\tguard { y4 >= ' + str(HEADING_UB) + ' }\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_int_sr\n')
+    stream.write('\t\tguard { y3 >= ' + str(2.4 + SPEED_EPSILON) + ' }\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_int_sl\n')
+    stream.write('\t\tguard { y3 <= ' + str(2.4 - SPEED_EPSILON) + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -591,6 +608,8 @@ def writeComposedSystem(filename, initProps, dnn, mode_dnn,
         writeEndMode(stream, plant_states, 'm_int_pl')
         writeEndMode(stream, plant_states, 'm_int_hr')
         writeEndMode(stream, plant_states, 'm_int_hl')
+        writeEndMode(stream, plant_states, 'm_int_sr')
+        writeEndMode(stream, plant_states, 'm_int_sl')
         writeEndMode(stream, plant_states, 'm_progress')
 
         # close modes brace
@@ -662,8 +681,10 @@ def main(argv):
         + '\tm_int_pr\n\t{\n\t\ty1 >= ' + str(POS_UB) + '\n\n\t}\n' \
         + '\tm_int_hl\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n' \
         + '\tm_int_hr\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
-        + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
-        + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
+        + '\tm_int_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
+        + '\tm_int_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n' \
+        + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON_STABLE) + '\n\n\t}\n' \
+        + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON_STABLE) + '\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -698,7 +719,8 @@ def main(argv):
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
-                     'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
+                     'y3 in [' + str(2.4 - SPEED_EPSILON_STABLE) + ', ' +
+                     str(2.4 + SPEED_EPSILON_STABLE) + ']',
                      'y4 in [' + str(HEADING_LB_STABLE) + ', ' + str(HEADING_UB_STABLE) + ']',
                      'k in [0, 0]',
                      'u in [0, 0]', 'angle in [0, 0]', 'temp1 in [0, 0]', 'temp2 in [0, 0]',

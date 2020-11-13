@@ -13,6 +13,7 @@ WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
 WALL_MAX = str(1.5 - WALL_LIMIT)
 SPEED_EPSILON = 1e-8
+SPEED_EPSILON_STABLE = 1e-9
 
 TURN_ANGLE = -np.pi/2
 
@@ -351,7 +352,7 @@ def writeEndJump(stream):
 
     stream.write('\t\t_cont_m2 ->  m_end_sr\n')
     stream.write('\t\tguard { clock = ' + str(TIME_STEP) + ' k = ' +
-                 str(NUM_STEPS-1) + ' y3 >= ' + str(2.4 + SPEED_EPSILON) + ' }\n')
+                 str(NUM_STEPS-1) + ' y3 >= ' + str(2.4 + SPEED_EPSILON_STABLE) + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -359,7 +360,7 @@ def writeEndJump(stream):
 
     stream.write('\t\t_cont_m2 ->  m_end_sl\n')
     stream.write('\t\tguard { clock = ' + str(TIME_STEP) + ' k = ' +
-                 str(NUM_STEPS-1) + ' y3 <= ' + str(2.4 - SPEED_EPSILON) + ' }\n')
+                 str(NUM_STEPS-1) + ' y3 <= ' + str(2.4 - SPEED_EPSILON_STABLE) + ' }\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -619,8 +620,8 @@ def main(argv):
         + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_UB_STABLE) + '\n\n\t}\n' \
         + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB_STABLE) + '\n\n\t}\n' \
         + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(HEADING_LB_STABLE) + '\n\n\t}\n}' \
-        + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
-        + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
+        + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON_STABLE) + '\n\n\t}\n' \
+        + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON_STABLE) + '\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
