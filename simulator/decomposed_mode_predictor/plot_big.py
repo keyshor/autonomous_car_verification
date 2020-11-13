@@ -7,7 +7,7 @@ def plot_predictions(model, test_data_file, test_position_file, xy_file, xh_file
     test_data = np.loadtxt(os.path.join('..', 'training_data', test_data_file), delimiter=',')
     test_position = np.loadtxt(os.path.join('..', 'training_data', test_position_file), delimiter=',')
     test_pred = np.argmax(model.predict(test_data), axis=1)
-    test_labels = test_position[:, 3].ravel()
+    test_labels = np.remainder(test_position[:, 3].ravel(), 5)
     label_straight = np.equal(test_labels, 0)
     label_square_right = np.equal(test_labels, 1)
     label_square_left = np.equal(test_labels, 2)

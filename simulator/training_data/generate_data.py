@@ -24,6 +24,17 @@ offset = 0.025
 middle_square_heading_range = np.pi / 4 - heading_range
 middle_sharp_heading_range = np.pi / 3 - heading_range
 
+STRAIGHT_BEGIN_LABEL = 0
+SQUARE_RIGHT_BEGIN_LABEL = 1
+SQUARE_LEFT_BEGIN_LABEL = 2
+SHARP_RIGHT_BEGIN_LABEL = 3
+SHARP_LEFT_BEGIN_LABEL = 4
+STRAIGHT_INTERIOR_LABEL = 5
+SQUARE_RIGHT_INTERIOR_LABEL = 6
+SQUARE_LEFT_INTERIOR_LABEL = 7
+SHARP_RIGHT_INTERIOR_LABEL = 8
+SHARP_LEFT_INTERIOR_LABEL = 9
+
 def left_normalize_heading(theta):
     return theta if theta >= 0 else theta + 2 * np.pi
 
@@ -57,11 +68,16 @@ def generate_data(iter_batch=200):
     car_dist_f = 5 + width
     car_heading = 0
 
-    straight_file = open('straight.csv', mode='x', newline='')
-    right90_file = open('right90.csv', mode='x', newline='')
-    left90_file = open('left90.csv', mode='x', newline='')
-    right120_file = open('right120.csv', mode='x', newline='')
-    left120_file = open('left120.csv', mode='x', newline='')
+    straight_begin_file = open('straight_begin.csv', mode='x', newline='')
+    right90_begin_file = open('right90_begin.csv', mode='x', newline='')
+    left90_begin_file = open('left90_begin.csv', mode='x', newline='')
+    right120_begin_file = open('right120_begin.csv', mode='x', newline='')
+    left120_begin_file = open('left120_begin.csv', mode='x', newline='')
+    straight_interior_file = open('straight_interior.csv', mode='x', newline='')
+    right90_interior_file = open('right90_interior.csv', mode='x', newline='')
+    left90_interior_file = open('left90_interior.csv', mode='x', newline='')
+    right120_interior_file = open('right120_interior.csv', mode='x', newline='')
+    left120_interior_file = open('left120_interior.csv', mode='x', newline='')
     right90_test_file = open('right90_test.csv', mode='x', newline='')
     left90_test_file = open('left90_test.csv', mode='x', newline='')
     right120_test_file = open('right120_test.csv', mode='x', newline='')
@@ -70,11 +86,16 @@ def generate_data(iter_batch=200):
     left90_test_position_file = open('left90_test_position.csv', mode='x', newline='')
     right120_test_position_file = open('right120_test_position.csv', mode='x', newline='')
     left120_test_position_file = open('left120_test_position.csv', mode='x', newline='')
-    straight = csv.writer(straight_file)
-    right90 = csv.writer(right90_file)
-    left90 = csv.writer(left90_file)
-    right120 = csv.writer(right120_file)
-    left120 = csv.writer(left120_file)
+    straight_begin = csv.writer(straight_begin_file)
+    right90_begin = csv.writer(right90_begin_file)
+    left90_begin = csv.writer(left90_begin_file)
+    right120_begin = csv.writer(right120_begin_file)
+    left120_begin = csv.writer(left120_begin_file)
+    straight_interior = csv.writer(straight_interior_file)
+    right90_interior = csv.writer(right90_interior_file)
+    left90_interior = csv.writer(left90_interior_file)
+    right120_interior = csv.writer(right120_interior_file)
+    left120_interior = csv.writer(left120_interior_file)
     right90_test = csv.writer(right90_test_file)
     left90_test = csv.writer(left90_test_file)
     right120_test = csv.writer(right120_test_file)
@@ -99,7 +120,7 @@ def generate_data(iter_batch=200):
             episode_length, time_step, lidar_field_of_view,\
             lidar_num_rays, lidar_noise, missing_lidar_rays, state_feedback=state_feedback)
 
-    while cur_dist_f >= 5 - diff:
+    while cur_dist_f >= 5 - diff2:
         for i in range(iter_batch):
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -107,7 +128,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -116,7 +137,27 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right90_test.writerow(obs)
-            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 0])
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, STRAIGHT_INTERIOR_LABEL])
+        cur_dist_f -= offset
+
+    while cur_dist_f >= 5 - diff:
+        for i in range(iter_batch):
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            right90_begin.writerow(obs)
+
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            right90_test.writerow(obs)
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SQUARE_RIGHT_BEGIN_LABEL])
         cur_dist_f -= offset
 
     while cur_dist_f >= width:
@@ -127,7 +168,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            right90.writerow(obs)
+            right90_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -136,7 +177,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right90_test.writerow(obs)
-            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 1])
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SQUARE_RIGHT_INTERIOR_LABEL])
         cur_dist_f -= offset
     cur_heading = -np.pi/4
 
@@ -148,7 +189,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-middle_square_heading_range, middle_square_heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            right90.writerow(obs)
+            right90_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -157,7 +198,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right90_test.writerow(obs)
-            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 1])
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SQUARE_RIGHT_INTERIOR_LABEL])
         cur_dist_f -= offset
 
     cur_dist_f = width/2
@@ -170,7 +211,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-middle_square_heading_range, middle_square_heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            right90.writerow(obs)
+            right90_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s,
@@ -179,7 +220,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right90_test.writerow(obs)
-            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 1])
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SQUARE_RIGHT_INTERIOR_LABEL])
         cur_dist_s += offset
 
     cur_heading = -np.pi/2
@@ -193,7 +234,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            right90.writerow(obs)
+            right90_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s,
@@ -202,7 +243,27 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right90_test.writerow(obs)
-            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 1])
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SQUARE_RIGHT_INTERIOR_LABEL])
+        cur_dist_s += offset
+
+    while cur_dist_s <= width + diff:
+        for i in range(iter_batch):
+            w.set_state_local(
+                    cur_dist_s,
+                    cur_dist_f + np.random.uniform(-pos_range, pos_range),
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            straight_begin.writerow(obs)
+
+            w.set_state_local(
+                    cur_dist_s,
+                    cur_dist_f + np.random.uniform(-pos_range, pos_range),
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            right90_test.writerow(obs)
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, STRAIGHT_BEGIN_LABEL])
         cur_dist_s += offset
 
     while cur_dist_s <= 4:
@@ -213,7 +274,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s,
@@ -222,7 +283,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right90_test.writerow(obs)
-            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 0])
+            right90_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, STRAIGHT_INTERIOR_LABEL])
         cur_dist_s += offset
 
     # square left turn
@@ -236,7 +297,7 @@ def generate_data(iter_batch=200):
             episode_length, time_step, lidar_field_of_view,\
             lidar_num_rays, lidar_noise, missing_lidar_rays, state_feedback=state_feedback)
 
-    while cur_dist_f >= 5 - diff:
+    while cur_dist_f >= 5 - diff2:
         for i in range(iter_batch):
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -244,7 +305,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -253,7 +314,27 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left90_test.writerow(obs)
-            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 0])
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), STRAIGHT_INTERIOR_LABEL])
+        cur_dist_f -= offset
+
+    while cur_dist_f >= 5 - diff:
+        for i in range(iter_batch):
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            left90_begin.writerow(obs)
+
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            left90_test.writerow(obs)
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SQUARE_LEFT_BEGIN_LABEL])
         cur_dist_f -= offset
 
     while cur_dist_f >= width:
@@ -264,7 +345,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            left90.writerow(obs)
+            left90_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -273,7 +354,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left90_test.writerow(obs)
-            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 2])
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SQUARE_LEFT_INTERIOR_LABEL])
         cur_dist_f -= offset
     cur_heading = np.pi/4
 
@@ -285,7 +366,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-middle_square_heading_range, middle_square_heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            left90.writerow(obs)
+            left90_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -294,7 +375,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left90_test.writerow(obs)
-            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 2])
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SQUARE_LEFT_INTERIOR_LABEL])
         cur_dist_f -= offset
 
     cur_dist_f = width/2
@@ -307,7 +388,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-middle_square_heading_range, middle_square_heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            left90.writerow(obs)
+            left90_interior.writerow(obs)
 
             w.set_state_local(
                     width - cur_dist_s,
@@ -316,7 +397,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left90_test.writerow(obs)
-            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 2])
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SQUARE_LEFT_INTERIOR_LABEL])
         cur_dist_s += offset
 
     cur_heading = np.pi/2
@@ -331,7 +412,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            left90.writerow(obs)
+            left90_interior.writerow(obs)
 
             w.set_state_local(
                     width - cur_dist_s,
@@ -340,7 +421,27 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left90_test.writerow(obs)
-            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 2])
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SQUARE_LEFT_INTERIOR_LABEL])
+        cur_dist_s += offset
+
+    while cur_dist_s <= width + diff:
+        for i in range(iter_batch):
+            w.set_state_local(
+                    width - cur_dist_s,
+                    cur_dist_f + np.random.uniform(-pos_range, pos_range),
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            straight_begin.writerow(obs)
+
+            w.set_state_local(
+                    width - cur_dist_s,
+                    cur_dist_f + np.random.uniform(-pos_range, pos_range),
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            left90_test.writerow(obs)
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), STRAIGHT_BEGIN_LABEL])
         cur_dist_s += offset
 
     while cur_dist_s <= 4:
@@ -351,7 +452,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             w.set_state_local(
                     width - cur_dist_s,
@@ -360,7 +461,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left90_test.writerow(obs)
-            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 0])
+            left90_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), STRAIGHT_INTERIOR_LABEL])
         cur_dist_s += offset
 
     # sharp right turn
@@ -373,7 +474,7 @@ def generate_data(iter_batch=200):
             episode_length, time_step, lidar_field_of_view,\
             lidar_num_rays, lidar_noise, missing_lidar_rays, state_feedback=state_feedback)
 
-    while cur_dist_f >= 5 - diff:
+    while cur_dist_f >= 5 - diff2:
         for i in range(iter_batch):
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -381,7 +482,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -390,7 +491,27 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right120_test.writerow(obs)
-            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 0])
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, STRAIGHT_INTERIOR_LABEL])
+        cur_dist_f -= offset
+
+    while cur_dist_f >= 5 - diff:
+        for i in range(iter_batch):
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            right120_begin.writerow(obs)
+
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            right120_test.writerow(obs)
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SHARP_RIGHT_BEGIN_LABEL])
         cur_dist_f -= offset
 
     while cur_dist_f >= width:
@@ -401,7 +522,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            right120.writerow(obs)
+            right120_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -410,7 +531,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right120_test.writerow(obs)
-            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 3])
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SHARP_RIGHT_INTERIOR_LABEL])
         cur_dist_f -= offset
     cur_heading = -np.pi/3
 
@@ -422,7 +543,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-middle_sharp_heading_range, middle_sharp_heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            right120.writerow(obs)
+            right120_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -431,7 +552,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             right120_test.writerow(obs)
-            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 3])
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SHARP_RIGHT_INTERIOR_LABEL])
         cur_dist_f -= offset
 
     cur_dist_f = width/2
@@ -440,12 +561,12 @@ def generate_data(iter_batch=200):
         for i in range(iter_batch):
             right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
-            right120.writerow(obs)
+            right120_interior.writerow(obs)
 
             right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
             right120_test.writerow(obs)
-            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 3])
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SHARP_RIGHT_INTERIOR_LABEL])
         cur_dist_s += offset
 
     cur_heading = -2 * np.pi/3
@@ -455,24 +576,36 @@ def generate_data(iter_batch=200):
         for i in range(iter_batch):
             right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
-            right120.writerow(obs)
+            right120_interior.writerow(obs)
 
             right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
             right120_test.writerow(obs)
-            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 3])
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, SHARP_RIGHT_INTERIOR_LABEL])
+        cur_dist_s += offset
+
+    while cur_dist_s <= width + diff:
+        for i in range(iter_batch):
+            right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
+            obs = normalize(w.scan_lidar())
+            straight_begin.writerow(obs)
+
+            right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
+            obs = normalize(w.scan_lidar())
+            right120_test.writerow(obs)
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, STRAIGHT_BEGIN_LABEL])
         cur_dist_s += offset
 
     while cur_dist_s <= 4:
         for i in range(iter_batch):
             right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             right_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
             right120_test.writerow(obs)
-            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, 0])
+            right120_test_position.writerow([w.car_global_x, w.car_global_y, w.car_global_heading, STRAIGHT_INTERIOR_LABEL])
         cur_dist_s += offset
 
     # sharp left turn
@@ -485,7 +618,7 @@ def generate_data(iter_batch=200):
             episode_length, time_step, lidar_field_of_view,\
             lidar_num_rays, lidar_noise, missing_lidar_rays, state_feedback=state_feedback)
 
-    while cur_dist_f >= 5 - diff:
+    while cur_dist_f >= 5 - diff2:
         for i in range(iter_batch):
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -493,7 +626,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -502,7 +635,27 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left120_test.writerow(obs)
-            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 0])
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), STRAIGHT_INTERIOR_LABEL])
+        cur_dist_f -= offset
+
+    while cur_dist_f >= 5 - diff:
+        for i in range(iter_batch):
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            left120_begin.writerow(obs)
+
+            w.set_state_local(
+                    cur_dist_s + np.random.uniform(-pos_range, pos_range),
+                    cur_dist_f,
+                    cur_heading + np.random.uniform(-heading_range, heading_range)
+                    )
+            obs = normalize(w.scan_lidar())
+            left120_test.writerow(obs)
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SHARP_LEFT_BEGIN_LABEL])
         cur_dist_f -= offset
 
     while cur_dist_f >= width:
@@ -513,7 +666,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-heading_range, heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            left120.writerow(obs)
+            left120_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -522,7 +675,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left120_test.writerow(obs)
-            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 4])
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SHARP_LEFT_INTERIOR_LABEL])
         cur_dist_f -= offset
     cur_heading = np.pi/3
 
@@ -534,7 +687,7 @@ def generate_data(iter_batch=200):
                     cur_heading + np.random.uniform(-middle_sharp_heading_range, middle_sharp_heading_range)
                     )
             obs = normalize(w.scan_lidar())
-            left120.writerow(obs)
+            left120_interior.writerow(obs)
 
             w.set_state_local(
                     cur_dist_s + np.random.uniform(-pos_range, pos_range),
@@ -543,7 +696,7 @@ def generate_data(iter_batch=200):
                     )
             obs = normalize(w.scan_lidar())
             left120_test.writerow(obs)
-            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 4])
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SHARP_LEFT_INTERIOR_LABEL])
         cur_dist_f -= offset
 
     cur_dist_f = width/2
@@ -552,12 +705,12 @@ def generate_data(iter_batch=200):
         for i in range(iter_batch):
             left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
-            left120.writerow(obs)
+            left120_interior.writerow(obs)
 
             left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
             left120_test.writerow(obs)
-            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 4])
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SHARP_LEFT_INTERIOR_LABEL])
         cur_dist_s += offset
 
     cur_heading = 2 * np.pi/3
@@ -567,24 +720,36 @@ def generate_data(iter_batch=200):
         for i in range(iter_batch):
             left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
-            left120.writerow(obs)
+            left120_interior.writerow(obs)
 
             left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
             left120_test.writerow(obs)
-            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 4])
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), SHARP_LEFT_INTERIOR_LABEL])
+        cur_dist_s += offset
+
+    while cur_dist_s <= width + diff:
+        for i in range(iter_batch):
+            left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
+            obs = normalize(w.scan_lidar())
+            straight_begin.writerow(obs)
+
+            left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
+            obs = normalize(w.scan_lidar())
+            left120_test.writerow(obs)
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), STRAIGHT_BEGIN_LABEL])
         cur_dist_s += offset
 
     while cur_dist_s <= 4:
         for i in range(iter_batch):
             left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
-            straight.writerow(obs)
+            straight_interior.writerow(obs)
 
             left_random120(w, cur_dist_s, cur_dist_f, cur_heading, pos_range, middle_sharp_heading_range)
             obs = normalize(w.scan_lidar())
             left120_test.writerow(obs)
-            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), 0])
+            left120_test_position.writerow([w.car_global_x, w.car_global_y, left_normalize_heading(w.car_global_heading), STRAIGHT_INTERIOR_LABEL])
         cur_dist_s += offset
 
 if __name__ == '__main__':

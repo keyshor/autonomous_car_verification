@@ -7,7 +7,7 @@ def plot_predictions(model, neg_label, test_data_file, test_position_file, xy_fi
     test_data = np.loadtxt(os.path.join('..', 'training_data', test_data_file), delimiter=',')
     test_position = np.loadtxt(os.path.join('..', 'training_data', test_position_file), delimiter=',')
     test_pred = model.predict(test_data).ravel().round()
-    test_labels = np.not_equal(test_position[:, 3].ravel(), neg_label).astype(int)
+    test_labels = np.not_equal(np.remainder(test_position[:, 3].ravel(), 5), neg_label).astype(int)
     label_pos = np.equal(test_labels, 1)
     label_neg = np.equal(test_labels, 0)
     pred_pos = np.equal(test_pred, 1)
@@ -61,8 +61,17 @@ def plot_predictions(model, neg_label, test_data_file, test_position_file, xy_fi
     print(f'precision = {num_tp / num_pp}, recall = {num_tp / num_lp}')
 
 if __name__ == '__main__':
-    model = tf.keras.models.load_model('square_right_little.h5')
-    neg_label = 1
+    #model = tf.keras.models.load_model('straight_little.h5')
+    #neg_label = 0
+    #model = tf.keras.models.load_model('square_right_little.h5')
+    #neg_label = 1
+    #model = tf.keras.models.load_model('square_left_little.h5')
+    #neg_label = 2
+    #model = tf.keras.models.load_model('sharp_right_little.h5')
+    #neg_label = 3
+    model = tf.keras.models.load_model('sharp_left_little.h5')
+    neg_label = 4
+
     plot_predictions(model, neg_label, 'right90_test.csv', 'right90_test_position.csv',
             'square_right_xy.png', 'square_right_xh.png', 'square_right_yh.png')
     plot_predictions(model, neg_label, 'left90_test.csv', 'left90_test_position.csv',

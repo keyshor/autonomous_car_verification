@@ -149,7 +149,7 @@ def main(argv):
     car_dist_f = 6.5
     car_heading = 0
     car_V = 2.4
-    episode_length = 100
+    episode_length = 400
     time_step = 0.1
 
     state_feedback = False
