@@ -1,4 +1,4 @@
-VC2.1 with y-uncertainty =================================
+VC2.1 =================================
 
 Entry Region:
 y = 10
@@ -10,7 +10,7 @@ y ~ 2.82
 x in [0.875, 0.89] (3 instances)
 h in [-0.393, -0.383]
 
-VC1 with y-uncertainty ===================================
+VC1 =====================================
 
 Start Region:
 y = 2.82
@@ -21,3 +21,9 @@ After 10 steps:
 y ~ [2.35,2.37]
 x in [2.865, 2.89] (5 instances)
 h in [-2.28, -2.272]
+
+VC2.2 =================================
+
+Use 25 steps to converge to Entry set.
+(the corresponding length segment would be required after turn).
+(Maybe less will)
