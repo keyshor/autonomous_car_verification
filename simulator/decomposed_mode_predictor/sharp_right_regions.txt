@@ -1,0 +1,64 @@
+VC2.1 =================================
+
+Entry Region:
+y = 10
+x in [0.75, 0.85] (20 instances)
+h in [-0.005, 0.005]
+
+After 10 steps:
+y ~ 7.6
+x in [0.808, 0.833] (5 instances)
+h in [-0.006, 0.003]
+
+After 20 steps:
+y ~ 5.2
+x in [0.834, 0.839] (1 instance)
+h in [-0.009, -0.004]
+
+VC1 ===================================
+
+Start Region:
+y = 5.2
+x in [0.834, 0.839] (1 instance)
+h in [-0.009, -0.004]
+
+After 30 steps:
+y ~ 5.96
+x in [4.884, 4.890] (2 instances)
+h in [-2.397, -2.396]
+
+VC2.2 =================================
+
+Start Region:
+y ~ 5.96
+x in [4.884, 4.890] (2 instances)
+h in [-2.397, -2.396]
+
+After 20 steps:
+y ~ 29.95
+x in [0.822, 0.824]
+h in [-0.003, -0.001]
+
+VC2.1 with y-uncertainty =================================
+
+Entry Region:
+y in [10, 10.245]
+x in [0.75, 0.85] (20 instances)
+h in [-0.005, 0.005]
+
+After 10 steps:
+y in [7.6, 7.845]
+x in [0.808, 0.833] (5 instances)
+h in [-0.006, 0.003]
+
+After 20 steps:
+y in [5.2, 5.45]
+x in [0.83, 0.84] (2 instance)
+h in [-0.009, 0.001]
+
+VC1 with y-uncertainty ===================================
+
+Start Region:
+y in [5.2, 5.45]
+x in [0.83, 0.84] (2 instance)
+h in [-0.009, 0.001]
