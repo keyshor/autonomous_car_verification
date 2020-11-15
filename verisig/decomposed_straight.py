@@ -762,7 +762,7 @@ def writeComposedSystem(filename, initProps, dnn,
         stream.write('\t\tmax jumps ' + str((numNeurLayers + num_dnn_jumps +
                                              10 + 6 * numInputs) * numSteps) + '\n')  # F1/10
         # stream.write('\t\tmax jumps 10\n') #F1/10
-        stream.write('\t\tprint on\n')
+        stream.write('\t\tprint off\n')
         stream.write('\t}\n\n')
 
         # encode modes------------------------------------------------------------------------------
@@ -880,7 +880,7 @@ def main(argv):
 
     count = 1
 
-    while curLBPos < POS_LB+0.005:
+    while curLBPos < POS_UB:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
