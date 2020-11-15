@@ -26,9 +26,9 @@ MAX_THROTTLE = 50 # just used to compute maximum possible velocity
 
 # training parameters
 STEP_REWARD_GAIN = 5
-INPUT_REWARD_GAIN = -0.05
+INPUT_REWARD_GAIN = 0
 CRASH_REWARD = -100
-MIDDLE_REWARD_GAIN = -2
+MIDDLE_REWARD_GAIN = -3
 HEADING_GAIN = -3
 MOVE_FORWARD_GAIN = 10
 REGION3_ENTER_GAIN = 0#100
@@ -213,7 +213,7 @@ class World:
         if self.car_global_heading > np.pi:
             self.car_global_heading = self.car_global_heading - 2 * np.pi
 
-    def reset(self, side_pos = None, pos_noise = 0.2, heading_noise = 0.1):
+    def reset(self, side_pos = None, pos_noise = 0.2, heading_noise = 0.1, front_pos_noise = 0.0):
         self.curHall = 0
 
         self.car_dist_s = self.init_car_dist_s + np.random.uniform(-pos_noise, pos_noise)
@@ -221,7 +221,7 @@ class World:
         if not side_pos == None:
             self.car_dist_s = side_pos
         
-        self.car_dist_f = self.init_car_dist_f
+        self.car_dist_f = self.init_car_dist_f + np.random.uniform(-front_pos_noise, front_pos_noise)
         self.car_V = self.init_car_V
         self.car_heading = self.init_car_heading + np.random.uniform(-heading_noise, heading_noise)
         
