@@ -41,7 +41,7 @@ POS_UB_STABLE = 0.827
 HEADING_LB_STABLE = -0.0016
 HEADING_UB_STABLE = 0.00041
 
-NUM_STEPS = 1
+NUM_STEPS = 2
 TIME_STEP = 0.1
 
 
@@ -801,7 +801,7 @@ def writeComposedSystem(filename, initProps, dnn,
         stream.write('\tsetting\n')
         stream.write('\t{\n')
         stream.write('\t\tadaptive steps {min 1e-6, max 0.005}\n')  # F1/10 case study (HSCC)
-        stream.write('\t\ttime ' + str(numSteps * (0.1)) + '\n')  # F1/10 case study (HSCC)
+        stream.write('\t\ttime ' + str((numSteps+1) * (0.1)) + '\n')  # F1/10 case study (HSCC)
         stream.write('\t\tremainder estimation 1e-1\n')
         stream.write('\t\tidentity precondition\n')
         stream.write('\t\tmatlab octagon y1, y2\n')
