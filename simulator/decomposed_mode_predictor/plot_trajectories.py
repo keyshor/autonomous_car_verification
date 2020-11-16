@@ -159,7 +159,7 @@ def reverse_lidar(data):
 
 def main(argv):
 
-    numTrajectories = 1
+    numTrajectories = 200
 
     # mode_predictor = ComposedModePredictor(
     #         'big.h5', 'straight_little.h5',
@@ -172,16 +172,16 @@ def main(argv):
         'square_right_little.yml', 'square_left_little.yml',
         'sharp_right_little.yml', 'sharp_left_little.yml', True)
 
-    (hallWidths, hallLengths, turns) = triangle_hall_sharp_right(1.5)
+    (hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
     #(hallWidths, hallLengths, turns) = square_hall_left(1.5)
     #(hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
     #(hallWidths, hallLengths, turns) = complex_track(1.5)
 
-    car_dist_s = 0.8231258620067857
-    car_dist_f = 12.072414508350143
-    car_heading = 0.0013037834416212432
+    car_dist_s = 0.8
+    car_dist_f = 18
+    car_heading = 0
     car_V = 2.4
-    episode_length = 55
+    episode_length = 25
     time_step = 0.1
 
     state_feedback = False
@@ -214,6 +214,7 @@ def main(argv):
     allX = []
     allY = []
     allR = []
+    end_modes = set()
 
     straight_pred_x = []
     square_right_pred_x = []
@@ -227,8 +228,8 @@ def main(argv):
     sharp_left_pred_y = []
 
     # initial uncertainty
-    init_pos_noise = 0
-    init_heading_noise = 0
+    init_pos_noise = 0.05
+    init_heading_noise = 0.005
     init_y_noise = 0
     it = 0
 
@@ -302,6 +303,8 @@ def main(argv):
                 if w.car_heading < min_h:
                     min_h = w.car_heading
 
+                end_modes.add(mode_predictor.current_mode)
+
                 break
 
             rew += reward
@@ -309,6 +312,7 @@ def main(argv):
     print('s bounds: [' + str(min_s) + ', ' + str(max_s) + ']')
     print('f bounds: [' + str(min_f) + ', ' + str(max_f) + ']')
     print('h bounds: [' + str(min_h) + ', ' + str(max_h) + ']')
+    print('End Modes : {}'.format(list(end_modes)))
 
     print('number of crashes: ' + str(num_unsafe))
     # print(it)

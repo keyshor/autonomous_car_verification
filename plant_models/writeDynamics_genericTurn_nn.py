@@ -165,7 +165,7 @@ plant[1000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
 for i in range(NUM_RAYS):
     plant[1000000]['dynamics']['_f' + str(i + 1)] = '_f' + str(i + 1) + '\' = 0\n'
 
-plant[1000000]['invariants'] = []
+plant[1000000]['invariants'] = ['clock <= ' + str(TIME_STEP)]
 plant[1000000]['transitions'] = {}
 
 plant[2000000] = {}
@@ -187,7 +187,7 @@ plant[2000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
 for i in range(NUM_RAYS):
     plant[2000000]['dynamics']['_f' + str(i + 1)] = '_f' + str(i + 1) + '\' = 0\n'
 
-plant[2000000]['invariants'] = []
+plant[2000000]['invariants'] = ['clock <= ' + str(TIME_STEP)]
 plant[2000000]['transitions'] = {}
 
 plant[3000000] = {}
@@ -209,7 +209,7 @@ plant[3000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
 for i in range(NUM_RAYS):
     plant[3000000]['dynamics']['_f' + str(i + 1)] = '_f' + str(i + 1) + '\' = 0\n'
 
-plant[3000000]['invariants'] = []
+plant[3000000]['invariants'] = ['clock <= ' + str(TIME_STEP)]
 plant[3000000]['transitions'] = {}
 
 plant[4000000] = {}
@@ -231,7 +231,7 @@ plant[4000000]['dynamics']['temp2'] = 'temp2\' = 0\n'
 for i in range(NUM_RAYS):
     plant[4000000]['dynamics']['_f' + str(i + 1)] = '_f' + str(i + 1) + '\' = 0\n'
 
-plant[4000000]['invariants'] = []
+plant[4000000]['invariants'] = ['clock <= ' + str(TIME_STEP)]
 plant[4000000]['transitions'] = {}
 
 # end of plant dynanmics

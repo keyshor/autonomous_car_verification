@@ -175,7 +175,7 @@ def writeEndMode(stream, states, name):
     stream.write('\t\t\tinv\n')
     stream.write('\t\t\t{\n')
 
-    stream.write('\t\t\t\tclock <= 0\n')
+    stream.write('\t\t\t\tclock <= 0.1\n')
 
     stream.write('\t\t\t}\n')
     stream.write('\t\t}\n')
