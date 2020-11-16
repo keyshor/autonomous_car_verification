@@ -900,7 +900,7 @@ def main(argv):
             ' ' + sharp_right_little + ' ' + sharp_left_little +\
             ' ' + square_controller + ' ' + sharp_controller
 
-        args = '../flowstar_verisig/flowstar ' + dnn_string + ' < ' + curModelFile
+        args = '../flowstar_verisig/flowstar ' + dnn_string + ' < ' + curModelFile + ' > ' + 'outputs/result{}.txt'.format(count)
         subprocess.Popen(args, shell=True, stdin=PIPE)
 
         curLBPos += posOffset
