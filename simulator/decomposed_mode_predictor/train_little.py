@@ -12,26 +12,36 @@ num_lidar_rays = 21
 num_epochs = 15
 middle_layer_size = 32
 
-straight_begin = np.loadtxt(os.path.join('..', 'training_data', 'straight_begin.csv'), delimiter=',')
-square_right_begin = np.loadtxt(os.path.join('..', 'training_data', 'right90_begin.csv'), delimiter=',')
-square_left_begin = np.loadtxt(os.path.join('..', 'training_data', 'left90_begin.csv'), delimiter=',')
-sharp_right_begin = np.loadtxt(os.path.join('..', 'training_data', 'right120_begin.csv'), delimiter=',')
-sharp_left_begin = np.loadtxt(os.path.join('..', 'training_data', 'left120_begin.csv'), delimiter=',')
+straight_begin_raw = np.loadtxt(os.path.join('..', 'training_data', 'straight_begin.csv'), delimiter=',')
+square_right_begin_raw = np.loadtxt(os.path.join('..', 'training_data', 'right90_begin.csv'), delimiter=',')
+square_left_begin_raw = np.loadtxt(os.path.join('..', 'training_data', 'left90_begin.csv'), delimiter=',')
+sharp_right_begin_raw = np.loadtxt(os.path.join('..', 'training_data', 'right120_begin.csv'), delimiter=',')
+sharp_left_begin_raw = np.loadtxt(os.path.join('..', 'training_data', 'left120_begin.csv'), delimiter=',')
 straight_interior = np.loadtxt(os.path.join('..', 'training_data', 'straight_interior.csv'), delimiter=',')
 square_right_interior = np.loadtxt(os.path.join('..', 'training_data', 'right90_interior.csv'), delimiter=',')
 square_left_interior = np.loadtxt(os.path.join('..', 'training_data', 'left90_interior.csv'), delimiter=',')
 sharp_right_interior = np.loadtxt(os.path.join('..', 'training_data', 'right120_interior.csv'), delimiter=',')
 sharp_left_interior = np.loadtxt(os.path.join('..', 'training_data', 'left120_interior.csv'), delimiter=',')
-num_straight_begin, dim1 = straight_begin.shape
-num_square_right_begin, dim2 = square_right_begin.shape
-num_square_left_begin, dim3 = square_left_begin.shape
-num_sharp_right_begin, dim4 = sharp_right_begin.shape
-num_sharp_left_begin, dim5 = sharp_left_begin.shape
-num_straight_interior, dim6 = straight_interior.shape
-num_square_right_interior, dim7 = square_right_interior.shape
-num_square_left_interior, dim8 = square_left_interior.shape
-num_sharp_right_interior, dim9 = sharp_right_interior.shape
-num_sharp_left_interior, dim10 = sharp_left_interior.shape
+
+def truncate_min(array_list):
+    min_len = min([a.shape[0] for a in array_list])
+    for a in array_list:
+        np.random.shuffle(a)
+    return min_len, [a[:min_len] for a in array_list]
+
+num_begin, begin_list = truncate_min([straight_begin_raw, square_right_begin_raw, square_left_begin_raw, sharp_right_begin_raw, sharp_left_begin_raw])
+straight_begin = begin_list[0]
+square_right_begin = begin_list[1]
+square_left_begin = begin_list[2]
+sharp_right_begin = begin_list[3]
+sharp_left_begin = begin_list[4]
+
+interior_sample_size = 3 * num_begin
+
+def truncate(a, n):
+    assert(a.shape[0] >= n)
+    np.random.shuffle(a)
+    return a[:n]
 
 def balanced_sample(array_list):
     min_len = min([a.shape[0] for a in array_list])
@@ -43,8 +53,8 @@ def balanced_sample(array_list):
             )
 
 def load_straight_data():
-    interior_points = np.concatenate([straight_begin, straight_interior])
-    goal_points, _ = balanced_sample([
+    interior_points = np.concatenate([straight_begin, truncate(straight_interior, interior_sample_size)])
+    goal_points = np.concatenate([
         square_right_begin,
         square_left_begin,
         sharp_right_begin,
@@ -53,8 +63,8 @@ def load_straight_data():
     return balanced_sample([interior_points, goal_points])
 
 def load_square_right_data():
-    interior_points = np.concatenate([square_right_begin, square_right_interior])
-    goal_points, _ = balanced_sample([
+    interior_points = np.concatenate([square_right_begin, truncate(square_right_interior, interior_sample_size)])
+    goal_points = np.concatenate([
         straight_begin,
         square_left_begin,
         sharp_right_begin,
@@ -63,8 +73,8 @@ def load_square_right_data():
     return balanced_sample([interior_points, goal_points])
 
 def load_square_left_data():
-    interior_points = np.concatenate([square_left_begin, square_left_interior])
-    goal_points, _ = balanced_sample([
+    interior_points = np.concatenate([square_left_begin, truncate(square_left_interior, interior_sample_size)])
+    goal_points = np.concatenate([
         straight_begin,
         square_right_begin,
         sharp_right_begin,
@@ -73,8 +83,8 @@ def load_square_left_data():
     return balanced_sample([interior_points, goal_points])
 
 def load_sharp_right_data():
-    interior_points = np.concatenate([sharp_right_begin, sharp_right_interior])
-    goal_points, _ = balanced_sample([
+    interior_points = np.concatenate([sharp_right_begin, truncate(sharp_right_interior, interior_sample_size)])
+    goal_points = np.concatenate([
         straight_begin,
         square_right_begin,
         square_left_begin,
@@ -83,8 +93,8 @@ def load_sharp_right_data():
     return balanced_sample([interior_points, goal_points])
 
 def load_sharp_left_data():
-    interior_points = np.concatenate([sharp_left_begin, sharp_left_interior])
-    goal_points, _ = balanced_sample([
+    interior_points = np.concatenate([sharp_left_begin, truncate(sharp_left_interior, interior_sample_size)])
+    goal_points = np.concatenate([
         straight_begin,
         square_right_begin,
         square_left_begin,
@@ -120,8 +130,6 @@ def train_little(train_data, train_labels):
     return nn
 
 if __name__ == '__main__':
-    assert(all([dim_i == num_lidar_rays for dim_i in [dim1, dim2, dim3, dim4, dim5, dim6, dim7, dim8, dim9, dim10]]))
-
     straight_train_data, straight_train_labels, = load_straight_data()
     straight_model = train_little(straight_train_data, straight_train_labels)
     straight_model.save('straight_little.h5')
