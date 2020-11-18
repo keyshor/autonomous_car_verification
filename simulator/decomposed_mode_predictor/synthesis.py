@@ -11,6 +11,10 @@ from Car import World
 
 
 START_STATE = [0.825, 0., 0.]
+SQUARE_START_Y = 6.5
+SQUARE_EXIT_Y = 13.5
+SHARP_START_Y = 8.
+SHARP_EXIT_Y = 10.
 
 
 class Modes(Enum):
@@ -154,17 +158,17 @@ def reverse_lidar(data):
 
 def get_dist_f(mode):
     if mode == Modes.SQUARE_RIGHT or mode == Modes.SQUARE_LEFT:
-        car_dist_f = 6.5
-        car_exit_f = 13.5
+        car_dist_f = SQUARE_START_Y
+        car_exit_f = SQUARE_EXIT_Y
     if mode == Modes.SHARP_RIGHT or mode == Modes.SHARP_LEFT:
-        car_dist_f = 8.0
-        car_exit_f = 12.0
+        car_dist_f = SHARP_START_Y
+        car_exit_f = SHARP_EXIT_Y
     return car_dist_f, car_exit_f
 
 
 def generate_implications(num_trajectories, mode, mode_predictor, num_modes=4,
                           car_dist_s=0.8, car_heading=0., s_noise=0.05, f_noise=0.25,
-                          h_noise=0.006):
+                          h_noise=0.006, crash_print=True):
 
     if mode == Modes.SQUARE_RIGHT or mode == Modes.SQUARE_LEFT:
         (hallWidths, hallLengths, turns) = square_hall_right(1.5)
@@ -252,7 +256,7 @@ def generate_implications(num_trajectories, mode, mode_predictor, num_modes=4,
             observation, _, done, _ = w.step(delta, throttle)
 
             if done:
-                if e < episode_length - 1:
+                if e < episode_length - 1 and crash_print:
                     print('Crash starting at: {}'.format(init_cond.tolist()))
                 break
 
