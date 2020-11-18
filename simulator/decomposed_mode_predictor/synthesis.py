@@ -18,7 +18,7 @@ class Modes(Enum):
     SHARP_LEFT = 'SHARP_LEFT'
 
 
-SYNTH_MODES = [Modes.SQUARE_RIGHT, Modes.SHARP_RIGHT, Modes.SQUARE_LEFT, Modes.SHARP_LEFT]
+SYNTH_MODES = [Modes.SQUARE_RIGHT, Modes.SQUARE_LEFT, Modes.SHARP_RIGHT, Modes.SHARP_LEFT]
 
 
 def sigmoid(x):
@@ -159,8 +159,8 @@ def get_dist_f(mode):
     return car_dist_f, car_exit_f
 
 
-def get_implications(num_trajectories, mode,
-                     mode_predictor, num_modes=4):
+def generate_implications(num_trajectories, mode,
+                          mode_predictor, num_modes=4):
 
     if mode == Modes.SQUARE_RIGHT or mode == Modes.SQUARE_LEFT:
         (hallWidths, hallLengths, turns) = square_hall_right(1.5)
@@ -256,16 +256,115 @@ def get_implications(num_trajectories, mode,
     implications = []
     for i in range(len(entry_set)):
         implications.append(((mode, entry_set[i]), (mode, exit_set[i]), 'dynamics'))
-        for m in SYNTH_MODES:
-            implications.append(((mode, exit_set[i]), (m, exit_set[i]), 'transition'))
+        # Only one entry set and hence one transition is enough.
+        implications.append(((mode, exit_set[i]), (None, exit_set[i]), 'transition'))
 
     return implications
 
 
+def mode2int(mode):
+    if mode == Modes.STRAIGHT:
+        return 0
+    if mode == Modes.SQUARE_RIGHT:
+        return 1
+    if mode == Modes.SQUARE_LEFT:
+        return 2
+    if mode == Modes.SHARP_RIGHT:
+        return 3
+    if mode == Modes.SHARP_LEFT:
+        return 4
+    else:
+        raise ValueError
+
+
+def extend(box, point):
+    for i in range(len(box)):
+        if box[i] is None:
+            box[i] = [point[i], point[i]]
+        elif point[i] < box[i][0]:
+            box[i][0] = point[i]
+        elif point[i] > box[i][1]:
+            box[i][1] = point[i]
+
+
+def contains(box, point):
+    retval = True
+    for i in range(len(box)):
+        if box[i] is None:
+            retval = False
+        elif point[i] < box[i][0] or point[i] > box[i][1]:
+            retval = False
+    return retval
+
+
+def synthesize(boxes, implications):
+    i = 0
+    while i < len(implications):
+        left_b = boxes[implications[i][0][0]]
+        right_b = boxes[implications[i][1][0]]
+        left_p = implications[i][0][1]
+        right_p = implications[i][1][1]
+
+        if contains(left_b, left_p):
+            if not contains(right_b, right_p):
+                extend(right_b, right_p)
+                i = 0
+            else:
+                i += 1
+        else:
+            i += 1
+
+
+def make_synthesis_instance(implications, num_modes=4):
+
+    # Create boxes
+    entry_box = [[0.75, 0.75], [0., 0.], [0., 0.]]
+    boxes = [entry_box]
+    for m in range(num_modes):
+        boxes.append([None, None, None])
+
+    # Create implications
+    box_implications = []
+    for imp in implications:
+        if imp[2] == 'dynamics':
+            left_b = 0
+            right_b = mode2int(imp[1][0])
+        elif imp[2] == 'transition':
+            left_b = mode2int(imp[0][0])
+            right_b = 0
+        left_p = imp[0][1]
+        right_p = imp[1][1]
+        box_implications.append([(left_b, left_p), (right_b, right_p)])
+
+    return boxes, box_implications
+
+
 if __name__ == '__main__':
+
     mode_predictor = ComposedModePredictor(
         'big.yml', 'straight_little.yml',
         'square_right_little.yml', 'square_left_little.yml',
         'sharp_right_little.yml', 'sharp_left_little.yml', True)
-    for imp in get_implications(5, Modes.SQUARE_LEFT, mode_predictor):
-        print((imp[0][1].tolist(), imp[1][1].tolist(), imp[2]))
+
+    print('Generating implication examples from simulation...')
+    raw_implications = []
+    for i in range(4):
+        print('Starting simulation in mode {}'.format(int2mode(i+1)))
+        new_imps = generate_implications(500, int2mode(i+1), mode_predictor)
+        raw_implications.extend(new_imps)
+
+    boxes, implications = make_synthesis_instance(raw_implications)
+
+    print('Synthesizing all boxes...')
+    synthesize(boxes, implications)
+
+    for i in range(len(boxes)):
+        box = boxes[i]
+        if i == 0:
+            print('\nEntry')
+        else:
+            print('\nExit {}'.format(int2mode(i)))
+
+        print('x in [{}, {}]'.format(box[0][0], box[0][1]))
+        print('y in [{}, {}]'.format(box[1][0], box[1][1]))
+        print('theta in [{}, {}]'.format(box[2][0], box[2][1]))
