@@ -27,7 +27,8 @@ Example usage:
 
 '''
 
-import os, sys
+import os
+import sys
 import subprocess
 from subprocess import PIPE
 import numpy as np
@@ -36,6 +37,7 @@ import yaml
 MAX_TURNING_INPUT = 20  # in degrees
 CONST_THROTTLE = 16  # constant throttle input for this case study
 SPEED_EPSILON = 1e-8
+INT_SPEED_EPSILON = 1e-9
 
 CAR_LENGTH = .45  # in m
 CAR_LENGTH_INV = 1 / CAR_LENGTH  # in m
@@ -60,17 +62,19 @@ POS_UB = 0.9
 HEADING_LB = -0.005
 HEADING_UB = 0.005
 
-HEADING_INT_LB = -0.0048
-HEADING_INT_UB = 0.0048
+HEADING_INT_LB = -0.0005
+HEADING_INT_UB = 0.0025
+POS_INT_LB = 0.623
+POS_INT_UB = 0.627
 
-NUM_STEPS = 3
+NUM_STEPS = 25
 
 WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
 WALL_MAX = str(HALLWAY_WIDTH - WALL_LIMIT)
 
-#TURN_ANGLE = -np.pi/2
-TURN_ANGLE = -2 * np.pi / 3
+TURN_ANGLE = -np.pi/2
+#TURN_ANGLE = -2 * np.pi / 3
 
 CORNER_ANGLE = np.pi - np.abs(TURN_ANGLE)
 SIN_CORNER = np.sin(CORNER_ANGLE)
@@ -94,16 +98,17 @@ DYNAMICS['k'] = 'k\' = 0\n'
 DYNAMICS['u'] = 'u\' = 0\n'
 DYNAMICS['clock'] = 'clock\' = 1\n'
 
-def getCornerDist(next_heading=np.pi/2 + TURN_ANGLE, reverse_cur_heading=-np.pi/2,\
+
+def getCornerDist(next_heading=np.pi/2 + TURN_ANGLE, reverse_cur_heading=-np.pi/2,
                   hallLength=HALLWAY_LENGTH, hallWidth=HALLWAY_WIDTH, turnAngle=TURN_ANGLE):
 
     outer_x = -hallWidth/2.0
     outer_y = hallLength/2.0
-    
+
     out_wall_proj_length = np.abs(hallWidth / np.sin(turnAngle))
     proj_point_x = outer_x + np.cos(next_heading) * out_wall_proj_length
     proj_point_y = outer_y + np.sin(next_heading) * out_wall_proj_length
-    
+
     in_wall_proj_length = np.abs(hallWidth / np.sin(turnAngle))
     inner_x = proj_point_x + np.cos(reverse_cur_heading) * in_wall_proj_length
     inner_y = proj_point_y + np.sin(reverse_cur_heading) * in_wall_proj_length
@@ -134,7 +139,6 @@ def writeOneMode(stream, modeIndex, numDnnInputs, dynamics=DYNAMICS, name=''):
         if sysState != 'clock':
             stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
-
     for neurState in range(numDnnInputs):
         stream.write('\t\t\t\t_f' + str(neurState+1) + '\' = 0\n')
 
@@ -154,7 +158,7 @@ def writeOneMode(stream, modeIndex, numDnnInputs, dynamics=DYNAMICS, name=''):
 def writePlantModes(stream, numDnnInputs, name, dynamics=DYNAMICS):
 
     # init mode
-    writeOneMode(stream, 1, numDnnInputs, dynamics=dynamics, name='init_mode')  
+    writeOneMode(stream, 1, numDnnInputs, dynamics=dynamics, name='init_mode')
 
     # dynamics mode
     stream.write('\t\t' + name + '\n')
@@ -182,7 +186,7 @@ def writePlantModes(stream, numDnnInputs, name, dynamics=DYNAMICS):
     stream.write('\t\t}\n')
 
     # hallway switch mode
-    writeOneMode(stream, 3, numDnnInputs, dynamics=dynamics, name='switch')  
+    writeOneMode(stream, 3, numDnnInputs, dynamics=dynamics, name='switch')
 
 
 def writeEndMode(stream, name, numDnnInputs, dynamics=DYNAMICS):
@@ -196,7 +200,7 @@ def writeEndMode(stream, name, numDnnInputs, dynamics=DYNAMICS):
             stream.write('\t\t\t\t' + sysState + '\' = 0\n')
 
     for neurState in range(numDnnInputs):
-        stream.write('\t\t\t\t_f' + str(neurState+1) + '\' = 0\n')            
+        stream.write('\t\t\t\t_f' + str(neurState+1) + '\' = 0\n')
 
     stream.write('\t\t\t\tt\' = 1\n')
     stream.write('\t\t\t\tclock\' = 1\n')
@@ -225,23 +229,17 @@ def writePlantJumps(stream):
 
     pass
 
+
 def writeController2PlantJumps(stream):
 
     stream.write('\t\tDNN1m1 -> _cont_m2\n')
-    stream.write('\t\tguard { clock = 0 k <= ' + str(NUM_STEPS - 2) + '}\n')
+    stream.write('\t\tguard { clock = 0 }\n')
     stream.write('\t\treset { ')
     stream.write('u\' := ' + str(PIBY180 * MAX_TURNING_INPUT) + ' * _f1 ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\tDNN1m1 -> _cont_m3\n')
-    stream.write('\t\tguard { clock = 0 k = ' + str(NUM_STEPS - 1) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('u\' := ' + str(PIBY180 * MAX_TURNING_INPUT) + ' * _f1 ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
 
 def writePlant2ControllerJumps(stream):
 
@@ -272,151 +270,72 @@ def writePlant2ControllerJumps(stream):
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m3 -> m0\n')
-    stream.write('\t\tguard { clock = 0 }\n')
-    stream.write('\t\treset { ')
-    stream.write('_f1\' := y1 ')
-    stream.write('_f2\' := ' + str(HALLWAY_WIDTH) + ' - y1 ')
-    stream.write('_f3\' := 5 ')
-    stream.write('_f4\' := 5 ')
-    stream.write('_f5\' := y4 ')
-    stream.write('k\' := k + 1 ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n') 
-
 
 def writeEndJump(stream):
 
-    stream.write('\t\t_cont_m2 ->  m_intermediate_hl\n')
-    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y4 <= ' + str(HEADING_INT_LB) + '}\n')
+    stream.write('\t\t_cont_m2 ->  m_end_hl\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 1) +
+                 ' clock = 0.1 y4 <= ' + str(HEADING_INT_LB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m2 ->  m_intermediate_hr\n')
-    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y4 >= ' + str(HEADING_INT_UB) + '}\n')
+    stream.write('\t\t_cont_m2 ->  m_end_hr\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 1) +
+                 ' clock = 0.1 y4 >= ' + str(HEADING_INT_UB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sr\n')
-    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y3 >= ' + str(2.4 + SPEED_EPSILON) + '}\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 1) +
+                 ' clock = 0.1 y3 >= ' + str(2.4 + INT_SPEED_EPSILON) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_end_sl\n')
-    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y3 <= ' + str(2.4 - SPEED_EPSILON) + '}\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 1) +
+                 ' clock = 0.1 y3 <= ' + str(2.4 - INT_SPEED_EPSILON) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_end_pl\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 1) +
+                 ' clock = 0.1 y1 <= ' + str(POS_INT_LB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_end_pr\n')
+    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 1) +
+                 ' clock = 0.1 y1 >= ' + str(POS_INT_UB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_left_boundary\n')
-    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y1 <= ' + str(POS_LB) + '}\n')
+    stream.write('\t\tguard { y1 <= ' + str(WALL_MIN) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
     stream.write('\t\t_cont_m2 ->  m_right_boundary\n')
-    stream.write('\t\tguard { k = ' + str(NUM_STEPS - 2) + ' clock = 0.1 y1 >= ' + str(POS_UB) + '}\n')
+    stream.write('\t\tguard { y1 >= ' + str(WALL_MAX) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    # second mode end
-    stream.write('\t\t_cont_m3 ->  m_intermediate_hl\n')
-    stream.write('\t\tguard { clock = 0.1 y4 <= ' + str(HEADING_INT_LB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m3 ->  m_intermediate_hr\n')
-    stream.write('\t\tguard { clock = 0.1 y4 >= ' + str(HEADING_INT_UB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_end_sr\n')
-    stream.write('\t\tguard { clock = 0.1 y3 >= ' + str(2.4 + SPEED_EPSILON) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_end_sl\n')
-    stream.write('\t\tguard { clock = 0.1 y3 <= ' + str(2.4 - SPEED_EPSILON) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_left_boundary\n')
-    stream.write('\t\tguard { clock = 0.1 y1 <= ' + str(POS_LB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_right_boundary\n')
-    stream.write('\t\tguard { clock = 0.1 y1 >= ' + str(POS_UB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    # during second mode
-    stream.write('\t\t_cont_m3 ->  m_end_hr\n')
-    stream.write('\t\tguard { y4 <= ' + str(HEADING_LB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_end_hl\n')
-    stream.write('\t\tguard { y4 >= ' + str(HEADING_UB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_end_sr\n')
-    stream.write('\t\tguard { y3 >= ' + str(2.4 + SPEED_EPSILON) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_end_sl\n')
-    stream.write('\t\tguard { y3 <= ' + str(2.4 - SPEED_EPSILON) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_left_boundary\n')
-    stream.write('\t\tguard { y1 <= ' + str(POS_LB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-
-    stream.write('\t\t_cont_m3 ->  m_right_boundary\n')
-    stream.write('\t\tguard { y1 >= ' + str(POS_UB) + '}\n')
-    stream.write('\t\treset { ')
-    stream.write('clock\' := 0')
-    stream.write('}\n')
-    stream.write('\t\tinterval aggregation\n')
-    
-    
 def writeInitCond(stream, initProps, initState='m0'):
 
     stream.write('\tinit\n')
@@ -450,12 +369,12 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         for state in DYNAMICS:
             if 'clock' in state:
                 continue
-            
+
             stream.write(state + ', ')
 
         for state in range(numDnnInputs):
             stream.write('_f' + str(state+1) + ', ')
-            
+
         stream.write('t, clock\n\n')
 
         # settings---------------------------------------------------------------------------------
@@ -463,7 +382,7 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         stream.write('\t{\n')
         # F1/10 case study (HSCC)
         stream.write('\t\tadaptive steps {min 1e-6, max 0.005}\n')
-        stream.write('\t\ttime ' + str(numSteps * (0.1)) + '\n')  # F1/10 case study (HSCC)
+        stream.write('\t\ttime ' + str((numSteps+1) * (0.1)) + '\n')  # F1/10 case study (HSCC)
         stream.write('\t\tremainder estimation 1e-1\n')
         stream.write('\t\tidentity precondition\n')
         stream.write('\t\tgnuplot octagon y1, y2\n')
@@ -471,7 +390,7 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         stream.write('\t\tcutoff 1e-12\n')
         stream.write('\t\tprecision 100\n')
         stream.write('\t\toutput {}\n'.format(os.path.basename(filename[:-6])))
-        stream.write('\t\tmax jumps ' + str(5 * numSteps + 2) + '\n')  # F1/10 case study
+        stream.write('\t\tmax jumps ' + str(5 * numSteps + 4) + '\n')  # F1/10 case study
         stream.write('\t\tprint on\n')
         stream.write('\t}\n\n')
 
@@ -481,13 +400,12 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
 
         writeControllerModes(stream, numDnnInputs)
         writePlantModes(stream, numDnnInputs, name='_cont_m2')
-        writePlantModes(stream, numDnnInputs, name='_cont_m3')
-        writeEndMode(stream, 'm_intermediate_hr', numDnnInputs)
-        writeEndMode(stream, 'm_intermediate_hl', numDnnInputs)
         writeEndMode(stream, 'm_end_hr', numDnnInputs)
         writeEndMode(stream, 'm_end_hl', numDnnInputs)
         writeEndMode(stream, 'm_end_sr', numDnnInputs)
         writeEndMode(stream, 'm_end_sl', numDnnInputs)
+        writeEndMode(stream, 'm_end_pr', numDnnInputs)
+        writeEndMode(stream, 'm_end_pl', numDnnInputs)
         writeEndMode(stream, 'm_left_boundary', numDnnInputs)
         writeEndMode(stream, 'm_right_boundary', numDnnInputs)
 
@@ -524,19 +442,17 @@ def main(argv):
     with open(dnnYaml, 'rb') as f:
 
         dnn = yaml.load(f)
-    
-    wall_dist = getCornerDist()
 
     # F1/10 Safety + Reachability
-    safetyProps = 'unsafe\n{\tm_left_boundary\n\t{\n\t\ty1 <= ' + str(POS_LB) + '\n\n\t}\n' \
+    safetyProps = 'unsafe\n{\tm_left_boundary\n\t{\n\t\ty1 <= ' + str(WALL_MIN) + '\n\n\t}\n' \
                   + '\tm_right_boundary\n\t{'\
-                  + '\n\t\ty1 >= ' + str(POS_UB) + '\n\n\t}\n' \
-                  + '\tm_intermediate_hl\n\t{\n\t\ty4 <= ' + str(HEADING_INT_LB) + '\n\n\t}\n' \
-                  + '\tm_intermediate_hr\n\t{\n\t\ty4 >= ' + str(HEADING_INT_UB) + '\n\n\t}\n' \
-                  + '\tm_end_hl\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
-                  + '\tm_end_hr\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n' \
-                  + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
-                  + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n}'
+                  + '\n\t\ty1 >= ' + str(WALL_MAX) + '\n\n\t}\n' \
+                  + '\tm_end_hl\n\t{\n\t\ty4 <= ' + str(HEADING_INT_UB) + '\n\n\t}\n' \
+                  + '\tm_end_hr\n\t{\n\t\ty4 >= ' + str(HEADING_INT_LB) + '\n\n\t}\n' \
+                  + '\tm_end_pl\n\t{\n\t\ty4 <= ' + str(POS_INT_LB) + '\n\n\t}\n' \
+                  + '\tm_end_pr\n\t{\n\t\ty4 >= ' + str(POS_INT_UB) + '\n\n\t}\n' \
+                  + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + INT_SPEED_EPSILON) + '\n\n\t}\n' \
+                  + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - INT_SPEED_EPSILON) + '\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -544,24 +460,30 @@ def main(argv):
 
     modelFile = modelFolder + '/testModel'
 
-    curLBPos = 0.62
+    curLBPos = 0.6
     posOffset = 0.01
 
-    init_y2 = 12
+    init_y2 = 16
 
     count = 1
 
-    initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                 'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
-                 'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
-                 'y4 in [' + str(HEADING_LB) + ', ' + str(HEADING_UB) + ']', 'k in [0, 0]', 'u in [0, 0]']  # F1/10
+    while curLBPos < 0.63:
 
-    curModelFile = modelFile + '_' + str(count) + '.model'
+        initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
+                     'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
+                     'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
+                     'y4 in [' + str(HEADING_LB) + ', ' + str(HEADING_UB) + ']', 'k in [0, 0]',
+                     'u in [0, 0]']  # F1/10
 
-    writeComposedSystem(curModelFile, initProps, dnn, safetyProps, NUM_STEPS)
+        curModelFile = modelFile + '_' + str(count) + '.model'
 
-    args = '../flowstar_verisig/flowstar ' + dnnYaml + ' < ' + curModelFile
-    _ = subprocess.Popen(args, shell=True, stdin=PIPE)
+        writeComposedSystem(curModelFile, initProps, dnn, safetyProps, NUM_STEPS)
+
+        args = '../flowstar_verisig/flowstar ' + dnnYaml + ' < ' + curModelFile
+        _ = subprocess.Popen(args, shell=True, stdin=PIPE)
+
+        curLBPos += posOffset
+        count += 1
 
 
 if __name__ == '__main__':
