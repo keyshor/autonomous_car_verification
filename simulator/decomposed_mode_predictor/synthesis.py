@@ -1,5 +1,7 @@
 import numpy as np
+import warnings
 import yaml
+import time
 import os
 
 from enum import Enum
@@ -9,12 +11,20 @@ from Car import triangle_hall_equilateral_right
 from Car import square_hall_right
 from Car import World
 
+warnings.filterwarnings("ignore")
+
 
 START_STATE = [0.825, 0., 0.]
 SQUARE_START_Y = 6.5
-SQUARE_EXIT_Y = 13.5
+SQUARE_EXIT_Y = 12.
 SHARP_START_Y = 8.
 SHARP_EXIT_Y = 10.
+
+X_SAMPLE_MEAN = 0.8
+H_SAMPLE_MEAN = 0.
+X_NOISE = 0.05
+H_NOISE = 0.006
+Y_NOISE = 0.25
 
 
 class Modes(Enum):
@@ -167,8 +177,9 @@ def get_dist_f(mode):
 
 
 def generate_implications(num_trajectories, mode, mode_predictor, num_modes=4,
-                          car_dist_s=0.8, car_heading=0., s_noise=0.05, f_noise=0.25,
-                          h_noise=0.006, crash_print=True):
+                          car_dist_s=X_SAMPLE_MEAN, car_heading=H_SAMPLE_MEAN,
+                          s_noise=X_NOISE, f_noise=Y_NOISE,
+                          h_noise=H_NOISE, crash_print=True, seed_sample=True):
 
     if mode == Modes.SQUARE_RIGHT or mode == Modes.SQUARE_LEFT:
         (hallWidths, hallLengths, turns) = square_hall_right(1.5)
@@ -224,7 +235,7 @@ def generate_implications(num_trajectories, mode, mode_predictor, num_modes=4,
 
     for step in range(num_trajectories):
 
-        if step == 0:
+        if step == 0 and seed_sample:
             observation = w.reset(side_pos=init_point)
         else:
             observation = w.reset(pos_noise=init_pos_noise,
@@ -313,6 +324,21 @@ def contains(box, point):
     return retval
 
 
+def print_conditions(boxes):
+    for i in range(len(boxes)):
+        box = boxes[i]
+        mode = int2mode(i)
+        if i == 0:
+            print('\nEntry')
+        else:
+            print('\nExit in {}'.format(mode))
+
+        print('x in [{}, {}]'.format(box[0][0], box[0][1]))
+        print('y in [{}, {}]'.format(box[1][0], box[1][1]))
+        print('theta in [{}, {}]'.format(box[2][0], box[2][1]))
+    print('\n')
+
+
 def synthesize(boxes, implications):
     i = 0
     while i < len(implications):
@@ -357,6 +383,67 @@ def make_synthesis_instance(implications, num_modes=4):
     return boxes, box_implications
 
 
+def synthesis_with_sampling(num_iter, num_trajectories, mode_predictor):
+    boxes = None
+    implications = []
+    cur_time = time.time()
+    synthesis_time = 0.
+    simulation_time = 0.
+
+    for j in range(num_iter):
+        print('\nIteration {}'.format(j))
+
+        # Compute sample ranges.
+        if boxes is not None:
+            box = boxes[0]
+            x_mean = (box[0][0] + box[0][1]) / 2
+            x_noise = (box[0][1] - box[0][0]) / 2
+            h_mean = (box[2][0] + box[2][1]) / 2
+            h_noise = (box[2][1] - box[2][0]) / 2
+            y_noise = box[1][1]
+            seed_sample = False
+        else:
+            x_mean = X_SAMPLE_MEAN
+            x_noise = X_NOISE
+            h_mean = H_SAMPLE_MEAN
+            h_noise = H_NOISE
+            y_noise = Y_NOISE
+            seed_sample = True
+
+        # Simulation
+        raw_implications = []
+        for i in range(4):
+            print('Starting simulation in mode {}'.format(int2mode(i+1)))
+            new_imps = generate_implications(num_trajectories, int2mode(i+1), mode_predictor,
+                                             car_dist_s=x_mean, car_heading=h_mean, s_noise=x_noise,
+                                             f_noise=y_noise, h_noise=h_noise,
+                                             seed_sample=seed_sample)
+            raw_implications.extend(new_imps)
+
+        # Record simulation time
+        simulation_time += (time.time() - cur_time)
+        cur_time = time.time()
+
+        # Convert to box synthesis
+        new_boxes, new_implications = make_synthesis_instance(raw_implications)
+        if boxes is None:
+            boxes = new_boxes
+        implications.extend(new_implications)
+
+        # Synthesis
+        print('Synthesizing all boxes...')
+        synthesize(boxes, implications)
+
+        # Record sythesis time
+        synthesis_time += (time.time() - cur_time)
+        cur_time = time.time()
+
+    print('\nTotal simulation time: {}'.format(simulation_time))
+    print('Total synthesis time: {}'.format(synthesis_time))
+
+    return boxes
+
+
 if __name__ == '__main__':
 
     mode_predictor = ComposedModePredictor(
@@ -364,26 +451,6 @@ if __name__ == '__main__':
         'square_right_little.yml', 'square_left_little.yml',
         'sharp_right_little.yml', 'sharp_left_little.yml', True)
 
-    print('Generating implication examples from simulation...')
-    raw_implications = []
-    for i in range(4):
-        print('Starting simulation in mode {}'.format(int2mode(i+1)))
-        new_imps = generate_implications(500, int2mode(i+1), mode_predictor)
-        raw_implications.extend(new_imps)
+    boxes = synthesis_with_sampling(10, 100, mode_predictor)
 
-    boxes, implications = make_synthesis_instance(raw_implications)
-
-    print('Synthesizing all boxes...')
-    synthesize(boxes, implications)
-
-    for i in range(len(boxes)):
-        box = boxes[i]
-        mode = int2mode(i)
-        if i == 0:
-            print('\nEntry')
-        else:
-            print('\nExit in {}'.format(mode))
-
-        print('x in [{}, {}]'.format(box[0][0], box[0][1]))
-        print('y in [{}, {}]'.format(box[1][0], box[1][1]))
-        print('theta in [{}, {}]'.format(box[2][0], box[2][1]))
+    print_conditions(boxes)
