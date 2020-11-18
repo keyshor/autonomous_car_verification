@@ -67,7 +67,7 @@ HEADING_INT_UB = 0.0018
 POS_INT_LB = 0.622
 POS_INT_UB = 0.627
 
-NUM_STEPS = 30
+NUM_STEPS = 2
 
 WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
@@ -318,15 +318,44 @@ def writeEndJump(stream):
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m2 ->  m_left_boundary\n')
-    stream.write('\t\tguard { y1 <= ' + str(WALL_MIN) + '}\n')
+    # second mode end
+    stream.write('\t\t_cont_m2 ->  m_intermediate_hl\n')
+    stream.write('\t\tguard { y4 <= ' + str(HEADING_LB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
     stream.write('\t\tinterval aggregation\n')
 
-    stream.write('\t\t_cont_m2 ->  m_right_boundary\n')
-    stream.write('\t\tguard { y1 >= ' + str(WALL_MAX) + '}\n')
+    stream.write('\t\t_cont_m2 ->  m_intermediate_hr\n')
+    stream.write('\t\tguard { y4 >= ' + str(HEADING_UB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_intermediate_sr\n')
+    stream.write('\t\tguard { y3 >= ' + str(2.4 + SPEED_EPSILON) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_intermediate_sl\n')
+    stream.write('\t\tguard { y3 <= ' + str(2.4 - SPEED_EPSILON) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_intermediate_pl\n')
+    stream.write('\t\tguard { y1 <= ' + str(POS_LB) + '}\n')
+    stream.write('\t\treset { ')
+    stream.write('clock\' := 0')
+    stream.write('}\n')
+    stream.write('\t\tinterval aggregation\n')
+
+    stream.write('\t\t_cont_m2 ->  m_intermediate_pr\n')
+    stream.write('\t\tguard { y1 >= ' + str(POS_UB) + '}\n')
     stream.write('\t\treset { ')
     stream.write('clock\' := 0')
     stream.write('}\n')
@@ -388,7 +417,7 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         stream.write('\t\tprecision 100\n')
         stream.write('\t\toutput {}\n'.format(os.path.basename(filename[:-6])))
         stream.write('\t\tmax jumps ' + str(3 * numSteps + 5) + '\n')  # F1/10 case study
-        stream.write('\t\tprint off\n')
+        stream.write('\t\tprint on\n')
         stream.write('\t}\n\n')
 
         # encode modes-----------------------------------------------------------------------------
@@ -403,8 +432,12 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         writeEndMode(stream, 'm_end_sl', numDnnInputs)
         writeEndMode(stream, 'm_end_pr', numDnnInputs)
         writeEndMode(stream, 'm_end_pl', numDnnInputs)
-        writeEndMode(stream, 'm_left_boundary', numDnnInputs)
-        writeEndMode(stream, 'm_right_boundary', numDnnInputs)
+        writeEndMode(stream, 'm_intermediate_sl', numDnnInputs)
+        writeEndMode(stream, 'm_intermediate_sr', numDnnInputs)
+        writeEndMode(stream, 'm_intermediate_hr', numDnnInputs)
+        writeEndMode(stream, 'm_intermediate_hl', numDnnInputs)
+        writeEndMode(stream, 'm_intermediate_pr', numDnnInputs)
+        writeEndMode(stream, 'm_intermediate_pl', numDnnInputs)
 
         # close modes brace
         stream.write('\t}\n')
@@ -441,15 +474,18 @@ def main(argv):
         dnn = yaml.load(f)
 
     # F1/10 Safety + Reachability
-    safetyProps = 'unsafe\n{\tm_left_boundary\n\t{\n\t\ty1 <= ' + str(WALL_MIN) + '\n\n\t}\n' \
-                  + '\tm_right_boundary\n\t{'\
-                  + '\n\t\ty1 >= ' + str(WALL_MAX) + '\n\n\t}\n' \
-                  + '\tm_end_hl\n\t{\n\t\ty4 <= ' + str(HEADING_INT_UB) + '\n\n\t}\n' \
-                  + '\tm_end_hr\n\t{\n\t\ty4 >= ' + str(HEADING_INT_LB) + '\n\n\t}\n' \
-                  + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(POS_INT_LB) + '\n\n\t}\n' \
-                  + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_INT_UB) + '\n\n\t}\n' \
-                  + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + INT_SPEED_EPSILON) + '\n\n\t}\n' \
-                  + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - INT_SPEED_EPSILON) + '\n\n\t}\n}'
+    safetyProps = 'unsafe\n{\tm_intermediate_pl\n\t{\n\t\ty1 <= ' + str(POS_LB) + '\n\n\t}\n' \
+        + '\tm_intermediate_pr\n\t{\n\t\ty1 >= ' + str(POS_UB) + '\n\n\t}\n' \
+        + '\tm_intermediate_hl\n\t{\n\t\ty4 <= ' + str(HEADING_LB) + '\n\n\t}\n' \
+        + '\tm_intermediate_hr\n\t{\n\t\ty4 >= ' + str(HEADING_UB) + '\n\n\t}\n' \
+        + '\tm_intermediate_sl\n\t{\n\t\ty3 <= ' + str(2.4 - SPEED_EPSILON) + '\n\n\t}\n' \
+        + '\tm_intermediate_sr\n\t{\n\t\ty3 >= ' + str(2.4 + SPEED_EPSILON) + '\n\n\t}\n' \
+        + '\tm_end_hl\n\t{\n\t\ty4 <= ' + str(HEADING_INT_LB) + '\n\n\t}\n' \
+        + '\tm_end_hr\n\t{\n\t\ty4 >= ' + str(HEADING_INT_UB) + '\n\n\t}\n' \
+        + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(POS_INT_LB) + '\n\n\t}\n' \
+        + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_INT_UB) + '\n\n\t}\n' \
+        + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + INT_SPEED_EPSILON) + '\n\n\t}\n' \
+        + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - INT_SPEED_EPSILON) + '\n\n\t}\n}'
 
     modelFolder = '../flowstar_models'
     if not os.path.exists(modelFolder):
@@ -457,30 +493,26 @@ def main(argv):
 
     modelFile = modelFolder + '/testModel'
 
-    curLBPos = POS_LB
-    posOffset = 0.01
+    curLBPos = POS_INT_LB
+    posOffset = POS_INT_UB - POS_INT_LB
 
     init_y2 = 16
 
     count = 1
 
-    while curLBPos < POS_UB:
+    initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
+                 'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
+                 'y3 in [' + str(2.4 - INT_SPEED_EPSILON) + ', ' +
+                 str(2.4 + INT_SPEED_EPSILON) + ']',
+                 'y4 in [' + str(HEADING_INT_LB) + ', ' + str(HEADING_INT_UB) + ']', 'k in [0, 0]',
+                 'u in [0, 0]']  # F1/10
 
-        initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
-                     'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
-                     'y3 in [' + str(2.4 - SPEED_EPSILON) + ', ' + str(2.4 + SPEED_EPSILON) + ']',
-                     'y4 in [' + str(HEADING_LB) + ', ' + str(HEADING_UB) + ']', 'k in [0, 0]',
-                     'u in [0, 0]']  # F1/10
+    curModelFile = modelFile + '_' + str(count) + '.model'
 
-        curModelFile = modelFile + '_' + str(count) + '.model'
+    writeComposedSystem(curModelFile, initProps, dnn, safetyProps, NUM_STEPS)
 
-        writeComposedSystem(curModelFile, initProps, dnn, safetyProps, NUM_STEPS)
-
-        args = '../flowstar_verisig/flowstar ' + dnnYaml + ' < ' + curModelFile
-        _ = subprocess.Popen(args, shell=True, stdin=PIPE)
-
-        curLBPos += posOffset
-        count += 1
+    args = '../flowstar_verisig/flowstar ' + dnnYaml + ' < ' + curModelFile
+    _ = subprocess.Popen(args, shell=True, stdin=PIPE)
 
 
 if __name__ == '__main__':
