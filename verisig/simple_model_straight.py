@@ -62,12 +62,12 @@ POS_UB = 0.9
 HEADING_LB = -0.005
 HEADING_UB = 0.005
 
-HEADING_INT_LB = -0.0005
-HEADING_INT_UB = 0.0025
-POS_INT_LB = 0.623
+HEADING_INT_LB = -0.0009
+HEADING_INT_UB = 0.0018
+POS_INT_LB = 0.622
 POS_INT_UB = 0.627
 
-NUM_STEPS = 25
+NUM_STEPS = 30
 
 WALL_LIMIT = 0.15
 WALL_MIN = str(WALL_LIMIT)
@@ -209,7 +209,7 @@ def writeEndMode(stream, name, numDnnInputs, dynamics=DYNAMICS):
     stream.write('\t\t\tinv\n')
     stream.write('\t\t\t{\n')
 
-    stream.write('\t\t\t\tclock >= 0\n')
+    stream.write('\t\t\t\tclock <= 0.1\n')
 
     stream.write('\t\t\t}\n')
     stream.write('\t\t}\n')
@@ -390,8 +390,8 @@ def writeComposedSystem(filename, initProps, dnn, safetyProps, numSteps):
         stream.write('\t\tcutoff 1e-12\n')
         stream.write('\t\tprecision 100\n')
         stream.write('\t\toutput {}\n'.format(os.path.basename(filename[:-6])))
-        stream.write('\t\tmax jumps ' + str(5 * numSteps + 4) + '\n')  # F1/10 case study
-        stream.write('\t\tprint on\n')
+        stream.write('\t\tmax jumps ' + str(3 * numSteps + 5) + '\n')  # F1/10 case study
+        stream.write('\t\tprint off\n')
         stream.write('\t}\n\n')
 
         # encode modes-----------------------------------------------------------------------------
@@ -449,8 +449,8 @@ def main(argv):
                   + '\n\t\ty1 >= ' + str(WALL_MAX) + '\n\n\t}\n' \
                   + '\tm_end_hl\n\t{\n\t\ty4 <= ' + str(HEADING_INT_UB) + '\n\n\t}\n' \
                   + '\tm_end_hr\n\t{\n\t\ty4 >= ' + str(HEADING_INT_LB) + '\n\n\t}\n' \
-                  + '\tm_end_pl\n\t{\n\t\ty4 <= ' + str(POS_INT_LB) + '\n\n\t}\n' \
-                  + '\tm_end_pr\n\t{\n\t\ty4 >= ' + str(POS_INT_UB) + '\n\n\t}\n' \
+                  + '\tm_end_pl\n\t{\n\t\ty1 <= ' + str(POS_INT_LB) + '\n\n\t}\n' \
+                  + '\tm_end_pr\n\t{\n\t\ty1 >= ' + str(POS_INT_UB) + '\n\n\t}\n' \
                   + '\tm_end_sr\n\t{\n\t\ty3 >= ' + str(2.4 + INT_SPEED_EPSILON) + '\n\n\t}\n' \
                   + '\tm_end_sl\n\t{\n\t\ty3 <= ' + str(2.4 - INT_SPEED_EPSILON) + '\n\n\t}\n}'
 
@@ -460,14 +460,14 @@ def main(argv):
 
     modelFile = modelFolder + '/testModel'
 
-    curLBPos = 0.6
+    curLBPos = POS_LB
     posOffset = 0.01
 
     init_y2 = 16
 
     count = 1
 
-    while curLBPos < 0.63:
+    while curLBPos < POS_UB:
 
         initProps = ['y1 in [' + str(curLBPos) + ', ' + str(curLBPos + posOffset) + ']',
                      'y2 in [' + str(init_y2) + ', ' + str(init_y2) + ']',
