@@ -220,13 +220,15 @@ class World:
         self.curHall = 0
 
         self.car_dist_s = self.init_car_dist_s + np.random.uniform(-pos_noise, pos_noise)
-
-        if not side_pos == None:
-            self.car_dist_s = side_pos
-
         self.car_dist_f = self.init_car_dist_f - np.random.uniform(0, y_noise)
-        self.car_V = self.init_car_V
         self.car_heading = self.init_car_heading + np.random.uniform(-heading_noise, heading_noise)
+
+        if side_pos is not None:
+            self.car_dist_s = side_pos[0]
+            self.car_dist_f = side_pos[1]
+            self.car_heading = side_pos[2]
+
+        self.car_V = self.init_car_V
 
         self.car_global_x = -self.hallWidths[0] / 2.0 + self.car_dist_s
         if self.turns[0] == np.pi/2:

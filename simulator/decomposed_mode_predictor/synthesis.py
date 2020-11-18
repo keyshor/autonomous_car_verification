@@ -10,6 +10,9 @@ from Car import square_hall_right
 from Car import World
 
 
+START_STATE = [0.825, 0., 0.]
+
+
 class Modes(Enum):
     STRAIGHT = 'STRAIGHT'
     SQUARE_RIGHT = 'SQUARE_RIGHT'
@@ -159,18 +162,21 @@ def get_dist_f(mode):
     return car_dist_f, car_exit_f
 
 
-def generate_implications(num_trajectories, mode,
-                          mode_predictor, num_modes=4):
+def generate_implications(num_trajectories, mode, mode_predictor, num_modes=4,
+                          car_dist_s=0.8, car_heading=0., s_noise=0.05, f_noise=0.25,
+                          h_noise=0.006):
 
     if mode == Modes.SQUARE_RIGHT or mode == Modes.SQUARE_LEFT:
         (hallWidths, hallLengths, turns) = square_hall_right(1.5)
     if mode == Modes.SHARP_RIGHT or mode == Modes.SHARP_LEFT:
         (hallWidths, hallLengths, turns) = triangle_hall_equilateral_right(1.5)
 
-    car_dist_s = 0.75
-    car_heading = 0
     car_V = 2.4
     car_dist_f, car_exit_f = get_dist_f(mode)
+
+    if mode == Modes.SQUARE_LEFT or mode == Modes.SHARP_LEFT:
+        car_dist_s = 1.5 - car_dist_s
+        car_heading = -car_heading
 
     episode_length = 100
     time_step = 0.1
@@ -202,14 +208,20 @@ def generate_implications(num_trajectories, mode,
     exit_set = []
 
     # initial uncertainty
-    init_pos_noise = 0.1
-    init_heading_noise = 0.006
-    init_y_noise = 0.25
+    init_pos_noise = s_noise
+    init_heading_noise = h_noise
+    init_y_noise = f_noise
+
+    # init state
+    init_point = [START_STATE[0], car_dist_f-START_STATE[1], START_STATE[2]]
+    if mode == Modes.SHARP_LEFT or mode == Modes.SQUARE_LEFT:
+        init_point[0] = 1.5 - init_point[0]
+        init_point[2] = -init_point[2]
 
     for step in range(num_trajectories):
 
         if step == 0:
-            observation = w.reset(pos_noise=0, heading_noise=0, y_noise=0)
+            observation = w.reset(side_pos=init_point)
         else:
             observation = w.reset(pos_noise=init_pos_noise,
                                   heading_noise=init_heading_noise, y_noise=init_y_noise)
@@ -318,7 +330,9 @@ def synthesize(boxes, implications):
 def make_synthesis_instance(implications, num_modes=4):
 
     # Create boxes
-    entry_box = [[0.75, 0.75], [0., 0.], [0., 0.]]
+    entry_box = []
+    for s in START_STATE:
+        entry_box.append([s, s])
     boxes = [entry_box]
     for m in range(num_modes):
         boxes.append([None, None, None])
@@ -360,10 +374,11 @@ if __name__ == '__main__':
 
     for i in range(len(boxes)):
         box = boxes[i]
+        mode = int2mode(i)
         if i == 0:
             print('\nEntry')
         else:
-            print('\nExit {}'.format(int2mode(i)))
+            print('\nExit in {}'.format(mode))
 
         print('x in [{}, {}]'.format(box[0][0], box[0][1]))
         print('y in [{}, {}]'.format(box[1][0], box[1][1]))
